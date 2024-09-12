@@ -18,5 +18,5 @@ fn spawn_camera(
             ..default()
         },
         ..default()
-    });
+    }); 
 }
