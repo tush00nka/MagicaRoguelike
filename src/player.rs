@@ -28,8 +28,8 @@ fn spawn_player(
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
-        .insert(LockedAxes::ROTATION_LOCKED_Z | LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y)
-        .insert(Collider::cuboid(12.0, 12.0))
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(Collider::cuboid(8.0, 8.0))
         .insert(Velocity {
             linvel: Vec2::new(10.0, 0.0),
             angvel: 0.0,
