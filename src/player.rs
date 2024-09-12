@@ -20,21 +20,31 @@ fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn(SpriteBundle {
+    let player = commands.spawn(SpriteBundle {
         texture: asset_server.load("textures/player_placeholder.png"),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
         ..default()
-    })
-    .insert(RigidBody::KinematicPositionBased)
-    .insert(Player { speed: 100.0 });
+    }).id();
+
+    commands.entity(player)
+        .insert(RigidBody::Dynamic)
+        .insert(LockedAxes::ROTATION_LOCKED_Z | LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y)
+        .insert(Collider::cuboid(0.5, 0.5))
+        .insert(Velocity {
+            linvel: Vec2::new(10.0, 0.0),
+            angvel: 0.0,
+        })
+        .insert(Sleeping::disabled())
+        .insert(Ccd::enabled())
+        .insert(Player { speed: 10000.0 });
 }
 
 fn move_player(
-    mut player_query: Query<(&mut Transform, &Player)>,
+    mut player_query: Query<(&mut Velocity, &Player)>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Ok((mut player_transform, &player)) = player_query.get_single_mut() {
+    if let Ok((mut player_velocity, &player)) = player_query.get_single_mut() {
         let mut direction = Vec2::new(0.0, 0.0);
 
         if keyboard.pressed(KeyCode::KeyA) {
@@ -49,8 +59,8 @@ fn move_player(
         }
         else if keyboard.pressed(KeyCode::KeyW) {
             direction.y = 1.0;
-        }
+        };
 
-        player_transform.translation += Vec3::new(direction.x, direction.y, 0.0).normalize_or_zero() * player.speed * time.delta_seconds();
+        player_velocity.linvel = direction.normalize_or_zero() * player.speed * time.delta_seconds();
     }
 }
