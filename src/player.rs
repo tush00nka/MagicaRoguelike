@@ -12,7 +12,7 @@ impl Plugin for PlayerPlugin {
 }
 
 #[derive(Component, Clone, Copy)]
-struct Player {
+pub struct Player {
     pub speed: f32,
 }
 
