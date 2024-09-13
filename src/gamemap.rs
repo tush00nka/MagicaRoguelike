@@ -57,18 +57,18 @@ impl Plugin for GameMapPlugin {
 
 
 fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let komnata = room_generator(5);
+    let room = room_generator(25);
     let tile_size = 32.0;
 
-    for (toczka, tile_type) in komnata.iter() {
+    for (tile, tile_type) in room.iter() {
         match tile_type {
             TileType::Floor => {
                 commands
                     .spawn(SpriteBundle {
                         texture: asset_server.load("textures/t_floor.png"),
                         transform: Transform::from_xyz(
-                            tile_size * toczka.x as f32,
-                            tile_size * toczka.y as f32,
+                            tile_size * tile.x as f32,
+                            tile_size * tile.y as f32,
                             0.0,
                         ),
                         ..default()
@@ -82,8 +82,8 @@ fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn(SpriteBundle {
                         texture: asset_server.load("textures/t_wall.png"),
                         transform: Transform::from_xyz(
-                            tile_size * toczka.x as f32,
-                            tile_size * toczka.y as f32,
+                            tile_size * tile.x as f32,
+                            tile_size * tile.y as f32,
                             0.0,
                         ),
                         ..default()
