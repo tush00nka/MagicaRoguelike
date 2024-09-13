@@ -22,14 +22,14 @@ fn spawn_player(
 ) {
     let player = commands.spawn(SpriteBundle {
         texture: asset_server.load("textures/player_placeholder.png"),
-        transform: Transform::from_xyz(0.0, 0.0, 1.0),
+        transform: Transform::from_xyz(64.0, 64.0, 1.0),
         ..default()
     }).id();
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
-        .insert(LockedAxes::ROTATION_LOCKED_Z | LockedAxes::ROTATION_LOCKED_X | LockedAxes::ROTATION_LOCKED_Y)
-        .insert(Collider::cuboid(0.5, 0.5))
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(Collider::cuboid(8.0, 8.0))
         .insert(Velocity {
             linvel: Vec2::new(10.0, 0.0),
             angvel: 0.0,
