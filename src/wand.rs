@@ -34,7 +34,7 @@ fn move_rotate_wand(
     if let Ok(mut wand_transform) = wand_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single_mut() {
             // двигаем за игроком
-            wand_transform.translation = player_transform.translation;
+            wand_transform.translation = Vec3::new(player_transform.translation.x, player_transform.translation.y, 2.0);
             // крутим (АААААА, ЛИНАЛ)
             let diff = Vec3::new(mouse_position.0.x, mouse_position.0.y, wand_transform.translation.z) - wand_transform.translation;
             let angle = diff.y.atan2(diff.x);
