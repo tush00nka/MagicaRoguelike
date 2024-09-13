@@ -32,7 +32,7 @@ fn sync_player_camera(
 ) {
     if let Ok(mut camera_transform) = camera_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single_mut() {
-            camera_transform.translation = Vec3::new(player_transform.translation.x, player_transform.translation.y, 2.0);
+            camera_transform.translation = Vec3::new(player_transform.translation.x, player_transform.translation.y, camera_transform.translation.z);
         }
     }
 }
