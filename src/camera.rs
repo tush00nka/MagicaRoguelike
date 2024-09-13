@@ -10,6 +10,9 @@ impl Plugin for CameraPlugin {
     }
 }
 
+const CAM_LERP: f32 = 5.0;
+
+
 #[derive(Component)]
 struct Camera;
 
@@ -27,12 +30,21 @@ fn spawn_camera(
 }
 
 fn sync_player_camera(
-    mut player_query: Query<&Transform, (With<Player>, Without<Camera>)>,
+    player_query: Query<&Transform, (With<Player>, Without<Camera>)>,
     mut camera_query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    time: Res<Time>,
 ) {
-    if let Ok(mut camera_transform) = camera_query.get_single_mut() {
-        if let Ok(player_transform) = player_query.get_single_mut() {
-            camera_transform.translation = Vec3::new(player_transform.translation.x, player_transform.translation.y, camera_transform.translation.z);
-        }
-    }
+    let Ok(mut camera_transform) = camera_query.get_single_mut() else {
+        return;
+    };
+
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    let direction = Vec3::new(player_transform.translation.x, player_transform.translation.y, camera_transform.translation.z);
+
+    camera_transform.translation = camera_transform
+        .translation
+        .lerp(direction, time.delta_seconds() * CAM_LERP); // сглаживание с помощью линейной интерполяции
 }

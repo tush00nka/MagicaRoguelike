@@ -3,6 +3,8 @@ use bevy_rapier2d::prelude::*;
 
 use bevy::utils::HashMap;
 
+const ROOM_SIZE: i32 = 25;
+
 #[derive(PartialEq, Clone)]
 pub enum TileType {
     Wall,
@@ -57,7 +59,7 @@ impl Plugin for GameMapPlugin {
 
 
 fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let room = room_generator(25);
+    let room = room_generator(ROOM_SIZE);
     let tile_size = 32.0;
 
     for (tile, tile_type) in room.iter() {
