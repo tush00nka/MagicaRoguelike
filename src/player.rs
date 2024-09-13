@@ -48,17 +48,17 @@ fn move_player(
         let mut direction = Vec2::new(0.0, 0.0);
 
         if keyboard.pressed(KeyCode::KeyA) {
-            direction.x = -1.0;
+            direction.x -= 1.0;
         }
-        else if keyboard.pressed(KeyCode::KeyD) {
-            direction.x = 1.0;
+        if keyboard.pressed(KeyCode::KeyD) {
+            direction.x += 1.0;
         }
 
         if keyboard.pressed(KeyCode::KeyS) {
-            direction.y = -1.0;
+            direction.y -= 1.0;
         }
-        else if keyboard.pressed(KeyCode::KeyW) {
-            direction.y = 1.0;
+        if keyboard.pressed(KeyCode::KeyW) {
+            direction.y += 1.0;
         };
 
         player_velocity.linvel = direction.normalize_or_zero() * player.speed * time.delta_seconds();
