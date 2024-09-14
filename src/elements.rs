@@ -12,7 +12,18 @@ impl Plugin for ElementsPlugin {
 
 #[derive(Debug, PartialEq)]
 enum ElementType {
-    Fire, Water, Earth, Air
+    Fire = 1000, Water = 100, Earth = 10, Air = 1
+}
+
+impl ElementType {
+    fn value(&self) -> i32 {
+        match *self {
+            ElementType::Fire => 1000,
+            ElementType::Water => 100,
+            ElementType::Earth => 10,
+            ElementType::Air => 1
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -74,14 +85,34 @@ fn cast_spell(
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
-    if mouse.just_pressed(MouseButton::Left) {
-        if bar.bar.contains(&ElementType::Fire) &&
-           bar.bar.contains(&ElementType::Air) {
-            println!("Casted Fireball!!");
+    if mouse.just_pressed(MouseButton::Left) && !bar.bar.is_empty() {
+        let recipe: i32 = bar.bar.iter().map(|e| e.value()).sum();
+
+        let mut spell_desc: String = "".to_string();
+        let mut damage = 0;
+
+        damage += (recipe / 1000) * 50 * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // добавляем урон от огня
+        damage += ((recipe % 1000) / 2) * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // урон от воды
+        damage += (recipe % 100) / 2 ; // урон от земли
+        damage += (recipe % 10) * 10; // урон от воздуха 
+
+        if recipe >= 1000 {
+            spell_desc += "fire element\n";
         }
-        else {
-            println!("Casted Cringe Random Spell!");
+
+        if recipe % 1000 >= 100 {
+            spell_desc += "water element\n";
         }
+
+        if recipe % 100 >= 10 {
+            spell_desc += "AoE, e.g. earthquake\n";
+        }
+
+        if recipe % 10 > 0 {
+            spell_desc += "throwable, e.g. fireball\n";
+        }
+
+        println!("[{}] ({} DMG)", spell_desc, damage);
 
         bar.clear();
         println!("{:?}", bar.bar);
