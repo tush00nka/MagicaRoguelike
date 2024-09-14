@@ -11,7 +11,7 @@ impl Plugin for ElementsPlugin {
 }
 
 #[derive(Debug, PartialEq)]
-enum ElementType {
+pub enum ElementType {
     Fire = 1000, Water = 100, Earth = 10, Air = 1
 }
 
@@ -27,7 +27,7 @@ impl ElementType {
 }
 
 #[derive(Resource)]
-struct ElementBar {
+pub struct ElementBar {
     pub bar: Vec<ElementType>,
     pub max: i32,
 }
