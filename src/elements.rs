@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::projectile::Projectile;
+
 pub struct ElementsPlugin;
 
 impl Plugin for ElementsPlugin {
@@ -82,6 +84,12 @@ fn fill_bar(
 }
 
 fn cast_spell(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mouse_coords: Res<crate::mouse_position::MouseCoords>,
+
+    player_query: Query<&Transform, With<crate::player::Player>>,
+
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
@@ -110,6 +118,30 @@ fn cast_spell(
 
         if recipe % 10 > 0 {
             spell_desc += "throwable, e.g. fireball\n";
+
+            if let Ok(player_transform) = player_query.get_single() {
+
+                let hue = {
+                    if recipe >= 1000 {
+                        20.0
+                    }
+                    else if recipe % 1000 >= 100 {
+                        200.0
+                    } else {
+                        300.0
+                    }
+                };
+
+                commands.spawn(SpriteBundle {
+                    transform: Transform::from_translation(player_transform.translation),
+                    texture: asset_server.load("textures/fireball.png"),
+                    sprite: Sprite {
+                        color: Color::hsl(hue, 0.75, 0.5),
+                        ..default()
+                    },
+                    ..default()
+                }).insert(Projectile { direction: (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero(), speed: 100.0 });
+            }
         }
 
         println!("[{}] ({} DMG)", spell_desc, damage);

@@ -22,6 +22,9 @@ use elements::ElementsPlugin;
 mod elements_ui;
 use elements_ui::ElementsUiPlugin;
 
+mod projectile;
+use projectile::ProjectilePlugin;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
@@ -32,6 +35,7 @@ fn main() {
         .add_plugins(WandPlugin)
         .add_plugins(ElementsPlugin)
         .add_plugins(ElementsUiPlugin)
+        .add_plugins(ProjectilePlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .run();
 }
