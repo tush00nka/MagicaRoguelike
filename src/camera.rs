@@ -6,11 +6,11 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera);
-        app.add_systems(FixedUpdate, sync_player_camera);
+        app.add_systems(Update, sync_player_camera);
     }
 }
 
-const CAM_LERP: f32 = 5.0;
+const CAM_LERP: f32 = 8.0;
 
 
 #[derive(Component)]
