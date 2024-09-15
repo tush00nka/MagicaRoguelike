@@ -1,12 +1,13 @@
-use bevy::prelude::*;
+use bevy::{log::Level, prelude::*};
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 
+pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
 
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start);
+        app.add_systems(Startup, spawn_map);
     }
 }
 
@@ -27,12 +28,12 @@ pub struct Walker {
     dir: (f32, f32),
     pos: (f32, f32),
 }
+
+#[derive(Default)]
 pub struct LevelGenerator {
     grid: Vec<Vec<TileType>>,
     room_height: usize,
     room_width: usize,
-    room_size_world_units: (f32, f32),
-    world_units_in_one_grid_cell: f32,
     walkers: Vec<Walker>,
     chance_walker_change_dir: f32,
     chance_walker_spawn: f32,
@@ -42,13 +43,11 @@ pub struct LevelGenerator {
 }
 
 impl LevelGenerator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         LevelGenerator {
             grid: vec![],
             room_height: 0,
             room_width: 0,
-            room_size_world_units: (30.0, 30.0),
-            world_units_in_one_grid_cell: 1.0,
             walkers: vec![],
             chance_walker_change_dir: 0.5,
             chance_walker_spawn: 0.05,
@@ -58,15 +57,12 @@ impl LevelGenerator {
         }
     }
 
-    fn start(&mut self,
-        mut commands: Commands, 
-        asset_server: Res<AssetServer>
-    ) {
+    fn start(&mut self) {
+        Self::new();
         self.setup();
         self.create_floors();
         self.create_walls();
         self.remove_single_walls();
-        self.spawn_map();
     }
 
     fn random_direction(&self) -> (f32, f32) {
@@ -80,6 +76,9 @@ impl LevelGenerator {
     }
 
     fn setup(&mut self) {
+
+        self.room_height = ROOM_SIZE as usize;
+        self.room_width = ROOM_SIZE as usize;
         // create grid
         self.grid = vec![vec![TileType::Empty; self.room_height]; self.room_width];
 
@@ -210,55 +209,57 @@ impl LevelGenerator {
     fn number_of_floors(&self) -> usize {
         self.grid.iter().flat_map(|row| row.iter()).filter(|&&space| space == TileType::Floor).count()
     }
-    
-    fn spawn_map(&self,
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-    ) {
-        let tile_size = 32.0;
+}
 
-        for x in 0..self.room_width {
-            for y in 0..self.room_height {
-                match self.grid[x][y] {
-                    TileType::Floor => {
-                            commands
-                            .spawn(SpriteBundle {
-                                texture: asset_server.load("textures/t_floor.png"),
-                                transform: Transform::from_xyz(
+
+fn spawn_map(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let mut room = LevelGenerator::default();
+    room.start();
+    let room_height = room.room_height;
+    let room_width = room.room_width;
+    let grid = room.grid;
+    let tile_size = 32.0;
+    for x in 0..room_width {
+        for y in 0..room_height {
+            match grid[x as usize][y as usize] {
+                TileType::Floor => {
+                        commands
+                        .spawn(SpriteBundle {
+                            texture: asset_server.load("textures/t_floor.png"),
+                            transform: Transform::from_xyz(
+                            tile_size * x as f32,
+                            tile_size * y as f32,
+                            0.0,
+                            ),
+                        ..default()
+                        })
+                        //  .insert(RigidBody::Fixed)
+                        // .insert(Collider::cuboid(16.0, 16.0))
+                        .insert(Floor {});
+                }
+                TileType::Wall => {
+                    commands
+                        .spawn(SpriteBundle {
+                            texture: asset_server.load("textures/t_wall.png"),
+                            transform: Transform::from_xyz(
                                 tile_size * x as f32,
                                 tile_size * y as f32,
                                 0.0,
-                                ),
+                            ),
                             ..default()
-                            })
-                            //  .insert(RigidBody::Fixed)
-                            // .insert(Collider::cuboid(16.0, 16.0))
-                            .insert(Floor {});
-                    }
-                    TileType::Wall => {
-                        commands
-                            .spawn(SpriteBundle {
-                                texture: asset_server.load("textures/t_wall.png"),
-                                transform: Transform::from_xyz(
-                                    tile_size * x as f32,
-                                    tile_size * y as f32,
-                                    0.0,
-                                ),
-                                ..default()
-                            })
-                            .insert(RigidBody::Fixed)
-                            .insert(Collider::cuboid(16.0, 16.0))
-                            .insert(Wall {});
-                    }
-                    TileType::Empty => {}
+                        })
+                        .insert(RigidBody::Fixed)
+                        .insert(Collider::cuboid(16.0, 16.0))
+                        .insert(Wall {});
                 }
+                TileType::Empty => {}
             }
         }
     }
 }
-
-
-
 
 
 
