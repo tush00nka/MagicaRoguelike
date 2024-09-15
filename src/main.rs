@@ -16,6 +16,14 @@ use mouse_position::MousePositionPlugin;
 mod wand;
 use wand::WandPlugin;
 
+mod elements;
+use elements::ElementsPlugin;
+
+mod elements_ui;
+use elements_ui::ElementsUiPlugin;
+
+mod projectile;
+use projectile::ProjectilePlugin;
 
 fn main() {
     App::new()
@@ -25,6 +33,9 @@ fn main() {
         .add_plugins(CameraPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
+        .add_plugins(ElementsPlugin)
+        .add_plugins(ElementsUiPlugin)
+        .add_plugins(ProjectilePlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .run();
 }
