@@ -97,12 +97,12 @@ fn cast_spell(
         let recipe: i32 = bar.bar.iter().map(|e| e.value()).sum();
 
         let mut spell_desc: String = "".to_string();
-        let mut damage = 0;
+        let mut dmg = 0;
 
-        damage += (recipe / 1000) * 50 * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // добавляем урон от огня
-        damage += ((recipe % 1000) / 2) * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // урон от воды
-        damage += (recipe % 100) / 2 ; // урон от земли
-        damage += (recipe % 10) * 10; // урон от воздуха 
+        dmg += (recipe / 1000) * 50 * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // добавляем урон от огня
+        dmg += ((recipe % 1000) / 2) * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // урон от воды
+        dmg += (recipe % 100) / 2 ; // урон от земли
+        dmg += (recipe % 10) * 10; // урон от воздуха 
 
         if recipe >= 1000 {
             spell_desc += "fire element\n";
@@ -140,11 +140,11 @@ fn cast_spell(
                         ..default()
                     },
                     ..default()
-                }).insert(Projectile { direction: (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero(), speed: 100.0 });
+                }).insert(Projectile { direction: (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero(), speed: 100.0, damage: dmg, is_friendly: true });
             }
         }
 
-        println!("[{}] ({} DMG)", spell_desc, damage);
+        println!("[{}] ({} DMG)", spell_desc, dmg);
 
         bar.clear();
         println!("{:?}", bar.bar);
