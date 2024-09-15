@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::gamemap::ROOM_SIZE;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -22,7 +24,7 @@ fn spawn_player(
 ) {
     let player = commands.spawn(SpriteBundle {
         texture: asset_server.load("textures/player_placeholder.png"),
-        transform: Transform::from_xyz(64.0, 64.0, 1.0),
+        transform: Transform::from_xyz((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0),
         ..default()
     }).id();
 

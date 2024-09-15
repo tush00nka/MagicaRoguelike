@@ -1,4 +1,4 @@
-use bevy::{log::Level, prelude::*};
+use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 
@@ -29,7 +29,6 @@ pub struct Walker {
     pos: (f32, f32),
 }
 
-#[derive(Default)]
 pub struct LevelGenerator {
     grid: Vec<Vec<TileType>>,
     room_height: usize,
@@ -53,12 +52,11 @@ impl LevelGenerator {
             chance_walker_spawn: 0.05,
             chance_walker_destroy: 0.05,
             max_walkers: 10,
-            percent_to_fill: 0.2,
+            percent_to_fill: 0.1,
         }
     }
 
     fn start(&mut self) {
-        Self::new();
         self.setup();
         self.create_floors();
         self.create_walls();
@@ -66,7 +64,7 @@ impl LevelGenerator {
     }
 
     fn random_direction(&self) -> (f32, f32) {
-        let choice = rand::thread_rng().gen_range(0..4);
+        let choice = rand::thread_rng().gen_range(0..=4);
         match choice {
             0 => (0.0, -1.0), // down
             1 => (-1.0, 0.0), // left
@@ -117,7 +115,7 @@ impl LevelGenerator {
 
             // chance: walker pick new direction
             for i in 0..self.walkers.len() {
-                if rng.gen::<f32>() < self.chance_walker_change_dir {
+                if rng.gen::<f32>() > self.chance_walker_change_dir {
                     self.walkers[i].dir = self.random_direction();
                 }
             }
@@ -147,7 +145,7 @@ impl LevelGenerator {
             }
 
             // check to exit loop
-            if self.number_of_floors() as f32 / (self.grid.len() * self.grid[0].len()) as f32 > self.percent_to_fill {
+            if self.number_of_floors() as f32 > (ROOM_SIZE * ROOM_SIZE) as f32 * self.percent_to_fill {
                 break;
             }
             iterations += 1;
@@ -216,7 +214,7 @@ fn spawn_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let mut room = LevelGenerator::default();
+    let mut room = LevelGenerator::new();
     room.start();
     let room_height = room.room_height;
     let room_width = room.room_width;
