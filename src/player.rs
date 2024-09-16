@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::gamemap::ROOM_SIZE;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -22,7 +24,7 @@ fn spawn_player(
 ) {
     let player = commands.spawn(SpriteBundle {
         texture: asset_server.load("textures/player_placeholder.png"),
-        transform: Transform::from_xyz(64.0, 64.0, 1.0),
+        transform: Transform::from_xyz((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0),
         ..default()
     }).id();
 
@@ -48,17 +50,17 @@ fn move_player(
         let mut direction = Vec2::new(0.0, 0.0);
 
         if keyboard.pressed(KeyCode::KeyA) {
-            direction.x = -1.0;
+            direction.x -= 1.0;
         }
-        else if keyboard.pressed(KeyCode::KeyD) {
-            direction.x = 1.0;
+        if keyboard.pressed(KeyCode::KeyD) {
+            direction.x += 1.0;
         }
 
         if keyboard.pressed(KeyCode::KeyS) {
-            direction.y = -1.0;
+            direction.y -= 1.0;
         }
-        else if keyboard.pressed(KeyCode::KeyW) {
-            direction.y = 1.0;
+        if keyboard.pressed(KeyCode::KeyW) {
+            direction.y += 1.0;
         };
 
         player_velocity.linvel = direction.normalize_or_zero() * player.speed * time.delta_seconds();
