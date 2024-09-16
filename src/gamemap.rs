@@ -21,7 +21,7 @@ pub enum TileType {
 #[derive(Component, Clone, Copy)]
 struct Floor {}
 #[derive(Component, Clone, Copy)]
-struct Wall {}
+pub struct Wall {}
 
 
 pub struct Walker {

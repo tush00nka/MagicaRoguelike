@@ -1,4 +1,7 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::projectile::Projectile;
 
@@ -104,16 +107,120 @@ fn cast_spell(
         dmg += (recipe % 100) / 2 ; // урон от земли
         dmg += (recipe % 10) * 10; // урон от воздуха 
 
+        let hue = {
+            if recipe >= 1000 {
+                20.0
+            }
+            else if recipe % 1000 >= 100 {
+                200.0
+            } else {
+                300.0
+            }
+        };
+
+        let mut rng = rand::thread_rng();
+
         if recipe >= 1000 {
             spell_desc += "fire element\n";
+            if recipe % 100 < 10 && recipe % 10 <= 0 {
+                if let Ok(player_transform) = player_query.get_single() {
+                    let offset = PI/12.0;
+                    for _i in 0..6 {
+    
+                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+    
+                        commands.spawn(SpriteBundle {
+                            transform: Transform {
+                                translation: player_transform.translation,
+                                rotation: Quat::from_rotation_z(angle),
+                                ..default()
+                            },
+                            texture: asset_server.load("textures/small_fire.png"),
+                            sprite: Sprite {
+                                color: Color::hsl(hue, 0.75, 0.5),
+                                ..default()
+                            },
+                            ..default()
+                        }).insert(
+                            Projectile {
+                                direction: Vec2::from_angle(angle),
+                                speed: 200.0 + rng.gen_range(0.0..50.0),
+                                damage: dmg,
+                                is_friendly: true
+                        });
+                    }
+                }
+            }
         }
 
         if recipe % 1000 >= 100 {
             spell_desc += "water element\n";
+
+            if recipe % 100 < 10 && recipe % 10 <= 0 {
+                if let Ok(player_transform) = player_query.get_single() {
+                    let offset = PI/12.0;
+                    for _i in 0..6 {
+    
+                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+    
+                        commands.spawn(SpriteBundle {
+                            transform: Transform {
+                                translation: player_transform.translation,
+                                rotation: Quat::from_rotation_z(angle),
+                                ..default()
+                            },
+                            texture: asset_server.load("textures/small_fire.png"),
+                            sprite: Sprite {
+                                color: Color::hsl(hue, 0.75, 0.5),
+                                ..default()
+                            },
+                            ..default()
+                        }).insert(
+                            Projectile {
+                                direction: Vec2::from_angle(angle),
+                                speed: 200.0 + rng.gen_range(0.0..50.0),
+                                damage: dmg,
+                                is_friendly: true
+                        });
+                    }
+                }
+            }
         }
 
         if recipe % 100 >= 10 {
             spell_desc += "AoE, e.g. earthquake\n";
+
+            if recipe % 10 <= 0 {
+                if let Ok(player_transform) = player_query.get_single() {
+                    let offset = (2.0*PI)/12.0;
+                    for i in 0..12 {
+    
+                        let angle = offset * i as f32;
+    
+                        commands.spawn(SpriteBundle {
+                            transform: Transform {
+                                translation: player_transform.translation,
+                                rotation: Quat::from_rotation_z(angle),
+                                ..default()
+                            },
+                            texture: asset_server.load("textures/earthquake.png"),
+                            sprite: Sprite {
+                                color: Color::hsl(hue, 0.75, 0.5),
+                                ..default()
+                            },
+                            ..default()
+                        }).insert(
+                            Projectile {
+                                direction: Vec2::from_angle(angle),
+                                speed: 100.0,
+                                damage: dmg,
+                                is_friendly: true
+                        });
+                    }
+                }
+            }
         }
 
         if recipe % 10 > 0 {
@@ -121,26 +228,27 @@ fn cast_spell(
 
             if let Ok(player_transform) = player_query.get_single() {
 
-                let hue = {
-                    if recipe >= 1000 {
-                        20.0
-                    }
-                    else if recipe % 1000 >= 100 {
-                        200.0
-                    } else {
-                        300.0
-                    }
-                };
+                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
 
                 commands.spawn(SpriteBundle {
-                    transform: Transform::from_translation(player_transform.translation),
+                    transform: Transform {
+                        translation: player_transform.translation,
+                        rotation: Quat::from_rotation_z(dir.y.atan2(dir.x)),
+                        ..default()
+                    },
                     texture: asset_server.load("textures/fireball.png"),
                     sprite: Sprite {
                         color: Color::hsl(hue, 0.75, 0.5),
                         ..default()
                     },
                     ..default()
-                }).insert(Projectile { direction: (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero(), speed: 100.0, damage: dmg, is_friendly: true });
+                }).insert(
+                    Projectile {
+                        direction: dir,
+                        speed: 200.0,
+                        damage: dmg,
+                        is_friendly: true
+                });
             }
         }
 
