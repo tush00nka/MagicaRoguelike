@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::elements::ElementType;
+use crate::elements::{ElementBarFilled, ElementType};
 
 pub struct ElementsUiPlugin;
 
@@ -44,19 +44,22 @@ fn spawn_ui(
 fn update_ui(
     mut slot_query: Query<(&mut UiImage, &ElementSlot)>,
     element_bar: Res<crate::elements::ElementBar>,
+    mut ev_bar_filled: EventReader<ElementBarFilled>,
     asset_server: Res<AssetServer>,
 ) {
-    for (mut image, slot) in slot_query.iter_mut() {
-        if element_bar.bar.len() > slot.0 {
-            match element_bar.bar[slot.0] {
-                ElementType::Fire => image.texture = asset_server.load("textures/fire_slot.png"),
-                ElementType::Water => image.texture = asset_server.load("textures/water_slot.png"),
-                ElementType::Earth => image.texture = asset_server.load("textures/earth_slot.png"),
-                ElementType::Air => image.texture = asset_server.load("textures/air_slot.png"),
+    for _ev in ev_bar_filled.read() {
+        for (mut image, slot) in slot_query.iter_mut() {
+            if element_bar.bar.len() > slot.0 {
+                match element_bar.bar[slot.0] {
+                    ElementType::Fire => image.texture = asset_server.load("textures/fire_slot.png"),
+                    ElementType::Water => image.texture = asset_server.load("textures/water_slot.png"),
+                    ElementType::Earth => image.texture = asset_server.load("textures/earth_slot.png"),
+                    ElementType::Air => image.texture = asset_server.load("textures/air_slot.png"),
+                }
             }
+            else {
+                image.texture = asset_server.load("textures/empty_slot.png");
+            } 
         }
-        else {
-            image.texture = asset_server.load("textures/empty_slot.png");
-        } 
     }
 }

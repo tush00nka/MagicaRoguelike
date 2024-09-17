@@ -12,6 +12,7 @@ impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(ElementBar::default())
+            .add_event::<ElementBarFilled>()
             .add_systems(Update, (fill_bar, cast_spell));
     }
 }
@@ -60,30 +61,32 @@ impl ElementBar {
     }
 }
 
-
+#[derive(Event)]
+pub struct ElementBarFilled;
 
 fn fill_bar(
     mut bar: ResMut<ElementBar>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut ev_bar_filled: EventWriter<ElementBarFilled>,
 ) {
     if keyboard.just_pressed(KeyCode::Digit1) {
         bar.add(ElementType::Fire);
-        println!("{:?}", bar.bar);
+        ev_bar_filled.send(ElementBarFilled);
     }
 
     if keyboard.just_pressed(KeyCode::Digit2) {
         bar.add(ElementType::Water);
-        println!("{:?}", bar.bar);
+        ev_bar_filled.send(ElementBarFilled);
     }
 
     if keyboard.just_pressed(KeyCode::Digit3) {
         bar.add(ElementType::Earth);
-        println!("{:?}", bar.bar);
+        ev_bar_filled.send(ElementBarFilled);
     }
 
     if keyboard.just_pressed(KeyCode::Digit4) {
         bar.add(ElementType::Air);
-        println!("{:?}", bar.bar);
+        ev_bar_filled.send(ElementBarFilled);
     }
 }
 
@@ -96,9 +99,13 @@ fn cast_spell(
 
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
+
+    mut ev_bar_filled: EventWriter<ElementBarFilled>,
 ) {
     if mouse.just_pressed(MouseButton::Left) && !bar.bar.is_empty() {
         
+        ev_bar_filled.send(ElementBarFilled);
+
         let recipe: i32 = bar.bar.iter().map(|e| e.value()).sum();
 
         let mut spell_desc: String = "".to_string();
