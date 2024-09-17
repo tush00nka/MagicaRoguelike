@@ -7,6 +7,7 @@ pub struct GameMapPlugin;
 
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<LevelGenerator>();
         app.add_systems(Startup, spawn_map);
     }
 }
@@ -28,7 +29,7 @@ pub struct Walker {
     dir: (f32, f32),
     pos: (f32, f32),
 }
-
+#[derive(Resource)]
 pub struct LevelGenerator {
     grid: Vec<Vec<TileType>>,
     room_height: usize,
@@ -41,8 +42,8 @@ pub struct LevelGenerator {
     percent_to_fill: f32,
 }
 
-impl LevelGenerator {
-    pub fn new() -> Self {
+impl Default for LevelGenerator {
+    fn default() -> LevelGenerator {
         LevelGenerator {
             grid: vec![],
             room_height: 0,
@@ -55,7 +56,23 @@ impl LevelGenerator {
             percent_to_fill: 0.1,
         }
     }
+}
 
+impl LevelGenerator {
+/*    pub fn new() -> Self {
+        LevelGenerator {
+            grid: vec![],
+            room_height: 0,
+            room_width: 0,
+            walkers: vec![],
+            chance_walker_change_dir: 0.5,
+            chance_walker_spawn: 0.05,
+            chance_walker_destroy: 0.05,
+            max_walkers: 10,
+            percent_to_fill: 0.1,
+        }
+    }
+ */
     fn start(&mut self) {
         self.setup();
         self.create_floors();
@@ -211,14 +228,14 @@ impl LevelGenerator {
 
 
 fn spawn_map(
+    mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let mut room = LevelGenerator::new();
     room.start();
     let room_height = room.room_height;
     let room_width = room.room_width;
-    let grid = room.grid;
+    let grid = &room.grid;
     let tile_size = 32.0;
     for x in 0..room_width {
         for y in 0..room_height {

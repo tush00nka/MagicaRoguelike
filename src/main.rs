@@ -40,5 +40,6 @@ fn main() {
         .add_plugins(ElementsUiPlugin)
         .add_plugins(ProjectilePlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugins(PathfindingPlugin)
         .run();
 }
