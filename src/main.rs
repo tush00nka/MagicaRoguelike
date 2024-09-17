@@ -1,5 +1,6 @@
-use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
+use avian2d::PhysicsPlugins;
+use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
+use bevy_hanabi::HanabiPlugin;
 
 mod player;
 use player::PlayerPlugin;
@@ -26,8 +27,19 @@ mod projectile;
 use projectile::ProjectilePlugin;
 
 fn main() {
+
+    let mut wpgu_settings = WgpuSettings::default();
+    wpgu_settings.features.set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true,);
+
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(DefaultPlugins
+            .set(ImagePlugin::default_nearest())
+            .set(RenderPlugin {
+                render_creation: wpgu_settings.into(),
+                synchronous_pipeline_compilation: false,
+            }))
+        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(HanabiPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)
         .add_plugins(CameraPlugin)
@@ -36,6 +48,5 @@ fn main() {
         .add_plugins(ElementsPlugin)
         .add_plugins(ElementsUiPlugin)
         .add_plugins(ProjectilePlugin)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .run();
 }

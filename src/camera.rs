@@ -25,6 +25,7 @@ fn spawn_camera(
             scale: 0.5,
             ..default()
         },
+
         ..default()
     }).insert(Camera); 
 }
