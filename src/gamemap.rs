@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
+use avian2d::prelude::*;
 use rand::Rng;
 
 pub const ROOM_SIZE: i32 = 32;
@@ -249,8 +249,8 @@ fn spawn_map(
                             ),
                             ..default()
                         })
-                        .insert(RigidBody::Fixed)
-                        .insert(Collider::cuboid(16.0, 16.0))
+                        .insert(RigidBody::Static)
+                        .insert(Collider::rectangle(32.0, 32.0))
                         .insert(Wall {});
                 }
                 TileType::Empty => {}

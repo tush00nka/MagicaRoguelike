@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Collider, Sensor};
+use avian2d::prelude::{Collider, Sensor};
 use rand::Rng;
 
 use crate::projectile::{Projectile, ProjectileBundle};
@@ -153,7 +153,7 @@ fn cast_spell(
                                 damage: dmg,
                                 is_friendly: true
                             },
-                            collider: Collider::ball(8.0),
+                            collider: Collider::circle(8.0),
                             sensor: Sensor,
                         });
                     }
@@ -193,7 +193,7 @@ fn cast_spell(
                                 damage: dmg,
                                 is_friendly: true
                             },
-                            collider: Collider::ball(8.0),
+                            collider: Collider::circle(8.0),
                             sensor: Sensor,
                         });
                     }
@@ -232,7 +232,7 @@ fn cast_spell(
                                 damage: dmg,
                                 is_friendly: true
                             },
-                            collider: Collider::ball(12.0),
+                            collider: Collider::circle(12.0),
                             sensor: Sensor,
                         });
                     }
@@ -268,7 +268,7 @@ fn cast_spell(
                         damage: dmg,
                         is_friendly: true
                     },
-                    collider: Collider::ball(12.0),
+                    collider: Collider::circle(12.0),
                     sensor: Sensor,
                 });
             }
