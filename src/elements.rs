@@ -1,9 +1,10 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::{Collider, Sensor};
 use rand::Rng;
 
-use crate::projectile::Projectile;
+use crate::projectile::{Projectile, ProjectileBundle};
 
 pub struct ElementsPlugin;
 
@@ -97,6 +98,7 @@ fn cast_spell(
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
     if mouse.just_pressed(MouseButton::Left) && !bar.bar.is_empty() {
+        
         let recipe: i32 = bar.bar.iter().map(|e| e.value()).sum();
 
         let mut spell_desc: String = "".to_string();
@@ -130,24 +132,29 @@ fn cast_spell(
                         let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
                         let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
     
-                        commands.spawn(SpriteBundle {
-                            transform: Transform {
-                                translation: player_transform.translation,
-                                rotation: Quat::from_rotation_z(angle),
+                        commands.spawn(ProjectileBundle {
+                            sprite: SpriteBundle {
+                                transform: Transform {
+                                    translation: player_transform.translation,
+                                    rotation: Quat::from_rotation_z(angle),
+                                    ..default()
+                                },
+                                texture: asset_server.load("textures/small_fire.png"),
+                                sprite: Sprite {
+                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    ..default()
+                                },
                                 ..default()
                             },
-                            texture: asset_server.load("textures/small_fire.png"),
-                            sprite: Sprite {
-                                color: Color::hsl(hue, 0.75, 0.5),
-                                ..default()
-                            },
-                            ..default()
-                        }).insert(
-                            Projectile {
+
+                            projectile: Projectile {
                                 direction: Vec2::from_angle(angle),
                                 speed: 200.0 + rng.gen_range(0.0..50.0),
                                 damage: dmg,
                                 is_friendly: true
+                            },
+                            collider: Collider::ball(8.0),
+                            sensor: Sensor,
                         });
                     }
                 }
@@ -165,24 +172,29 @@ fn cast_spell(
                         let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
                         let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
     
-                        commands.spawn(SpriteBundle {
-                            transform: Transform {
-                                translation: player_transform.translation,
-                                rotation: Quat::from_rotation_z(angle),
+                        commands.spawn(ProjectileBundle {
+                            sprite: SpriteBundle {
+                                transform: Transform {
+                                    translation: player_transform.translation,
+                                    rotation: Quat::from_rotation_z(angle),
+                                    ..default()
+                                },
+                                texture: asset_server.load("textures/small_fire.png"),
+                                sprite: Sprite {
+                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    ..default()
+                                },
                                 ..default()
                             },
-                            texture: asset_server.load("textures/small_fire.png"),
-                            sprite: Sprite {
-                                color: Color::hsl(hue, 0.75, 0.5),
-                                ..default()
-                            },
-                            ..default()
-                        }).insert(
-                            Projectile {
+
+                            projectile: Projectile {
                                 direction: Vec2::from_angle(angle),
                                 speed: 200.0 + rng.gen_range(0.0..50.0),
                                 damage: dmg,
                                 is_friendly: true
+                            },
+                            collider: Collider::ball(8.0),
+                            sensor: Sensor,
                         });
                     }
                 }
@@ -199,24 +211,29 @@ fn cast_spell(
     
                         let angle = offset * i as f32;
     
-                        commands.spawn(SpriteBundle {
-                            transform: Transform {
-                                translation: player_transform.translation,
-                                rotation: Quat::from_rotation_z(angle),
+                        commands.spawn(ProjectileBundle {
+                            sprite: SpriteBundle {
+                                transform: Transform {
+                                    translation: player_transform.translation,
+                                    rotation: Quat::from_rotation_z(angle),
+                                    ..default()
+                                },
+                                texture: asset_server.load("textures/earthquake.png"),
+                                sprite: Sprite {
+                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    ..default()
+                                },
                                 ..default()
                             },
-                            texture: asset_server.load("textures/earthquake.png"),
-                            sprite: Sprite {
-                                color: Color::hsl(hue, 0.75, 0.5),
-                                ..default()
-                            },
-                            ..default()
-                        }).insert(
-                            Projectile {
+
+                            projectile: Projectile {
                                 direction: Vec2::from_angle(angle),
                                 speed: 100.0,
                                 damage: dmg,
                                 is_friendly: true
+                            },
+                            collider: Collider::ball(12.0),
+                            sensor: Sensor,
                         });
                     }
                 }
@@ -230,24 +247,29 @@ fn cast_spell(
 
                 let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
 
-                commands.spawn(SpriteBundle {
-                    transform: Transform {
-                        translation: player_transform.translation,
-                        rotation: Quat::from_rotation_z(dir.y.atan2(dir.x)),
+                commands.spawn(ProjectileBundle {
+                    sprite: SpriteBundle {
+                        transform: Transform {
+                            translation: player_transform.translation,
+                            rotation: Quat::from_rotation_z(dir.y.atan2(dir.x)),
+                            ..default()
+                        },
+                        texture: asset_server.load("textures/fireball.png"),
+                        sprite: Sprite {
+                            color: Color::hsl(hue, 0.75, 0.5),
+                            ..default()
+                        },
                         ..default()
                     },
-                    texture: asset_server.load("textures/fireball.png"),
-                    sprite: Sprite {
-                        color: Color::hsl(hue, 0.75, 0.5),
-                        ..default()
-                    },
-                    ..default()
-                }).insert(
-                    Projectile {
+
+                    projectile: Projectile {
                         direction: dir,
-                        speed: 200.0,
+                        speed: 150.0,
                         damage: dmg,
                         is_friendly: true
+                    },
+                    collider: Collider::ball(12.0),
+                    sensor: Sensor,
                 });
             }
         }

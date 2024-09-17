@@ -1,6 +1,7 @@
 use core::f32;
 
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::*;
 
 use crate::gamemap::Wall;
 
@@ -18,6 +19,14 @@ pub struct Projectile {
     pub speed: f32,
     pub damage: i32,
     pub is_friendly: bool
+}
+
+#[derive(Bundle)]
+pub struct ProjectileBundle {
+    pub sprite: SpriteBundle,
+    pub projectile: Projectile,
+    pub collider: Collider,
+    pub sensor: Sensor,
 }
 
 fn move_projectile(
