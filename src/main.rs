@@ -25,6 +25,9 @@ use elements_ui::ElementsUiPlugin;
 mod projectile;
 use projectile::ProjectilePlugin;
 
+mod pathfinding;
+use pathfinding::PathfindingPlugin;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
