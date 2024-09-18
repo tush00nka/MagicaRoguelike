@@ -31,7 +31,7 @@ pub struct Walker {
 }
 #[derive(Resource)]
 pub struct LevelGenerator {
-    grid: Vec<Vec<TileType>>,
+    pub grid: Vec<Vec<TileType>>,
     room_height: usize,
     room_width: usize,
     walkers: Vec<Walker>,
