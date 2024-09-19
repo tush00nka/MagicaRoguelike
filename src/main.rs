@@ -29,8 +29,11 @@ use projectile::ProjectilePlugin;
 mod experience;
 use experience::ExperiencePlugin;
 
-mod exp_particle;
-use exp_particle::ExpParticlePlugin;
+mod exp_orb;
+use exp_orb::ExpOrbPlugin;
+
+mod exp_tank;
+use exp_tank::ExpTankPlugin;
 
 fn main() {
 
@@ -54,6 +57,6 @@ fn main() {
         .add_plugins(WandPlugin)
         .add_plugins((ElementsPlugin, ElementsUiPlugin))
         .add_plugins(ProjectilePlugin)
-        .add_plugins((ExperiencePlugin, ExpParticlePlugin))
+        .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .run();
 }

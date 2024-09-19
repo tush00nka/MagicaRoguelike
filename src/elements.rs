@@ -36,7 +36,7 @@ impl ElementType {
 #[derive(Resource)]
 pub struct ElementBar {
     pub bar: Vec<ElementType>,
-    pub max: i32,
+    pub max: u8,
 }
 
 impl ElementBar {
@@ -45,7 +45,7 @@ impl ElementBar {
     }
 
     fn add(&mut self, element: ElementType) {
-        if (self.bar.len() as i32) < self.max {
+        if (self.bar.len() as u8) < self.max {
             self.bar.push(element);
         }
         else {
@@ -56,7 +56,7 @@ impl ElementBar {
     fn default() -> Self {
         ElementBar {
             bar: vec![],
-            max: 2,
+            max: 1,
         }
     }
 }

@@ -18,9 +18,9 @@ impl Plugin for ExperiencePlugin {
 
 #[derive(Resource)]
 pub struct PlayerExperience {
-    pub current: u32,
+    current: u32,
     to_lv_up: u32,
-    lv: u32,
+    pub lv: u8,
 }
 
 impl PlayerExperience {
@@ -46,7 +46,7 @@ fn spawn_ui(
     mut commands: Commands,
 ) {
 
-    commands.spawn(ImageBundle {
+    commands.spawn(ImageBundle { // фон полоски опыта
         image: UiImage::solid_color(Color::hsl(35.0, 0.5, 1.0)),
         style: Style {
             width: Val::Px(96.0*2.0),
@@ -54,7 +54,7 @@ fn spawn_ui(
             ..default()
         },
         ..default()
-    }).with_children(|parent| { 
+    }).with_children(|parent| { // сама полоска опыта
         parent.spawn(ImageBundle {
             image: UiImage::solid_color(Color::hsl(25.0, 1.0, 0.5)),
             style: Style {
