@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{experience::PlayerExperience, mouse_position::MouseCoords, player::Player};
+use crate::{experience::{ExpGained, PlayerExperience}, mouse_position::MouseCoords, player::Player};
 
 pub struct ExpParticlePlugin;
 
@@ -34,6 +34,7 @@ fn move_particles(
     mut commands: Commands,
     mut particles_query: Query<(&mut Transform, &ExpParticle, Entity), Without<Player>>,
     mut player_experience: ResMut<PlayerExperience>,  
+    mut ev_exp_gained: EventWriter<ExpGained>,
     player_query: Query<&Transform, With<Player>>,
     time: Res<Time>,
 ) {
@@ -48,6 +49,7 @@ fn move_particles(
 
                 if particle_transform.translation.distance(player_transform.translation) <= 4.0 {
                     player_experience.give(particle.exp);
+                    ev_exp_gained.send(ExpGained);
                     commands.entity(particle_e).despawn();
                 }
             }

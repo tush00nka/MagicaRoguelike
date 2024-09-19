@@ -10,6 +10,7 @@ impl Plugin for ExperiencePlugin {
                 to_lv_up: 100,
                 lv: 1,
             })
+            .add_event::<ExpGained>()
             .add_systems(Startup, spawn_ui)
             .add_systems(Update, update_ui);
     }
@@ -38,6 +39,9 @@ impl PlayerExperience {
 #[derive(Component)]
 struct ExpBar;
 
+#[derive(Event)]
+pub struct ExpGained;
+
 fn spawn_ui(
     mut commands: Commands,
 ) {
@@ -54,7 +58,7 @@ fn spawn_ui(
         parent.spawn(ImageBundle {
             image: UiImage::solid_color(Color::hsl(25.0, 1.0, 0.5)),
             style: Style {
-                width: Val::Percent(100.0),
+                width: Val::Percent(0.0),
                 height: Val::Px(24.0),
                 ..default()
             },
@@ -68,9 +72,13 @@ fn spawn_ui(
 fn update_ui(
     mut bar_query: Query<&mut Style, With<ExpBar>>, 
     player_exp: Res<PlayerExperience>,
+    mut ev_exp_gained: EventReader<ExpGained>,
 ) {
-    if let Ok(mut style) = bar_query.get_single_mut() {
-        let percent = (player_exp.current as f32 / player_exp.to_lv_up as f32) * 100.0; 
-        style.width = Val::Percent(percent);
+
+    for _ev in ev_exp_gained.read() {
+        if let Ok(mut style) = bar_query.get_single_mut() {
+            let percent = (player_exp.current as f32 / player_exp.to_lv_up as f32) * 100.0; 
+            style.width = Val::Percent(percent);
+        }
     }
 }
