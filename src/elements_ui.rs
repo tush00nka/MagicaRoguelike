@@ -30,6 +30,7 @@ fn spawn_ui(
         for i in 0..2 {
             parent.spawn(ImageBundle {
                 style: Style {
+                    top: Val::Px(36.0),
                     width: Val::Px(48.0),
                     height: Val::Px(48.0),
                     ..default()

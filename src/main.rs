@@ -26,6 +26,12 @@ use elements_ui::ElementsUiPlugin;
 mod projectile;
 use projectile::ProjectilePlugin;
 
+mod experience;
+use experience::ExperiencePlugin;
+
+mod exp_particle;
+use exp_particle::ExpParticlePlugin;
+
 fn main() {
 
     let mut wpgu_settings = WgpuSettings::default();
@@ -45,8 +51,8 @@ fn main() {
         .add_plugins(CameraPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
-        .add_plugins(ElementsPlugin)
-        .add_plugins(ElementsUiPlugin)
+        .add_plugins((ElementsPlugin, ElementsUiPlugin))
         .add_plugins(ProjectilePlugin)
+        .add_plugins((ExperiencePlugin, ExpParticlePlugin))
         .run();
 }
