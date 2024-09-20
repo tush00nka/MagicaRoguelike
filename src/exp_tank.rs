@@ -48,7 +48,7 @@ fn break_tank(
 
                     let offset = (2.0*PI)/tank.orbs as f32;
 
-                    for     i in 0..tank.orbs {
+                    for i in 0..tank.orbs {
 
                         let angle = offset * i as f32;
                         let direction = Vec2::from_angle(angle) * 32.0;

@@ -116,14 +116,17 @@ fn cast_spell(
         dmg += (recipe % 100) / 2 ; // урон от земли
         dmg += (recipe % 10) * 10; // урон от воздуха 
 
-        let hue = {
+        let color = {
             if recipe >= 1000 {
-                20.0
+                Color::hsl(20.0, 0.75, 0.5)
             }
             else if recipe % 1000 >= 100 {
-                200.0
+                Color::hsl(200.0, 0.75, 0.5)
+            } else if recipe % 100 >= 10 {
+                Color::hsl(20.0, 0.5, 0.5)
             } else {
-                300.0
+                Color::hsl(200.0, 0.25, 0.75)
+
             }
         };
 
@@ -155,7 +158,7 @@ fn cast_spell(
                                 },
                                 texture: asset_server.load("textures/small_fire.png"),
                                 sprite: Sprite {
-                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    color: color,
                                     ..default()
                                 },
                                 ..default()
@@ -195,7 +198,7 @@ fn cast_spell(
                                 },
                                 texture: asset_server.load("textures/small_fire.png"),
                                 sprite: Sprite {
-                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    color: color,
                                     ..default()
                                 },
                                 ..default()
@@ -234,7 +237,7 @@ fn cast_spell(
                                 },
                                 texture: asset_server.load("textures/earthquake.png"),
                                 sprite: Sprite {
-                                    color: Color::hsl(hue, 0.75, 0.5),
+                                    color: color,
                                     ..default()
                                 },
                                 ..default()
@@ -271,7 +274,7 @@ fn cast_spell(
                         },
                         texture: asset_server.load("textures/fireball.png"),
                         sprite: Sprite {
-                            color: Color::hsl(hue, 0.75, 0.5),
+                            color: color,
                             ..default()
                         },
                         ..default()
@@ -283,7 +286,7 @@ fn cast_spell(
                         damage: dmg,
                         is_friendly: true
                     },
-                    collider: Collider::circle(12.0),
+                    collider: Collider::circle(8.0),
                     sensor: Sensor,
                 });
             }

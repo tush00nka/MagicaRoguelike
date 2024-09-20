@@ -46,12 +46,14 @@ fn move_particles(
 
         for (mut orb_transform, orb, orb_e) in orb_query.iter_mut() {
 
-            if orb_transform.translation.distance(player_transform.translation) <= 48.0 {
+            let distance = orb_transform.translation.distance(player_transform.translation);
+
+            if distance <= 96.0 {
 
                 let direction = Vec3::new(player_transform.translation.x, player_transform.translation.y, orb_transform.translation.z);
-                orb_transform.translation = orb_transform.translation.lerp(direction, time.delta_seconds() * 20.0);
-
-                if orb_transform.translation.distance(player_transform.translation) <= 4.0 {
+                //orb_transform.translation = orb_transform.translation.lerp(direction, time.delta_seconds() * (100.0 /  distance));
+                orb_transform.translation = orb_transform.translation.move_towards(direction, time.delta_seconds() * (1000.0 /  distance));
+                if distance <= 4.0 {
                     player_experience.give(orb.exp);
                     ev_exp_gained.send(ExpGained);
                     commands.entity(orb_e).despawn();

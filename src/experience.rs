@@ -9,6 +9,7 @@ impl Plugin for ExperiencePlugin {
                 current: 0,
                 to_lv_up: 100,
                 lv: 1,
+                max_lv: 9,
             })
             .add_event::<ExpGained>()
             .add_systems(Startup, spawn_ui)
@@ -21,11 +22,12 @@ pub struct PlayerExperience {
     current: u32,
     to_lv_up: u32,
     pub lv: u8,
+    max_lv: u8,
 }
 
 impl PlayerExperience {
     pub fn give(&mut self, value: u32) {
-        if self.current + value >= self.to_lv_up {
+        if self.current + value >= self.to_lv_up && self.lv < self.max_lv{
             self.lv += 1;
             self.current = self.current + value - self.to_lv_up; 
             self.to_lv_up += 50;
