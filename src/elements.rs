@@ -133,33 +133,155 @@ fn cast_spell(
         let total_elements = fire_elements + water_elements + earth_elements + air_elements;
 
         if let Ok(player_transform) = player_query.get_single() {
-            if recipe >= 1000 {
-                spell_desc += "fire element\n";
-                if recipe % 100 < 10 && recipe % 10 <= 0 {
-                    let offset = PI/12.0;
-                    for _i in 0..fire_elements*3 {
-    
+
+            match recipe {
+
+                120 | 130 | 140 | 150 | 160 | 170 | 180 => {
+                    spell_desc += "shield\n";
+                }
+
+                1111 | 2222 => {
+                    spell_desc += "black hole\n";
+                }
+
+                _ => {
+                    if recipe >= 1000 {
+                        spell_desc += "fire element\n";
+                        if recipe % 100 < 10 && recipe % 10 <= 0 {
+                            let offset = PI/12.0;
+                            for _i in 0..fire_elements*3 {
+            
+                                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+            
+                                commands.spawn(ProjectileBundle {
+                                    sprite: SpriteBundle {
+                                        transform: Transform {
+                                            translation: player_transform.translation,
+                                            rotation: Quat::from_rotation_z(angle),
+                                            ..default()
+                                        },
+                                        texture: asset_server.load("textures/small_fire.png"),
+                                        sprite: Sprite {
+                                            color,
+                                            ..default()
+                                        },
+                                        ..default()
+                                    },
+        
+                                    projectile: Projectile {
+                                        direction: Vec2::from_angle(angle),
+                                        speed: 200.0 + rng.gen_range(0.0..50.0),
+                                        damage: dmg/ fire_elements,
+                                        is_friendly: true
+                                    },
+                                    collider: Collider::circle(8.0),
+                                    sensor: Sensor,
+                                });
+                            }
+                        }
+                    }
+            
+                    if recipe % 1000 >= 100 {
+                        spell_desc += "water element\n";
+            
+                        if recipe % 100 < 10 && recipe % 10 <= 0 {
+                            let offset = PI/12.0;
+                            for _i in 0..water_elements*3 {
+            
+                                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+            
+                                commands.spawn(ProjectileBundle {
+                                    sprite: SpriteBundle {
+                                        transform: Transform {
+                                            translation: player_transform.translation,
+                                            rotation: Quat::from_rotation_z(angle),
+                                            ..default()
+                                        },
+                                        texture: asset_server.load("textures/small_fire.png"),
+                                        sprite: Sprite {
+                                            color,
+                                            ..default()
+                                        },
+                                        ..default()
+                                    },
+        
+                                    projectile: Projectile {
+                                        direction: Vec2::from_angle(angle),
+                                        speed: 200.0 + rng.gen_range(0.0..50.0),
+                                        damage: dmg / water_elements,
+                                        is_friendly: true
+                                    },
+                                    collider: Collider::circle(8.0),
+                                    sensor: Sensor,
+                                });
+                            }
+                        }
+                    }
+            
+                    if recipe % 100 >= 10 {
+                        spell_desc += "AoE, e.g. earthquake\n";
+            
+                        if recipe % 10 <= 0 {
+                            let offset = (2.0*PI)/(total_elements*3) as f32;
+                            for i in 0..total_elements*3 {
+            
+                                let angle = offset * i as f32;
+            
+                                commands.spawn(ProjectileBundle {
+                                    sprite: SpriteBundle {
+                                        transform: Transform {
+                                            translation: player_transform.translation,
+                                            rotation: Quat::from_rotation_z(angle),
+                                            ..default()
+                                        },
+                                        texture: asset_server.load("textures/earthquake.png"),
+                                        sprite: Sprite {
+                                            color,
+                                            ..default()
+                                        },
+                                        ..default()
+                                    },
+        
+                                    projectile: Projectile {
+                                        direction: Vec2::from_angle(angle),
+                                        speed: 100.0,
+                                        damage: dmg,
+                                        is_friendly: true
+                                    },
+                                    collider: Collider::circle(12.0),
+                                    sensor: Sensor,
+                                });
+                            }
+                        }
+                    }
+            
+                    if recipe % 10 > 0 {
+                        spell_desc += "throwable, e.g. fireball\n";
+            
                         let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
+                        let angle = dir.y.atan2(dir.x);
+        
                         commands.spawn(ProjectileBundle {
                             sprite: SpriteBundle {
                                 transform: Transform {
                                     translation: player_transform.translation,
                                     rotation: Quat::from_rotation_z(angle),
+                                    scale: Vec3::ONE * total_elements as f32* 0.5,
                                     ..default()
                                 },
-                                texture: asset_server.load("textures/small_fire.png"),
+                                texture: asset_server.load("textures/fireball.png"),
                                 sprite: Sprite {
                                     color,
                                     ..default()
                                 },
                                 ..default()
                             },
-
+        
                             projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 200.0 + rng.gen_range(0.0..50.0),
+                                direction: dir,
+                                speed: 150.0,
                                 damage: dmg,
                                 is_friendly: true
                             },
@@ -168,268 +290,6 @@ fn cast_spell(
                         });
                     }
                 }
-            }
-    
-            if recipe % 1000 >= 100 {
-                spell_desc += "water element\n";
-    
-                if recipe % 100 < 10 && recipe % 10 <= 0 {
-                    let offset = PI/12.0;
-                    for _i in 0..water_elements*3 {
-    
-                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: player_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/small_fire.png"),
-                                sprite: Sprite {
-                                    color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-
-                            projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 200.0 + rng.gen_range(0.0..50.0),
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(8.0),
-                            sensor: Sensor,
-                        });
-                    }
-                }
-            }
-    
-            if recipe % 100 >= 10 {
-                spell_desc += "AoE, e.g. earthquake\n";
-    
-                if recipe % 10 <= 0 {
-                    let offset = (2.0*PI)/(total_elements*3) as f32;
-                    for i in 0..total_elements*3 {
-    
-                        let angle = offset * i as f32;
-    
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: player_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/earthquake.png"),
-                                sprite: Sprite {
-                                    color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-
-                            projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 100.0,
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(12.0),
-                            sensor: Sensor,
-                        });
-                    }
-                }
-            }
-    
-            if recipe % 10 > 0 {
-                spell_desc += "throwable, e.g. fireball\n";
-    
-                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
-
-                commands.spawn(ProjectileBundle {
-                    sprite: SpriteBundle {
-                        transform: Transform {
-                            translation: player_transform.translation,
-                            rotation: Quat::from_rotation_z(angle),
-                            scale: Vec3::ONE * total_elements as f32* 0.5,
-                            ..default()
-                        },
-                        texture: asset_server.load("textures/fireball.png"),
-                        sprite: Sprite {
-                            color,
-                            ..default()
-                        },
-                        ..default()
-                    },
-
-                    projectile: Projectile {
-                        direction: dir,
-                        speed: 150.0,
-                        damage: dmg,
-                        is_friendly: true
-                    },
-                    collider: Collider::circle(8.0),
-                    sensor: Sensor,
-                });
-            }
-        }
-
-        if recipe >= 1000 {
-            spell_desc += "fire element\n";
-            if recipe % 100 < 10 && recipe % 10 <= 0 {
-                if let Ok(player_transform) = player_query.get_single() {
-                    let offset = PI/12.0;
-                    for _i in 0..fire_elements*3 {
-    
-                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: player_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/small_fire.png"),
-                                sprite: Sprite {
-                                    color: color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-
-                            projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 200.0 + rng.gen_range(0.0..50.0),
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(8.0),
-                            sensor: Sensor,
-                        });
-                    }
-                }
-            }
-        }
-
-        if recipe % 1000 >= 100 {
-            spell_desc += "water element\n";
-
-            if recipe % 100 < 10 && recipe % 10 <= 0 {
-                if let Ok(player_transform) = player_query.get_single() {
-                    let offset = PI/12.0;
-                    for _i in 0..water_elements*3 {
-    
-                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: player_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/small_fire.png"),
-                                sprite: Sprite {
-                                    color: color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-
-                            projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 200.0 + rng.gen_range(0.0..50.0),
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(8.0),
-                            sensor: Sensor,
-                        });
-                    }
-                }
-            }
-        }
-
-        if recipe % 100 >= 10 {
-            spell_desc += "AoE, e.g. earthquake\n";
-
-            if recipe % 10 <= 0 {
-                if let Ok(player_transform) = player_query.get_single() {
-                    let offset = (2.0*PI)/(total_elements*3) as f32;
-                    for i in 0..total_elements*3 {
-    
-                        let angle = offset * i as f32;
-    
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: player_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/earthquake.png"),
-                                sprite: Sprite {
-                                    color: color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-
-                            projectile: Projectile {
-                                direction: Vec2::from_angle(angle),
-                                speed: 100.0,
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(12.0),
-                            sensor: Sensor,
-                        });
-                    }
-                }
-            }
-        }
-
-        if recipe % 10 > 0 {
-            spell_desc += "throwable, e.g. fireball\n";
-
-            if let Ok(player_transform) = player_query.get_single() {
-
-                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
-
-                commands.spawn(ProjectileBundle {
-                    sprite: SpriteBundle {
-                        transform: Transform {
-                            translation: player_transform.translation,
-                            rotation: Quat::from_rotation_z(angle),
-                            scale: Vec3::ONE * total_elements as f32* 0.5,
-                            ..default()
-                        },
-                        texture: asset_server.load("textures/fireball.png"),
-                        sprite: Sprite {
-                            color: color,
-                            ..default()
-                        },
-                        ..default()
-                    },
-
-                    projectile: Projectile {
-                        direction: dir,
-                        speed: 150.0,
-                        damage: dmg,
-                        is_friendly: true
-                    },
-                    collider: Collider::circle(8.0),
-                    sensor: Sensor,
-                });
             }
         }
 
