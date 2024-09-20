@@ -50,6 +50,7 @@ fn break_tank(
 
                     for i in 0..tank.orbs {
 
+                        // считаем точки, куда будем выбрасывать частицы опыта
                         let angle = offset * i as f32;
                         let direction = Vec2::from_angle(angle) * 32.0;
                         let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);

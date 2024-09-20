@@ -44,19 +44,15 @@ fn move_player(
     if let Ok((mut player_velocity, &player)) = player_query.get_single_mut() {
         let mut direction = Vec2::new(0.0, 0.0);
 
-        if keyboard.pressed(KeyCode::KeyA) {
-            direction.x -= 1.0;
-        }
-        if keyboard.pressed(KeyCode::KeyD) {
-            direction.x += 1.0;
-        }
-
-        if keyboard.pressed(KeyCode::KeyS) {
-            direction.y -= 1.0;
-        }
-        if keyboard.pressed(KeyCode::KeyW) {
-            direction.y += 1.0;
-        };
+        keyboard.get_pressed().for_each(|key| {
+            match key {
+                KeyCode::KeyA => { direction.x = -1.0 }
+                KeyCode::KeyD => { direction.x = 1.0 }
+                KeyCode::KeyS => { direction.y = -1.0 }
+                KeyCode::KeyW => { direction.y = 1.0 }
+                _ => {}
+            }
+        });
 
         player_velocity.0 = direction.normalize_or_zero() * player.speed * time.delta_seconds();
     }
