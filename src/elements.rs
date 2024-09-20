@@ -129,12 +129,19 @@ fn cast_spell(
 
         let mut rng = rand::thread_rng();
 
+        let fire_elements = recipe / 1000;
+        let water_elements = (recipe % 1000) / 100;
+        let earth_elements = recipe % 100 / 10;
+        let air_elements = recipe % 10;
+
+        let total_elements = fire_elements + water_elements + earth_elements + air_elements;
+
         if recipe >= 1000 {
             spell_desc += "fire element\n";
             if recipe % 100 < 10 && recipe % 10 <= 0 {
                 if let Ok(player_transform) = player_query.get_single() {
                     let offset = PI/12.0;
-                    for _i in 0..6 {
+                    for _i in 0..fire_elements*3 {
     
                         let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
                         let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
@@ -174,7 +181,7 @@ fn cast_spell(
             if recipe % 100 < 10 && recipe % 10 <= 0 {
                 if let Ok(player_transform) = player_query.get_single() {
                     let offset = PI/12.0;
-                    for _i in 0..6 {
+                    for _i in 0..water_elements*3 {
     
                         let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
                         let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
@@ -213,8 +220,8 @@ fn cast_spell(
 
             if recipe % 10 <= 0 {
                 if let Ok(player_transform) = player_query.get_single() {
-                    let offset = (2.0*PI)/12.0;
-                    for i in 0..12 {
+                    let offset = (2.0*PI)/(total_elements*3) as f32;
+                    for i in 0..total_elements*3 {
     
                         let angle = offset * i as f32;
     
@@ -259,6 +266,7 @@ fn cast_spell(
                         transform: Transform {
                             translation: player_transform.translation,
                             rotation: Quat::from_rotation_z(dir.y.atan2(dir.x)),
+                            scale: Vec3::ONE * total_elements as f32* 0.5,
                             ..default()
                         },
                         texture: asset_server.load("textures/fireball.png"),
