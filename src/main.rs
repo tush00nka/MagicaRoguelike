@@ -26,6 +26,9 @@ use elements_ui::ElementsUiPlugin;
 mod projectile;
 use projectile::ProjectilePlugin;
 
+mod health;
+use health::HealthPlugin;
+
 fn main() {
 
     let mut wpgu_settings = WgpuSettings::default();
@@ -48,5 +51,6 @@ fn main() {
         .add_plugins(ElementsPlugin)
         .add_plugins(ElementsUiPlugin)
         .add_plugins(ProjectilePlugin)
+        .add_plugins(HealthPlugin)
         .run();
 }
