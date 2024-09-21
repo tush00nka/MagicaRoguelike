@@ -241,6 +241,7 @@ fn spawn_map(
                         //.insert(RigidBody::Fixed)
                         //.insert(Collider::cuboid(16.0, 16.0))
                         .insert(Floor {});
+                },
                     if rand::thread_rng().gen::<f32>() > chance_flask_spawn {
                         commands
                             .spawn(SpriteBundle{
@@ -256,9 +257,22 @@ fn spawn_map(
                     }
                 }
                 TileType::Wall => {
+
+                    let texture_path = {
+                        if y > 0 {
+                            match grid[x as usize][y as usize - 1] {
+                                TileType::Floor => "textures/t_wall_top.png",
+                                _ => "textures/t_wall.png",
+                            }
+                        }
+                        else {
+                            "textures/t_wall.png"
+                        }
+                    };
+
                     commands
                         .spawn(SpriteBundle {
-                            texture: asset_server.load("textures/t_wall.png"),
+                            texture: asset_server.load(texture_path),
                             transform: Transform::from_xyz(
                                 tile_size * x as f32,
                                 tile_size * y as f32,
@@ -269,8 +283,8 @@ fn spawn_map(
                         .insert(RigidBody::Static)
                         .insert(Collider::rectangle(32.0, 32.0))
                         .insert(Wall {});
-                }
-                TileType::Empty => {}
+                },
+                _ => {}
             }
         }
     }

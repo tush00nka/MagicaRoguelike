@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::elements::{ElementBarFilled, ElementType};
+use crate::{elements::{ElementBar, ElementBarFilled, ElementType}, experience::{ExpGained, PlayerExperience}};
 
 pub struct ElementsUiPlugin;
 
@@ -8,12 +8,15 @@ impl Plugin for ElementsUiPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(Startup, spawn_ui)
-            .add_systems(Update, update_ui);
+            .add_systems(Update, (update_ui, add_slots_from_lv));
     }
 }
 
 #[derive(Component)]
 struct ElementSlot(usize);
+
+#[derive(Component)]
+struct ElementBarUI;
 
 fn spawn_ui(
     mut commands: Commands,
@@ -21,23 +24,24 @@ fn spawn_ui(
 ) {
     commands.spawn(NodeBundle {
         style: Style {
-            width: Val::Px(24.0*2.0),
+            width: Val::Px(24.0*6.0),
             height: Val::Px(24.0),
             ..default()
         },
         ..default()
-    }).with_children(|parent| {
-        for i in 0..2 {
-            parent.spawn(ImageBundle {
-                style: Style {
-                    width: Val::Px(48.0),
-                    height: Val::Px(48.0),
-                    ..default()
-                },
-                image: UiImage::new(asset_server.load("textures/empty_slot.png")),
+    })
+    .insert(ElementBarUI)
+    .with_children(|parent| {
+        parent.spawn(ImageBundle {
+            style: Style {
+                top: Val::Px(36.0),
+                width: Val::Px(48.0),
+                height: Val::Px(48.0),
                 ..default()
-            }).insert(ElementSlot(i));
-        }
+            },
+            image: UiImage::new(asset_server.load("textures/empty_slot.png")),
+            ..default()
+        }).insert(ElementSlot(0));
     });
 }
 
@@ -61,5 +65,37 @@ fn update_ui(
                 image.texture = asset_server.load("textures/empty_slot.png");
             } 
         }
+    }
+}
+
+fn add_slots_from_lv(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut ev_exp_gained: EventReader<ExpGained>,
+    player_experience: Res<PlayerExperience>,
+    mut element_bar_query: Query<Entity, With<ElementBarUI>>,
+    mut element_bar: ResMut<ElementBar>,
+) {
+    if let Ok(bar_e) = element_bar_query.get_single_mut() {
+        for _ev in ev_exp_gained.read() {
+            if element_bar.max < player_experience.lv {
+                commands.entity(bar_e).with_children(|parent| {
+                    for i in element_bar.max..player_experience.lv {
+                        parent.spawn(ImageBundle {
+                            style: Style {
+                                top: Val::Px(36.0),
+                                width: Val::Px(48.0),
+                                height: Val::Px(48.0),
+                                ..default()
+                            },
+                            image: UiImage::new(asset_server.load("textures/empty_slot.png")),
+                            ..default()
+                        }).insert(ElementSlot(i as usize));
+                    }
+                });
+
+                element_bar.max = player_experience.lv;
+            }
+        }   
     }
 }
