@@ -23,7 +23,7 @@ struct Floor {}
 #[derive(Component, Clone, Copy)]
 pub struct Wall {}
 #[derive(Component)]
-pub struct Flask{
+pub struct HealthPot{
     pub hp: u32,
 }
 
@@ -252,7 +252,7 @@ fn spawn_map(
                                 ..default()
                             })
                             .insert(Collider::rectangle(16.0, 24.0))
-                            .insert(Flask { hp: 5 });
+                            .insert(HealthPot { hp: 5 });
                     }
                 }
                 TileType::Wall => {
