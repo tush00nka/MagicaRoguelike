@@ -35,6 +35,9 @@ use exp_orb::ExpOrbPlugin;
 mod exp_tank;
 use exp_tank::ExpTankPlugin;
 
+mod health;
+use health::HealthPlugin;
+
 fn main() {
 
     let mut wpgu_settings = WgpuSettings::default();
@@ -58,5 +61,6 @@ fn main() {
         .add_plugins((ElementsPlugin, ElementsUiPlugin))
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
+        .add_plugins(HealthPlugin)
         .run();
 }
