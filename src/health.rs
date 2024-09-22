@@ -90,7 +90,7 @@ fn update_ui(
 
 fn pick_up_health(
     mut commands: Commands,
-    mut pot_query: Query<(&mut Transform, &HealthTank, Entity), Without<Player>>,
+    mut tank_query: Query<(&mut Transform, &HealthTank, Entity), Without<Player>>,
     mut player_health: ResMut<PlayerHealth>,  
     mut ev_hp_gained: EventWriter<HPGained>,
     player_query: Query<&Transform, With<Player>>,
