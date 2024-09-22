@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
+use avian2d::prelude::*;
 use rand::Rng;
+
+use crate::{exp_tank::ExpTank, health::HealthTank};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -21,9 +23,9 @@ pub enum TileType {
 
 #[derive(Component, Clone, Copy)]
 struct Floor {}
-#[derive(Component, Clone, Copy)]
-struct Wall {}
 
+#[derive(Component, Clone, Copy)]
+pub struct Wall {}
 
 pub struct Walker {
     dir: (f32, f32),
@@ -224,8 +226,8 @@ impl LevelGenerator {
     fn number_of_floors(&self) -> usize {
         self.grid.iter().flat_map(|row| row.iter()).filter(|&&space| space == TileType::Floor).count()
     }
-}
 
+}
 
 fn spawn_map(
     mut room: ResMut<LevelGenerator>,
@@ -237,28 +239,76 @@ fn spawn_map(
     let room_width = room.room_width;
     let grid = &room.grid;
     let tile_size = 32.0;
+    let chance_tank_spawn = 0.9;
     for x in 0..room_width {
         for y in 0..room_height {
             match grid[x as usize][y as usize] {
                 TileType::Floor => {
-                        commands
+                    commands
                         .spawn(SpriteBundle {
                             texture: asset_server.load("textures/t_floor.png"),
                             transform: Transform::from_xyz(
                             tile_size * x as f32,
                             tile_size * y as f32,
                             0.0,
-                            ),
+                        ),
                         ..default()
                         })
-                        //  .insert(RigidBody::Fixed)
-                        // .insert(Collider::cuboid(16.0, 16.0))
+                        //.insert(RigidBody::Fixed)
+                        //.insert(Collider::cuboid(16.0, 16.0))
                         .insert(Floor {});
-                }
+
+                    if rand::thread_rng().gen::<f32>() > chance_tank_spawn {
+
+                        let tank_type = rand::thread_rng().gen::<f32>();
+
+                        let texture_path;
+
+                        if tank_type >= 0.5 {
+                            texture_path = "textures/health_tank.png";
+                        }
+                        else {
+                            texture_path = "textures/exp_tank.png";
+                        }
+
+                        let tank = commands
+                            .spawn(SpriteBundle{
+                                texture: asset_server.load(texture_path),
+                                transform: Transform::from_xyz(
+                                    tile_size * x as f32,
+                                    tile_size * y as f32,
+                                    1.0),
+                                ..default()
+                            })
+                            .insert(Collider::rectangle(16.0, 16.0))
+                            .insert(Sensor)
+                            .id();
+
+                        if tank_type >= 0.5 {
+                            commands.entity(tank).insert(HealthTank { hp: 5 });
+                        }
+                        else {
+                            commands.entity(tank).insert(ExpTank { orbs: 5 });
+                        }
+                    }
+                },
                 TileType::Wall => {
+
+                    let texture_path = {
+                        if y > 0 {
+                            match grid[x as usize][y as usize - 1] {
+                                TileType::Floor => "textures/t_wall_top.png",
+                                _ => "textures/t_wall.png",
+                            }
+                        }
+                        else {
+                            "textures/t_wall.png"
+                        }
+                    };
+
                     commands
                         .spawn(SpriteBundle {
-                            texture: asset_server.load("textures/t_wall.png"),
+                            texture: asset_server.load(texture_path),
                             transform: Transform::from_xyz(
                                 tile_size * x as f32,
                                 tile_size * y as f32,
@@ -266,19 +316,12 @@ fn spawn_map(
                             ),
                             ..default()
                         })
-                        .insert(RigidBody::Fixed)
-                        .insert(Collider::cuboid(16.0, 16.0))
+                        .insert(RigidBody::Static)
+                        .insert(Collider::rectangle(32.0, 32.0))
                         .insert(Wall {});
-                }
-                TileType::Empty => {}
+                },
+                _ => {}
             }
         }
     }
 }
-
-
-
-
-
-
-

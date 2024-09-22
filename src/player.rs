@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
+use avian2d::prelude::*;
 
 use crate::gamemap::ROOM_SIZE;
 
@@ -31,38 +31,29 @@ fn spawn_player(
     commands.entity(player)
         .insert(RigidBody::Dynamic)
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Collider::cuboid(8.0, 8.0))
-        .insert(Velocity {
-            linvel: Vec2::new(10.0, 0.0),
-            angvel: 0.0,
-        })
-        .insert(Sleeping::disabled())
-        .insert(Ccd::enabled())
+        .insert(Collider::rectangle(16.0, 16.0))
+        .insert(LinearVelocity::ZERO)
         .insert(Player { speed: 10000.0 });
 }
 
 fn move_player(
-    mut player_query: Query<(&mut Velocity, &Player)>,
+    mut player_query: Query<(&mut LinearVelocity, &Player)>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if let Ok((mut player_velocity, &player)) = player_query.get_single_mut() {
         let mut direction = Vec2::new(0.0, 0.0);
 
-        if keyboard.pressed(KeyCode::KeyA) {
-            direction.x -= 1.0;
-        }
-        if keyboard.pressed(KeyCode::KeyD) {
-            direction.x += 1.0;
-        }
+        keyboard.get_pressed().for_each(|key| {
+            match key {
+                KeyCode::KeyA => { direction.x = -1.0 }
+                KeyCode::KeyD => { direction.x = 1.0 }
+                KeyCode::KeyS => { direction.y = -1.0 }
+                KeyCode::KeyW => { direction.y = 1.0 }
+                _ => {}
+            }
+        });
 
-        if keyboard.pressed(KeyCode::KeyS) {
-            direction.y -= 1.0;
-        }
-        if keyboard.pressed(KeyCode::KeyW) {
-            direction.y += 1.0;
-        };
-
-        player_velocity.linvel = direction.normalize_or_zero() * player.speed * time.delta_seconds();
+        player_velocity.0 = direction.normalize_or_zero() * player.speed * time.delta_seconds();
     }
 }
