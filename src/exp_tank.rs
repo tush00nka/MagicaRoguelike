@@ -12,8 +12,8 @@ impl Plugin for ExpTankPlugin {
 }
 
 #[derive(Component)]
-struct ExpTank {
-    orbs: u32,
+pub struct ExpTank {
+    pub orbs: u32,
 }
 
 fn debug_tank(
@@ -28,7 +28,7 @@ fn debug_tank(
             transform: Transform::from_xyz((mouse_coords.0.x / 32.0).round() * 32.0, (mouse_coords.0.y / 32.0).round() * 32.0, 2.0),
             ..default()
         })
-        .insert(Collider::rectangle(24.0, 24.0))
+        .insert(Collider::rectangle(16.0, 16.0))
         .insert(Sensor)
         .insert(ExpTank { orbs: 6 });
     }

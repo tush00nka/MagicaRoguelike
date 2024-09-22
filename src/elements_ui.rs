@@ -24,6 +24,7 @@ fn spawn_ui(
 ) {
     commands.spawn(NodeBundle {
         style: Style {
+            top: Val::Px(48.0),
             width: Val::Px(24.0*6.0),
             height: Val::Px(24.0),
             ..default()
@@ -34,7 +35,6 @@ fn spawn_ui(
     .with_children(|parent| {
         parent.spawn(ImageBundle {
             style: Style {
-                top: Val::Px(36.0),
                 width: Val::Px(48.0),
                 height: Val::Px(48.0),
                 ..default()
@@ -83,7 +83,6 @@ fn add_slots_from_lv(
                     for i in element_bar.max..player_experience.lv {
                         parent.spawn(ImageBundle {
                             style: Style {
-                                top: Val::Px(36.0),
                                 width: Val::Px(48.0),
                                 height: Val::Px(48.0),
                                 ..default()

@@ -49,19 +49,19 @@ fn spawn_ui(
 ) {
 
     commands.spawn(ImageBundle { // фон полоски опыта
-        image: UiImage::solid_color(Color::hsl(35.0, 0.5, 1.0)),
+        image: UiImage::solid_color(Color::hsl(25.0, 1.0, 0.1)),
         style: Style {
             width: Val::Px(96.0*2.0),
-            height: Val::Px(24.0),
+            height: Val::Px(12.0),
             ..default()
         },
         ..default()
     }).with_children(|parent| { // сама полоска опыта
         parent.spawn(ImageBundle {
-            image: UiImage::solid_color(Color::hsl(25.0, 1.0, 0.5)),
+            image: UiImage::solid_color(Color::hsl(35.0, 1.0, 0.5)),
             style: Style {
                 width: Val::Percent(0.0),
-                height: Val::Px(24.0),
+                height: Val::Px(12.0),
                 ..default()
             },
             ..default()

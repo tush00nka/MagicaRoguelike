@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{player::Player,gamemap::HealthPot};
+use crate::player::Player;
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
@@ -11,7 +11,7 @@ impl Plugin for HealthPlugin {
             })
             .add_event::<HPGained>()
             .add_systems(Startup, spawn_ui)
-            .add_systems(Update, (update_ui, move_particles));
+            .add_systems(Update, (update_ui, pick_up_health));
     }
 }
 
@@ -38,6 +38,11 @@ struct HPBar;
 #[derive(Event)]
 pub struct HPGained;
 
+#[derive(Component)]
+pub struct HealthTank{
+    pub hp: u32,
+}
+
 fn spawn_ui(
     mut commands: Commands,
 ) {
@@ -48,7 +53,7 @@ fn spawn_ui(
             width: Val::Px(96.0*2.0),
             height: Val::Px(24.0),
             left: Val::Px(0.0),
-            top: Val::Px(60.0),
+            top: Val::Px(20.0),
             ..default()
         },
         ..default()
@@ -83,9 +88,9 @@ fn update_ui(
     }
 }
 
-fn move_particles(
+fn pick_up_health(
     mut commands: Commands,
-    mut pot_query: Query<(&mut Transform, &HealthPot, Entity), Without<Player>>,
+    mut pot_query: Query<(&mut Transform, &HealthTank, Entity), Without<Player>>,
     mut player_health: ResMut<PlayerHealth>,  
     mut ev_hp_gained: EventWriter<HPGained>,
     player_query: Query<&Transform, With<Player>>,
