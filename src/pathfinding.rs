@@ -26,8 +26,8 @@ pub struct Node {
 }
 #[derive(Resource)] // change and add methods to res
 pub struct Graph {
-    adj_list: std::collections::HashMap<(u16, u16), Vec<Node>>,//Я ГЕНИЙ, нужно отрефакторить посмотреть и прописать коменты
-    }
+    adj_list: std::collections::HashMap<(u16, u16), Vec<Node>>, //Я ГЕНИЙ, нужно отрефакторить посмотреть и прописать коменты
+}
 
 impl Default for Graph {
     fn default() -> Graph {
@@ -49,12 +49,12 @@ impl Graph {
     }
     fn Get_Node_Where_Object_is(&mut self, vec: &Vec2) -> Node {
         let i = vec.x / 32.;
-        let j = vec.y / 32.;//мб рефакторинг?
+        let j = vec.y / 32.; //мб рефакторинг?
 
         return self.adj_list[&(i as u16, j as u16)][0].clone();
         //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
     }
-    fn Get_List(&mut self, vec: Vec2) -> Vec<Node>{
+    fn Get_List(&mut self, vec: Vec2) -> Vec<Node> {
         let i = vec.x / 32.;
         let j = vec.y / 32.;
 
@@ -75,7 +75,6 @@ impl Node {
 fn a_pathfinding(
     mut player_query: Query<&Transform, With<Player>>, //maybe use globalTransform?
     mut mob_query: Query<(&Transform, With<Mob>)>,
-    mut room: ResMut<crate::gamemap::LevelGenerator>,
     mut graph_search: ResMut<Graph>,
 ) {
     for i in &mob_query {
@@ -85,46 +84,58 @@ fn a_pathfinding(
             crate::gamemap::TileType::Floor, //надо искать нод в графе как-то сделать функцию чтобы искать ближайший нод?
             Vec2::new(i.transform.translation.x, i.transform.translation.y),
         );
-        let mut goal_node: Node = Node::new(0,crate::gamemap::TileType::Floor,Vec2::new(0.,0.));
-        if let Ok(player_transform) = player_query.get_single(){
-            goal_node = graph_search.Get_Node_Where_Object_is(&Vec2::new(player_transform.translation.x,player_transform.translation.y));
+        let mut goal_node: Node = Node::new(0, crate::gamemap::TileType::Floor, Vec2::new(0., 0.));
+        if let Ok(player_transform) = player_query.get_single() {
+            goal_node = graph_search.Get_Node_Where_Object_is(&Vec2::new(
+                player_transform.translation.x,
+                player_transform.translation.y,
+            ));
         }
         let mut reachable = std::collections::HashMap::new();
         let mut explored = std::collections::HashMap::new();
 
-        reachable.insert((start_node.position.x as usize,start_node.position.y as usize),start_node);
+        reachable.insert(
+            (
+                start_node.position.x as usize,
+                start_node.position.y as usize,
+            ),
+            start_node,
+        );
 
         while reachable.len() > 0 {
             let mut node: Node = pick_node(reachable.values().cloned().collect(), goal_node);
-            
-            if node == goal_node{
-            //    return build_path(node);
-            return;//can't use return
+
+            if node == goal_node {
+                //    return build_path(node);
+                return; //can't use return
             }
 
-            reachable.remove(&(node.position.x as usize, node.position.y as usize));//???? maybe another func or change vec to hashmap
+            reachable.remove(&(node.position.x as usize, node.position.y as usize)); //???? maybe another func or change vec to hashmap
             explored.insert((node.position.x as usize, node.position.y as usize), node);
 
             let new_reachable: Vec<Node> = Vec::new();
             new_reachable = graph_search.Get_List(node.position);
 
-            for adjacent in new_reachable{
-                match reachable.get(&(adjacent.position.x as usize, adjacent.position.y as usize)){
-                    Some(adj) => reachable.insert((adjacent.position.x as usize, adjacent.position.y as usize), adjacent)
+            for adjacent in new_reachable {
+                match reachable.get(&(adjacent.position.x as usize, adjacent.position.y as usize)) {
+                    Some(adj) => reachable.insert(
+                        (adjacent.position.x as usize, adjacent.position.y as usize),
+                        adjacent,
+                    ),
                 };
 
-                if node.cost + 1 < adjacent.cost{
+                if node.cost + 1 < adjacent.cost {
                     adjacent.prev_node = Address::Address(Box::new(node));
-                    adjacent.cost = node.cost+1;
+                    adjacent.cost = node.cost + 1;
                 }
             }
         }
     }
-    return;//can't use return
+    return; //can't use return
 }
 
 fn create_new_graph(room: ResMut<crate::gamemap::LevelGenerator>, mut graph_search: ResMut<Graph>) {
-    let grid = room.grid.clone();//мб рефакторинг?
+    let grid = room.grid.clone(); //мб рефакторинг?
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == crate::gamemap::TileType::Floor {
@@ -168,7 +179,7 @@ fn build_path(mut nod: Node) -> Vec<Node> {
                 break;
             }
         }
-    }//мб рефакторинг?
+    } //мб рефакторинг?
     return path;
 }
 
@@ -185,7 +196,7 @@ fn pick_node(reachable: Vec<Node>, goal_node: Node) -> Node {
             min_cost = total_cost;
             best_node = node;
         }
-    }//мб рефакторинг?
+    } //мб рефакторинг?
     return best_node;
 }
 
