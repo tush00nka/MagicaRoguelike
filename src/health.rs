@@ -97,14 +97,14 @@ fn pick_up_health(
 ) {
     if let Ok(player_transform) = player_query.get_single() {
 
-        for (pot_transform, pot, pot_e) in pot_query.iter_mut() {
+        for (tank_transform, tank, tank_e) in tank_query.iter_mut() {
 
-            let distance = pot_transform.translation.distance(player_transform.translation);
+            let distance = tank_transform.translation.distance(player_transform.translation);
 
             if distance <= 24.0 { // радиус, с которого хп подбирается
-                player_health.give(pot.hp);
+                player_health.give(tank.hp);
                 ev_hp_gained.send(HPGained);
-                commands.entity(pot_e).despawn();
+                commands.entity(tank_e).despawn();
             }
         }
     }
