@@ -23,7 +23,7 @@ struct Floor {}
 #[derive(Component, Clone, Copy)]
 pub struct Wall {}
 #[derive(Component)]
-pub struct HealthPot{
+pub struct HealthTank{
     pub hp: u32,
 }
 
@@ -223,7 +223,7 @@ fn spawn_map(
     let room_width = room.room_width;
     let grid = room.grid;
     let tile_size = 32.0;
-    let chance_flask_spawn = 0.9;
+    let chance_hp_tank_spawn = 0.9;
     for x in 0..room_width {
         for y in 0..room_height {
             match grid[x as usize][y as usize] {
@@ -241,11 +241,11 @@ fn spawn_map(
                         //.insert(RigidBody::Fixed)
                         //.insert(Collider::cuboid(16.0, 16.0))
                         .insert(Floor {});
-                },
-                    if rand::thread_rng().gen::<f32>() > chance_flask_spawn {
+                
+                    if rand::thread_rng().gen::<f32>() > chance_hp_tank_spawn {
                         commands
                             .spawn(SpriteBundle{
-                                texture: asset_server.load("textures/flask.png"),
+                                texture: asset_server.load("textures/hp_tank.png"),
                                 transform: Transform::from_xyz(
                                     tile_size * x as f32,
                                     tile_size * y as f32,
@@ -253,7 +253,7 @@ fn spawn_map(
                                 ..default()
                             })
                             .insert(Collider::rectangle(16.0, 24.0))
-                            .insert(HealthPot { hp: 5 });
+                            .insert(HealthTank { hp: 5 });
                     }
                 }
                 TileType::Wall => {

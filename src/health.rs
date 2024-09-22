@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{player::Player,gamemap::HealthPot};
+use crate::{player::Player,gamemap::HealthTank};
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
@@ -85,21 +85,21 @@ fn update_ui(
 
 fn move_particles(
     mut commands: Commands,
-    mut pot_query: Query<(&mut Transform, &HealthPot, Entity), Without<Player>>,
+    mut tank_query: Query<(&mut Transform, &HealthTank, Entity), Without<Player>>,
     mut player_health: ResMut<PlayerHealth>,  
     mut ev_hp_gained: EventWriter<HPGained>,
     player_query: Query<&Transform, With<Player>>,
 ) {
     if let Ok(player_transform) = player_query.get_single() {
 
-        for (pot_transform, pot, pot_e) in pot_query.iter_mut() {
+        for (tank_transform, tank, tank_e) in tank_query.iter_mut() {
 
-            let distance = pot_transform.translation.distance(player_transform.translation);
+            let distance = tank_transform.translation.distance(player_transform.translation);
 
             if distance <= 24.0 { // радиус, с которого хп подбирается
-                player_health.give(pot.hp);
+                player_health.give(tank.hp);
                 ev_hp_gained.send(HPGained);
-                commands.entity(pot_e).despawn();
+                commands.entity(tank_e).despawn();
             }
         }
     }
