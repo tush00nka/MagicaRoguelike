@@ -263,7 +263,9 @@ fn spawn_map(
                                     1.0),
                                 ..default()
                             })
-                            .insert(Collider::rectangle(16.0, 16.0)).id();
+                            .insert(Collider::rectangle(16.0, 16.0))
+                            .insert(Sensor)
+                            .id();
 
                         if tank_type >= 0.5 {
                             commands.entity(tank).insert(HealthTank { hp: 5 });

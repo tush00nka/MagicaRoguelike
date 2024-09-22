@@ -1,3 +1,4 @@
+use avian2d::prelude::Collision;
 use bevy::prelude::*;
 use crate::player::Player;
 pub struct HealthPlugin;
@@ -90,22 +91,22 @@ fn update_ui(
 
 fn pick_up_health(
     mut commands: Commands,
-    mut tank_query: Query<(&mut Transform, &HealthTank, Entity), Without<Player>>,
+    tank_query: Query<(Entity, &HealthTank)>,
+    player_query: Query<Entity, With<Player>>,
     mut player_health: ResMut<PlayerHealth>,  
     mut ev_hp_gained: EventWriter<HPGained>,
-    player_query: Query<&Transform, With<Player>>,
+    mut ev_collision: EventReader<Collision>,
 ) {
-    if let Ok(player_transform) = player_query.get_single() {
-
-        for (tank_transform, tank, tank_e) in tank_query.iter_mut() {
-
-            let distance = tank_transform.translation.distance(player_transform.translation);
-
-            if distance <= 24.0 { // радиус, с которого хп подбирается
-                player_health.give(tank.hp);
-                ev_hp_gained.send(HPGained);
-                commands.entity(tank_e).despawn();
+    for Collision(contacts) in ev_collision.read() {
+        if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
+            for (tank_e, tank) in tank_query.iter() {
+                if contacts.entity2 == tank_e {
+                    player_health.give(tank.hp);
+                    ev_hp_gained.send(HPGained);
+                    commands.entity(tank_e).despawn();
+                }
             }
+
         }
     }
 }
