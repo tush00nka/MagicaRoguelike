@@ -38,6 +38,9 @@ use exp_tank::ExpTankPlugin;
 mod health;
 use health::HealthPlugin;
 
+mod pathfinding;
+use pathfinding::PathfindingPlugin;
+
 fn main() {
 
     let mut wpgu_settings = WgpuSettings::default();
@@ -62,5 +65,6 @@ fn main() {
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins(HealthPlugin)
+        .add_plugins(PathfindingPlugin)
         .run();
 }
