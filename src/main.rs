@@ -39,7 +39,7 @@ fn main() {
         .add_plugins(ElementsPlugin)
         .add_plugins(ElementsUiPlugin)
         .add_plugins(ProjectilePlugin)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(PathfindingPlugin)
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .run();
 }
