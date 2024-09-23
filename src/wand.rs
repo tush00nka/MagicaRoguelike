@@ -30,15 +30,18 @@ fn move_rotate_wand(
     mut wand_query: Query<&mut Transform, (With<Wand>, Without<Player>)>, 
     mut player_query: Query<&Transform, (With<Player>, Without<Wand>)>,
     mouse_position: Res<MouseCoords>,
+    time : Res<Time>,
 ) {
     if let Ok(mut wand_transform) = wand_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single_mut() {
             // двигаем за игроком
-            wand_transform.translation = Vec3::new(player_transform.translation.x, player_transform.translation.y, 2.0);
+            let wand_dir = (mouse_position.0 - wand_transform.translation.truncate()).normalize_or_zero() * 16.0;
+            let wand_pos = player_transform.translation + Vec3::new(wand_dir.x, wand_dir.y, 1.0);
+            wand_transform.translation = wand_transform.translation.lerp(wand_pos, 12.0 * time.delta_seconds());
             // крутим (АААААА, ЛИНАЛ)
             let diff = Vec3::new(mouse_position.0.x, mouse_position.0.y, wand_transform.translation.z) - wand_transform.translation;
             let angle = diff.y.atan2(diff.x);
-            wand_transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), angle)
+            wand_transform.rotation = wand_transform.rotation.lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
         }
     }
 }

@@ -9,7 +9,7 @@ pub struct GameMapPlugin;
 
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LevelGenerator>();
+        app.insert_resource(LevelGenerator::default());
         app.add_systems(Startup, spawn_map);
     }
 }

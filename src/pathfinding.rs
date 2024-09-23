@@ -6,8 +6,8 @@ pub struct PathfindingPlugin;
 
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Graph>();
-        app.add_systems(Startup, create_new_graph)
+        app.insert_resource(Graph::default());
+        app.add_systems(PostStartup, create_new_graph)
             .add_systems(FixedUpdate, a_pathfinding);
     }
 }
@@ -244,7 +244,7 @@ fn a_pathfinding(
 }
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
-fn create_new_graph(room: ResMut<crate::gamemap::LevelGenerator>, mut graph_search: ResMut<Graph>) {
+fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search: ResMut<Graph>) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
     let grid = room.grid.clone();
 
