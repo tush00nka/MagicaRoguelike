@@ -1,5 +1,7 @@
 use avian2d::PhysicsPlugins;
 use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
+
+#[allow(unused)]
 use bevy_hanabi::HanabiPlugin;
 
 mod player;
@@ -38,8 +40,20 @@ use exp_tank::ExpTankPlugin;
 mod health;
 use health::HealthPlugin;
 
+mod main_menu;
+use main_menu::MainMenuPlugin;
+
 mod pathfinding;
+#[allow(unused)]
 use pathfinding::PathfindingPlugin;
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum GameState {
+    #[default]
+    MainMenu,
+    InGame,
+    Settings
+}
 
 fn main() {
 
@@ -47,7 +61,7 @@ fn main() {
     wpgu_settings.features.set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true,);
 
     App::new()
-    .insert_resource(ClearColor(Color::hsl(24.0, 0.68, 0.16)))
+        .insert_resource(ClearColor(Color::hsl(24.0, 0.68, 0.16)))
         .add_plugins(DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(RenderPlugin {
@@ -55,7 +69,9 @@ fn main() {
                 synchronous_pipeline_compilation: false,
             }))
         .add_plugins(PhysicsPlugins::default())
-        .add_plugins(HanabiPlugin)
+        .init_state::<GameState>()
+        // .add_plugins(HanabiPlugin)
+        .add_plugins(MainMenuPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)
         .add_plugins(CameraPlugin)

@@ -1,5 +1,5 @@
 //A* Pathfinding for enemies
-use crate::player::Player;
+use crate::{player::Player, GameState};
 use bevy::prelude::*;
 
 pub struct PathfindingPlugin;
@@ -7,8 +7,8 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
-        app.add_systems(PostStartup, create_new_graph)
-            .add_systems(FixedUpdate, a_pathfinding);
+        app.add_systems(OnEnter(GameState::InGame), create_new_graph)
+            .add_systems(FixedUpdate, a_pathfinding.run_if(in_state(GameState::InGame)));
     }
 }
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре

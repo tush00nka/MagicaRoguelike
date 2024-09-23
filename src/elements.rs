@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use avian2d::prelude::{Collider, Sensor};
 use rand::Rng;
 
-use crate::projectile::{Projectile, ProjectileBundle};
+use crate::{projectile::{Projectile, ProjectileBundle}, GameState};
 
 pub struct ElementsPlugin;
 
@@ -13,7 +13,7 @@ impl Plugin for ElementsPlugin {
         app
             .insert_resource(ElementBar::default())
             .add_event::<ElementBarFilled>()
-            .add_systems(Update, (fill_bar, cast_spell));
+            .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::InGame)));
     }
 }
 

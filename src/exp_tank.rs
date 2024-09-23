@@ -1,13 +1,13 @@
 use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player};
+use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player, GameState};
 
 pub struct ExpTankPlugin;
 
 impl Plugin for ExpTankPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (debug_tank, break_tank));
+        app.add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::InGame)));
     }
 }
 

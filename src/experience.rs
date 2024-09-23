@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::GameState;
+
 pub struct ExperiencePlugin;
 
 impl Plugin for ExperiencePlugin {
@@ -12,8 +14,8 @@ impl Plugin for ExperiencePlugin {
                 max_lv: 9,
             })
             .add_event::<ExpGained>()
-            .add_systems(Startup, spawn_ui)
-            .add_systems(Update, update_ui);
+            .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(Update, update_ui.run_if(in_state(GameState::InGame)));
     }
 }
 

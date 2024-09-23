@@ -1,15 +1,15 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::gamemap::ROOM_SIZE;
+use crate::{gamemap::ROOM_SIZE, GameState};
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Startup, spawn_player)
-        .add_systems(FixedUpdate, move_player);
+        .add_systems(OnEnter(GameState::InGame), spawn_player)
+        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)));
     }
 }
 
