@@ -51,6 +51,8 @@ fn spawn_ui(
     .with_children(|parent| {
         parent.spawn(ButtonBundle {
             style: Style {
+                width: Val::Px(512.0),
+                height: Val::Px(24.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::top(Val::Px(4.0)),
@@ -74,6 +76,8 @@ fn spawn_ui(
 
         parent.spawn(ButtonBundle {
             style: Style {
+                width: Val::Px(512.0),
+                height: Val::Px(24.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::top(Val::Px(4.0)),
@@ -99,12 +103,15 @@ fn spawn_ui(
 
 fn handle_buttons(
     mut game_state: ResMut<NextState<GameState>>,
-    mut buttons_query: Query<(&Interaction, &MainMenuButton, &mut BackgroundColor), Changed<Interaction>>,
-    mut app_exit_events: ResMut<Events<bevy::app::AppExit>>
+    mut buttons_query: Query<(&Interaction, &MainMenuButton, &mut Style), Changed<Interaction>>,
+    mut app_exit_events: ResMut<Events<bevy::app::AppExit>>,
 ) {
-    for (interaction, button, mut color) in buttons_query.iter_mut() {
+    for (interaction, button, mut style) in buttons_query.iter_mut() {
         match *interaction {
-            Interaction::Hovered => {}, // добавить анимации
+            Interaction::Hovered => {
+                style.width = Val::Px(512.0 * 1.1);
+                style.height = Val::Px(24.0 * 1.25);
+            }, // добавить анимации
             Interaction::Pressed => {
                 match button.0 {
                     ButtonType::NewRun => { game_state.set(GameState::InGame); },
@@ -112,7 +119,10 @@ fn handle_buttons(
                     ButtonType::Quit => { app_exit_events.send(AppExit::Success); }
                 }
             },
-            Interaction::None => {}, // откатывать анимации
+            Interaction::None => {
+                style.width = Val::Px(512.0);
+                style.height = Val::Px(24.0);
+            }, // откатывать анимации
         }
     }
 }
