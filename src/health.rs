@@ -1,6 +1,6 @@
 use avian2d::prelude::Collision;
 use bevy::prelude::*;
-use crate::player::Player;
+use crate::{player::Player, GameState};
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
@@ -11,8 +11,8 @@ impl Plugin for HealthPlugin {
                 max: 100
             })
             .add_event::<HPGained>()
-            .add_systems(Startup, spawn_ui)
-            .add_systems(Update, (update_ui, pick_up_health));
+            .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(Update, (update_ui, pick_up_health).run_if(in_state(GameState::InGame)));
     }
 }
 
@@ -93,7 +93,7 @@ fn pick_up_health(
     mut commands: Commands,
     tank_query: Query<(Entity, &HealthTank)>,
     player_query: Query<Entity, With<Player>>,
-    mut player_health: ResMut<PlayerHealth>,  
+    mut player_health: ResMut<PlayerHealth>,
     mut ev_hp_gained: EventWriter<HPGained>,
     mut ev_collision: EventReader<Collision>,
 ) {

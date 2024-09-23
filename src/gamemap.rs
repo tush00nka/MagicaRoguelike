@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{exp_tank::ExpTank, health::HealthTank};
+use crate::{exp_tank::ExpTank, health::HealthTank, GameState};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -10,7 +10,7 @@ pub struct GameMapPlugin;
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LevelGenerator::default());
-        app.add_systems(Startup, spawn_map);
+        app.add_systems(OnEnter(GameState::InGame), spawn_map);
     }
 }
 

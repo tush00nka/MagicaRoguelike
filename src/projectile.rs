@@ -3,13 +3,13 @@ use core::f32;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::gamemap::Wall;
+use crate::{gamemap::Wall, GameState};
 
 pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (move_projectile, hit_walls));
+        app.add_systems(Update, (move_projectile, hit_walls).run_if(in_state(GameState::InGame)));
     }
 }
 
