@@ -114,7 +114,7 @@ fn handle_buttons(
             }, // добавить анимации
             Interaction::Pressed => {
                 match button.0 {
-                    ButtonType::NewRun => { game_state.set(GameState::InGame); },
+                    ButtonType::NewRun => { game_state.set(GameState::Loading); },
                     ButtonType::Settings => { game_state.set(GameState::Settings); },
                     ButtonType::Quit => { app_exit_events.send(AppExit::Success); }
                 }

@@ -52,7 +52,8 @@ pub enum GameState {
     #[default]
     MainMenu,
     InGame,
-    Settings
+    Settings,
+    Loading
 }
 
 fn main() {
@@ -81,6 +82,6 @@ fn main() {
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins(HealthPlugin)
-        // .add_plugins(PathfindingPlugin)
+        .add_plugins(PathfindingPlugin)
         .run();
 }
