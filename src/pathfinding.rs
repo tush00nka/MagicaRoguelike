@@ -56,25 +56,44 @@ fn add_node_to_list(slf: &mut Graph, tup: (u16, u16), node: Node) {
 
 //получение ноды где находится объект с помощью математики
 fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
-    let i = vec.x / 32.;
-    let j = vec.y / 32.; //мб рефакторинг?
 
-    return slf.adj_list[&(i as u16, j as u16)][0].clone();
+    let (i,j) = safe_get_pos(*vec,slf);
+        for k in slf.adj_list[&(i,j)].clone() {
+            if k.position == Vec2::new(vec.x, vec.y) {
+                return k.clone();
+                }
+            }
+        return slf.adj_list[&(i,j)][0].clone();
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
+}
+fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16,u16){
+    match slf.adj_list.get(&((vec.x / 32.)as u16,(vec.y /32.) as u16)){
+        Some(lst) => {return((vec.x/32.) as u16,(vec.y/32.) as u16);}
+        None => {
+            let mut i: u16 = (vec.x / 32.) as u16;
+            let mut j: u16 = (vec.y / 32.) as u16;
+            if vec.x as u32 % 32 >= 16{
+                i+=1;
+            }
+            if vec.y as u32 % 32 >= 16{
+                j+=1;
+            }
+            return (i,j);
+        }
+    }
 }
 // получение массива нодов, в функции удаляется нод с которым смежны остальные в массиве
 fn get_list(slf: &Graph, vec: Vec2, node: Node) -> Vec<Node> {
-    let i = vec.x / 32.;
-    let j = vec.y / 32.;
+        let (i,j) = safe_get_pos(vec,slf);
 
     let mut ans = slf.adj_list[&(i as u16, j as u16)].clone();
-    for k in 0..ans.len() {
+/*     for k in 0..ans.len() {
         if ans[k].position == node.position {
             ans.remove(k);
 
             return ans;
         }
-    }
+    }*/
     return ans;
 }
 //структура нодов с ценами и путем, из них создается двумерная матрица по которой ищем и составляем путь
@@ -101,7 +120,15 @@ fn a_pathfinding(
     //    Vec<Vec2>,
     mut graph_search: ResMut<Graph>,
 ) {
-    let mob_query: Vec<Vec2> = vec![Vec2::new(64., 64.), Vec2::new(96., 96.)]; //затычка
+    let mut mob_query: Vec<Vec2> = Vec::new(); //затычка
+    let mut ind: u8 = 0;
+    for i in graph_search.adj_list.clone() {
+        if ind == 3 {
+            break;
+        }
+        mob_query.push(Vec2::new(i.0 .0 as f32 * 32., i.0 .1 as f32 * 32.));
+        ind += 1;
+    }
     for mob in mob_query {
         //получаем позицию игрока
         if let Ok(player) = player_query.get_single_mut() {
@@ -111,10 +138,10 @@ fn a_pathfinding(
             let mut field: Vec<Vec<CostNode>> = Vec::new();
 
             //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
-            for i in 0..9 {
+            for i in 0..crate::gamemap::ROOM_SIZE {
                 field.push(Vec::new());
-                for _ in 0..10 {
-                    field[i].push(CostNode::new(u8::MAX as u16));
+                for _ in 0..crate::gamemap::ROOM_SIZE {
+                    field[i as usize].push(CostNode::new(u8::MAX as u16));
                 }
             }
 
