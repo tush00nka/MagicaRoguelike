@@ -7,8 +7,14 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
-        app.add_systems(OnEnter(GameState::Loading), create_new_graph.after(crate::gamemap::spawn_map))
-            .add_systems(FixedUpdate, a_pathfinding.run_if(in_state(GameState::InGame)));
+        app.add_systems(
+            OnEnter(GameState::Loading),
+            create_new_graph.after(crate::gamemap::spawn_map),
+        )
+        .add_systems(
+            FixedUpdate,
+            a_pathfinding.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре
@@ -56,38 +62,44 @@ fn add_node_to_list(slf: &mut Graph, tup: (u16, u16), node: Node) {
 
 //получение ноды где находится объект с помощью математики
 fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
-
-    let (i,j) = safe_get_pos(*vec,slf);
-        for k in slf.adj_list[&(i,j)].clone() {
-            if k.position == Vec2::new(vec.x, vec.y) {
-                return k.clone();
-                }
-            }
-        return slf.adj_list[&(i,j)][0].clone();
+    let (i, j) = safe_get_pos(*vec, slf);
+    for k in slf.adj_list[&(i, j)].clone() {
+        if k.position == Vec2::new(vec.x, vec.y) {
+            return k.clone();
+        }
+    }
+    return slf.adj_list[&(i, j)][0].clone();
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
 }
-fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16,u16){
-    match slf.adj_list.get(&((vec.x / 32.)as u16,(vec.y /32.) as u16)){
-        Some(lst) => {return((vec.x/32.) as u16,(vec.y/32.) as u16);}
+//безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
+//нужно отдебажить, может происходить попадание в другой нод
+fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
+    match slf
+        .adj_list
+        .get(&((vec.x / 32.) as u16, (vec.y / 32.) as u16))
+    {
+        Some(_) => {
+            return ((vec.x / 32.) as u16, (vec.y / 32.) as u16);
+        }
         None => {
             let mut i: u16 = (vec.x / 32.) as u16;
             let mut j: u16 = (vec.y / 32.) as u16;
-            if vec.x as u32 % 32 >= 16{
-                i+=1;
+            if vec.x as u32 % 32 >= 16 {
+                i += 1;
             }
-            if vec.y as u32 % 32 >= 16{
-                j+=1;
+            if vec.y as u32 % 32 >= 16 {
+                j += 1;
             }
-            return (i,j);
+            return (i, j);
         }
     }
 }
 // получение массива нодов, в функции удаляется нод с которым смежны остальные в массиве
-fn get_list(slf: &Graph, vec: Vec2, node: Node) -> Vec<Node> {
-        let (i,j) = safe_get_pos(vec,slf);
+fn get_list(slf: &Graph, vec: Vec2) -> Vec<Node> {
+    let (i, j) = safe_get_pos(vec, slf);
 
-    let mut ans = slf.adj_list[&(i as u16, j as u16)].clone();
-/*     for k in 0..ans.len() {
+    let ans = slf.adj_list[&(i as u16, j as u16)].clone();
+    /*     for k in 0..ans.len() {
         if ans[k].position == node.position {
             ans.remove(k);
 
@@ -201,7 +213,7 @@ fn a_pathfinding(
 
                 //берем ноды в которые можно прийти
                 let new_reachable_potential =
-                    get_list(&mut graph_search, node.position, node.clone());
+                    get_list(&mut graph_search, node.position);
                 let mut new_reachable: Vec<Node> = Vec::new();
 
                 //записываем ноды, которые не были еще посещены и записываем их в new_reachable
@@ -271,7 +283,11 @@ fn a_pathfinding(
 }
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
-fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search: ResMut<Graph>,mut game_state: ResMut<NextState<GameState>>) {
+fn create_new_graph(
+    room: Res<crate::gamemap::LevelGenerator>,
+    mut graph_search: ResMut<Graph>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
     let grid = room.grid.clone();
 
