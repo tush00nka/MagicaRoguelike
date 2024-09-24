@@ -229,7 +229,7 @@ impl LevelGenerator {
 
 }
 
-fn spawn_map(
+pub fn spawn_map(
     mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
