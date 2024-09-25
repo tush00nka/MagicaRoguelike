@@ -317,7 +317,7 @@ pub fn spawn_map(
                             ..default()
                         })
                         .insert(RigidBody::Static)
-                        .insert(Collider::rectangle(32.0, 32.0))
+                        .insert(Collider::rectangle(31.9, 31.9))
                         .insert(Wall {});
                 },
                 _ => {}
