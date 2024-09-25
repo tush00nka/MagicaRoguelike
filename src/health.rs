@@ -96,7 +96,7 @@ fn update_ui(
     for _ev in ev_hp_gained.read() {
         if let Ok(mut style) = bar_query.get_single_mut() {
             for health in player_hp_query.iter() {
-                let percent = (health.current as f32 /health.max as f32) * 100.0; 
+                let percent = (health.current as f32 / health.max as f32) * 100.0; 
                 style.width = Val::Percent(percent);
             }
         }

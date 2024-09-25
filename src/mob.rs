@@ -42,7 +42,7 @@ fn debug_spawn_mobs(
 
                 if rng.gen::<f32>() > 0.9 {
                     let mob = commands.spawn(SpriteBundle {
-                        texture: asset_server.load("textures/player_placeholder.png"),
+                        texture: asset_server.load("textures/mob_mossling.png"),
                         transform: Transform::from_xyz( (i as i32 * ROOM_SIZE) as f32, (j as i32 * ROOM_SIZE) as f32, 1.0),
                         ..default()
                     }).id();
@@ -53,8 +53,8 @@ fn debug_spawn_mobs(
                         .insert(LockedAxes::ROTATION_LOCKED)
                         .insert(Collider::circle(6.0))
                         .insert(LinearVelocity::ZERO)
-                        .insert(Mob { path: vec![], needs_path: true, speed: 5000. })
-                        .insert(MobLoot { orbs: 3 })
+                        .insert(Mob { path: vec![], needs_path: true, speed: 2500. })
+                        .insert(MobLoot { orbs: 2 })
                         .insert(Health { max: 100, current: 100 });
                 }
             }
@@ -114,6 +114,10 @@ fn hit_projectiles(
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
                         health.damage(projectile.damage.try_into().unwrap());
                         commands.entity(proj_e.unwrap()).despawn();
+
+                        let shot_dir =  (transform.translation - projectile_transform.translation).normalize();
+                        commands.entity(mob_e.unwrap()).insert(ExternalImpulse::new(shot_dir.truncate() * 50_000.0).with_persistence(false));
+
                         if health.current <= 0 {
                             ev_death.send(DeathEvent(mob_e.unwrap()));
 
@@ -121,7 +125,6 @@ fn hit_projectiles(
                             for i in -1..(loot.orbs as i32 - 1) {
     
                                 // считаем точки, куда будем выбрасывать частицы опыта
-                                let shot_dir =  transform.translation - projectile_transform.translation;
                                 let angle = shot_dir.y.atan2(shot_dir.x) + offset * i as f32;
                                 let direction = Vec2::from_angle(angle) * 32.0;
                                 let destination = Vec3::new(transform.translation.x + direction.x, transform.translation.y + direction.y, transform.translation.z);
