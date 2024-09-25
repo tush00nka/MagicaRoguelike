@@ -12,7 +12,7 @@ impl Plugin for PathfindingPlugin {
             create_new_graph.after(crate::gamemap::spawn_map),
         )
         .add_systems(
-            FixedUpdate,
+            Update,
             a_pathfinding.run_if(in_state(GameState::InGame)),
         );
     }

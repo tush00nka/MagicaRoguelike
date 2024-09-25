@@ -1,9 +1,6 @@
 use avian2d::PhysicsPlugins;
 use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
 
-#[allow(unused)]
-use bevy_hanabi::HanabiPlugin;
-
 mod player;
 use player::PlayerPlugin;
 
@@ -71,7 +68,6 @@ fn main() {
             }))
         .add_plugins(PhysicsPlugins::default())
         .init_state::<GameState>()
-        // .add_plugins(HanabiPlugin)
         .add_plugins(MainMenuPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)

@@ -1,7 +1,7 @@
 use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player, GameState};
+use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::{self, Player}, GameState};
 
 pub struct ExpTankPlugin;
 
@@ -42,30 +42,41 @@ fn break_tank(
     tank_query: Query<(&Transform, &ExpTank, Entity)>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
+        let tank_e: Option<Entity>;
+
         if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            for (tank_transform, tank, tank_e) in tank_query.iter() {
-                if contacts.entity2 == tank_e {
+            tank_e = Some(contacts.entity2);
+        }
+        else if tank_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
+            tank_e = Some(contacts.entity1);
+        }
+        else {
+            tank_e = None;
+        }
 
-                    let offset = (2.0*PI)/tank.orbs as f32;
+        for (tank_transform, tank, candidate_e) in tank_query.iter() {
 
-                    for i in 0..tank.orbs {
+            if tank_e.is_some() && tank_e.unwrap() == candidate_e {
+                let offset = (2.0*PI)/tank.orbs as f32;
 
-                        // считаем точки, куда будем выбрасывать частицы опыта
-                        let angle = offset * i as f32;
-                        let direction = Vec2::from_angle(angle) * 32.0;
-                        let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);
-
-                        commands.spawn(SpriteBundle {
-                            texture: asset_server.load("textures/exp_particle.png"),
-                            transform: Transform::from_translation(tank_transform.translation),
-                            ..default()
-                        })
-                        .insert(ExpOrb { exp: 5 })
-                        .insert(ExpOrbDrop { drop_destination: destination });
-                    }
+                for i in 0..tank.orbs {
+    
+                    // считаем точки, куда будем выбрасывать частицы опыта
+                    let angle = offset * i as f32;
+                    let direction = Vec2::from_angle(angle) * 32.0;
+                    let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);
+    
+                    commands.spawn(SpriteBundle {
+                        texture: asset_server.load("textures/exp_particle.png"),
+                        transform: Transform::from_translation(tank_transform.translation),
+                        ..default()
+                    })
+                    .insert(ExpOrb { exp: 5 })
+                    .insert(ExpOrbDrop { drop_destination: destination });
                 }
+
+                commands.get_entity(tank_e.unwrap()).unwrap().despawn();
             }
-            commands.get_entity(contacts.entity2).unwrap().despawn();
         }
     }
 }

@@ -98,15 +98,26 @@ fn pick_up_health(
     mut ev_collision: EventReader<Collision>,
 ) {
     for Collision(contacts) in ev_collision.read() {
-        if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            for (tank_e, tank) in tank_query.iter() {
-                if contacts.entity2 == tank_e {
-                    player_health.give(tank.hp);
-                    ev_hp_gained.send(HPGained);
-                    commands.entity(tank_e).despawn();
-                }
-            }
 
+        let tank_e: Option<Entity>;
+
+        if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
+            tank_e = Some(contacts.entity2);
         }
+        else if tank_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
+            tank_e = Some(contacts.entity1);
+        }
+        else {
+            tank_e = None;
+        }
+
+        for (candiate_e, tank) in tank_query.iter() {
+            if tank_e.is_some() && tank_e.unwrap() == candiate_e {
+                player_health.give(tank.hp);
+                ev_hp_gained.send(HPGained);
+                commands.entity(tank_e.unwrap()).despawn();
+            }
+        }
+
     }
 }
