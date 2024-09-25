@@ -1,10 +1,10 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
-use avian2d::prelude::{Collider, Sensor};
+use avian2d::prelude::{Collider, CollisionLayers, FixedJoint, Joint, RigidBody};
 use rand::Rng;
 
-use crate::{projectile::{Projectile, ProjectileBundle}, GameState};
+use crate::{player::Player, projectile::{Projectile, ProjectileBundle}, shield_spell::{Shield, ShieldAnimation}, wand::Wand, GameLayer, GameState};
 
 pub struct ElementsPlugin;
 
@@ -88,7 +88,8 @@ fn cast_spell(
     asset_server: Res<AssetServer>,
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
-    player_query: Query<&Transform, With<crate::wand::Wand>>,
+    wand_query: Query<&Transform, With<Wand>>,
+    player_query: Query<(Entity, &Transform), With<Player>>,
 
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -132,12 +133,29 @@ fn cast_spell(
 
         let total_elements = fire_elements + water_elements + earth_elements + air_elements;
 
-        if let Ok(player_transform) = player_query.get_single() {
+        if let Ok(wand_transform) = wand_query.get_single() {
 
             match recipe {
 
                 120 | 130 | 140 | 150 | 160 | 170 | 180 => {
-                    spell_desc += "shield\n";
+                    if let Ok((player_e, player_transform)) = player_query.get_single() {
+                        let shield_e = commands.spawn(SpriteBundle {
+                            texture: asset_server.load("textures/shield.png"),
+                            transform: Transform {
+                                scale: Vec3::splat(0.1),
+                                translation: player_transform.translation,
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .insert(Shield { timer: Timer::new(Duration::from_secs(earth_elements as u64 * 2), TimerMode::Once) })
+                        .insert(ShieldAnimation { speed: 25.0 })
+                        .insert(RigidBody::Dynamic)
+                        .insert(Collider::circle(16.0))
+                        .insert(CollisionLayers::new(GameLayer::Shield, GameLayer::Enemy)).id();
+
+                        commands.spawn(FixedJoint::new(player_e, shield_e));
+                    }
                 }
 
                 1111 | 2222 => {
@@ -151,13 +169,13 @@ fn cast_spell(
                             let offset = PI/12.0;
                             for _i in 0..fire_elements*3 {
             
-                                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
                                 let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
             
                                 commands.spawn(ProjectileBundle {
                                     sprite: SpriteBundle {
                                         transform: Transform {
-                                            translation: player_transform.translation,
+                                            translation: wand_transform.translation,
                                             rotation: Quat::from_rotation_z(angle),
                                             ..default()
                                         },
@@ -176,7 +194,7 @@ fn cast_spell(
                                         is_friendly: true
                                     },
                                     collider: Collider::circle(8.0),
-                                    sensor: Sensor,
+                                    ..default()
                                 });
                             }
                         }
@@ -189,13 +207,13 @@ fn cast_spell(
                             let offset = PI/12.0;
                             for _i in 0..water_elements*3 {
             
-                                let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
                                 let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
             
                                 commands.spawn(ProjectileBundle {
                                     sprite: SpriteBundle {
                                         transform: Transform {
-                                            translation: player_transform.translation,
+                                            translation: wand_transform.translation,
                                             rotation: Quat::from_rotation_z(angle),
                                             ..default()
                                         },
@@ -214,7 +232,7 @@ fn cast_spell(
                                         is_friendly: true
                                     },
                                     collider: Collider::circle(8.0),
-                                    sensor: Sensor,
+                                    ..default()
                                 });
                             }
                         }
@@ -232,7 +250,7 @@ fn cast_spell(
                                 commands.spawn(ProjectileBundle {
                                     sprite: SpriteBundle {
                                         transform: Transform {
-                                            translation: player_transform.translation,
+                                            translation: wand_transform.translation,
                                             rotation: Quat::from_rotation_z(angle),
                                             ..default()
                                         },
@@ -251,7 +269,7 @@ fn cast_spell(
                                         is_friendly: true
                                     },
                                     collider: Collider::circle(12.0),
-                                    sensor: Sensor,
+                                    ..default()
                                 });
                             }
                         }
@@ -260,13 +278,13 @@ fn cast_spell(
                     if recipe % 10 > 0 {
                         spell_desc += "throwable, e.g. fireball\n";
             
-                        let dir = (mouse_coords.0 - player_transform.translation.truncate()).normalize_or_zero();
+                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
                         let angle = dir.y.atan2(dir.x);
         
                         commands.spawn(ProjectileBundle {
                             sprite: SpriteBundle {
                                 transform: Transform {
-                                    translation: player_transform.translation,
+                                    translation: wand_transform.translation,
                                     rotation: Quat::from_rotation_z(angle),
                                     scale: Vec3::ONE * total_elements as f32* 0.5,
                                     ..default()
@@ -286,7 +304,7 @@ fn cast_spell(
                                 is_friendly: true
                             },
                             collider: Collider::circle(8.0),
-                            sensor: Sensor,
+                            ..default()
                         });
                     }
                 }

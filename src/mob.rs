@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health}, projectile::Projectile, GameState};
+use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health}, projectile::Projectile, GameLayer, GameState};
 
 pub struct MobPlugin;
 
@@ -52,6 +52,7 @@ fn debug_spawn_mobs(
                         .insert(GravityScale(0.0))
                         .insert(LockedAxes::ROTATION_LOCKED)
                         .insert(Collider::circle(6.0))
+                        .insert(CollisionLayers::new(GameLayer::Enemy, [GameLayer::Wall, GameLayer::Projectile, GameLayer::Shield, GameLayer::Enemy]))
                         .insert(LinearVelocity::ZERO)
                         .insert(Mob { path: vec![], needs_path: true, speed: 2500. })
                         .insert(MobLoot { orbs: 2 })

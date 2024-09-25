@@ -36,7 +36,8 @@ fn move_rotate_wand(
     if let Ok(mut wand_transform) = wand_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single_mut() {
             // двигаем за игроком
-            if wand_transform.translation.truncate().distance(mouse_position.0) > 8.0 {
+            if player_transform.translation.truncate().distance(mouse_position.0) > 8.0 &&
+               wand_transform.translation.truncate().distance(mouse_position.0) > 2.0 {
                 let wand_dir = (mouse_position.0 - wand_transform.translation.truncate()).normalize_or_zero() * 16.0;
                 let wand_pos = player_transform.translation + Vec3::new(wand_dir.x, wand_dir.y, 1.0);
                 wand_transform.translation = wand_transform.translation.lerp(wand_pos, 12.0 * time.delta_seconds());

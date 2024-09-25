@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
+use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
 use crate::health::Health;
 
@@ -30,10 +31,11 @@ fn spawn_player(
     }).id();
 
     commands.entity(player)
-        .insert(RigidBody::Dynamic)
+        .insert(RigidBody::Kinematic)
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::circle(8.0))
+        .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile]))
         .insert(LinearVelocity::ZERO)
         .insert(Player { speed: 10000.0 })
         .insert(Health{max: 100, current: 50});
