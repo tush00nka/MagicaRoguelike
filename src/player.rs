@@ -1,7 +1,8 @@
-use bevy::prelude::*;
+use bevy::{ecs::entity, prelude::*};
 use avian2d::prelude::*;
 
 use crate::{gamemap::ROOM_SIZE, GameState};
+use crate::health::Health;
 
 pub struct PlayerPlugin;
 
@@ -33,7 +34,8 @@ fn spawn_player(
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::rectangle(16.0, 16.0))
         .insert(LinearVelocity::ZERO)
-        .insert(Player { speed: 10000.0 });
+        .insert(Player { speed: 10000.0 })
+        .insert(Health{max: 100, current: 50});
 }
 
 fn move_player(
