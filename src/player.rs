@@ -31,8 +31,9 @@ fn spawn_player(
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
+        .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Collider::rectangle(16.0, 16.0))
+        .insert(Collider::circle(8.0))
         .insert(LinearVelocity::ZERO)
         .insert(Player { speed: 10000.0 })
         .insert(Health{max: 100, current: 50});
