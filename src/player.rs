@@ -1,4 +1,4 @@
-use bevy::{ecs::entity, prelude::*};
+use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::{gamemap::ROOM_SIZE, GameState};

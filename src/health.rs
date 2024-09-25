@@ -7,6 +7,7 @@ impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<PlayerHPGained>()
+            .add_event::<DeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_ui)
             .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
     }
@@ -45,6 +46,7 @@ pub struct HealthTank{
 
 #[derive(Event)]
 struct DeathEvent(Entity);
+
 fn death(
     mut commands: Commands,
     mut ev_death: EventReader<DeathEvent>
@@ -112,10 +114,10 @@ fn pick_up_health(
 
         let tank_e: Option<Entity>;
 
-        if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
+        if tank_query.contains(contacts.entity2) && player_hp_query.contains(contacts.entity1) {
             tank_e = Some(contacts.entity2);
         }
-        else if tank_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
+        else if tank_query.contains(contacts.entity1) && player_hp_query.contains(contacts.entity2) {
             tank_e = Some(contacts.entity1);
         }
         else {
@@ -129,7 +131,7 @@ fn pick_up_health(
                     health.damage(2 * tank.hp);
                 }
                 ev_hp_gained.send(PlayerHPGained);
-                commands.entity(tank_e).despawn();
+                commands.entity(tank_e.unwrap()).despawn();
             }
         }
 
