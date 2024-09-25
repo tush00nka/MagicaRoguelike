@@ -30,6 +30,7 @@ fn spawn_player(
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
+        .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::circle(8.0))
         .insert(LinearVelocity::ZERO)

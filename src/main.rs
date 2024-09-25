@@ -44,6 +44,9 @@ mod pathfinding;
 #[allow(unused)]
 use pathfinding::PathfindingPlugin;
 
+mod mob;
+use mob::MobPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -79,5 +82,6 @@ fn main() {
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins(HealthPlugin)
         .add_plugins(PathfindingPlugin)
+        .add_plugins(MobPlugin)
         .run();
 }
