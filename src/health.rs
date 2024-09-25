@@ -1,6 +1,6 @@
 use avian2d::prelude::Collision;
-use bevy::{prelude::*, transform::commands};
-use crate::{player::{self, Player}, GameState};
+use bevy::prelude::*;
+use crate::{player::Player, GameState};
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
@@ -8,7 +8,7 @@ impl Plugin for HealthPlugin {
         app
             .add_event::<PlayerHPGained>()
             .add_systems(OnEnter(GameState::InGame), spawn_ui)
-            .add_systems(Update, (update_ui, pick_up_health).run_if(in_state(GameState::InGame)));
+            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
     }
 }
 
@@ -19,7 +19,7 @@ pub struct Health {
 }
 
 impl Health {
-    pub fn give(&mut self, value: u32) {
+    pub fn heal(&mut self, value: u32) {
         if self.current + value >= self.max {
             self.current = self.max;
         }
@@ -27,12 +27,8 @@ impl Health {
             self.current += value;
         }
     }
-    pub fn take(&mut self, value: u32,) {
-        if self.current - value > 0 {
-            self.current -= value;
-        }
-        else {
-        }
+    pub fn damage(&mut self, value: u32,) {
+        self.current -= value;
     }
 }
 
@@ -49,14 +45,12 @@ pub struct HealthTank{
 
 #[derive(Event)]
 struct DeathEvent(Entity);
-fn player_death(
+fn death(
     mut commands: Commands,
-    health_query: Query<(Entity, &Health)>,
+    mut ev_death: EventReader<DeathEvent>
 ) {
-    for (player, health) in health_query.iter() {
-        if health.current <= 0 {
-            commands.entity(player).despawn();
-        }
+    for ev in ev_death.read(){
+        commands.entity(ev.0).despawn();
     }
 }
 
@@ -127,9 +121,9 @@ fn pick_up_health(
         if tank_query.contains(contacts.entity2) && player_hp_query.contains(contacts.entity1) {
             for (tank_e, tank) in tank_query.iter() {
                 if contacts.entity2 == tank_e {
-                    for (player, mut health) in player_hp_query.iter_mut() {
-                        health.give(tank.hp);
-                        health.take(2 * tank.hp);
+                    for (_player, mut health) in player_hp_query.iter_mut() {
+                        health.heal(tank.hp);
+                        health.damage(2 * tank.hp);
                     }
                     ev_hp_gained.send(PlayerHPGained);
                     commands.entity(tank_e).despawn();
