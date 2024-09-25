@@ -6,30 +6,29 @@ pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(PlayerHealth {
-                current: 50,
-                max: 100
-            })
-            .add_event::<HPGained>()
+            .add_event::<PlayerHPGained>()
             .add_systems(OnEnter(GameState::InGame), spawn_ui)
-            .add_systems(Update, (update_ui, pick_up_health).run_if(in_state(GameState::InGame)));
+            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
     }
 }
 
-#[derive(Resource)]
-pub struct PlayerHealth {
-    max: u32,
-    current: u32,
+#[derive(Component)]
+pub struct Health {
+    pub max: u32,
+    pub current: u32,
 }
 
-impl PlayerHealth {
-    pub fn give(&mut self, value: u32) {
-        if self.current + value >= self.max{
+impl Health {
+    pub fn heal(&mut self, value: u32) {
+        if self.current + value >= self.max {
             self.current = self.max;
         }
         else {
             self.current += value;
         }
+    }
+    pub fn damage(&mut self, value: u32,) {
+        self.current -= value;
     }
 }
 
@@ -37,11 +36,22 @@ impl PlayerHealth {
 struct HPBar;
 
 #[derive(Event)]
-pub struct HPGained;
+pub struct PlayerHPGained;
 
 #[derive(Component)]
 pub struct HealthTank{
     pub hp: u32,
+}
+
+#[derive(Event)]
+struct DeathEvent(Entity);
+fn death(
+    mut commands: Commands,
+    mut ev_death: EventReader<DeathEvent>
+) {
+    for ev in ev_death.read(){
+        commands.entity(ev.0).despawn();
+    }
 }
 
 fn spawn_ui(
@@ -77,14 +87,16 @@ fn spawn_ui(
 
 fn update_ui(
     mut bar_query: Query<&mut Style, With<HPBar>>, 
-    player_hp: Res<PlayerHealth>,
-    mut ev_hp_gained: EventReader<HPGained>,
+    player_hp_query: Query<&Health, With <Player>>,
+    mut ev_hp_gained: EventReader<PlayerHPGained>,
 ) {
 
     for _ev in ev_hp_gained.read() {
         if let Ok(mut style) = bar_query.get_single_mut() {
-            let percent = (player_hp.current as f32 / player_hp.max as f32) * 100.0; 
-            style.width = Val::Percent(percent);
+            for health in player_hp_query.iter() {
+                let percent = (health.current as f32 /health.max as f32) * 100.0; 
+                style.width = Val::Percent(percent);
+            }
         }
     }
 }
@@ -92,9 +104,8 @@ fn update_ui(
 fn pick_up_health(
     mut commands: Commands,
     tank_query: Query<(Entity, &HealthTank)>,
-    player_query: Query<Entity, With<Player>>,
-    mut player_health: ResMut<PlayerHealth>,
-    mut ev_hp_gained: EventWriter<HPGained>,
+    mut player_hp_query: Query<(&Player, &mut Health)>,
+    mut ev_hp_gained: EventWriter<PlayerHPGained>,
     mut ev_collision: EventReader<Collision>,
 ) {
     for Collision(contacts) in ev_collision.read() {
@@ -113,9 +124,12 @@ fn pick_up_health(
 
         for (candiate_e, tank) in tank_query.iter() {
             if tank_e.is_some() && tank_e.unwrap() == candiate_e {
-                player_health.give(tank.hp);
-                ev_hp_gained.send(HPGained);
-                commands.entity(tank_e.unwrap()).despawn();
+                for (_player, mut health) in player_hp_query.iter_mut() {
+                    health.heal(tank.hp);
+                    health.damage(2 * tank.hp);
+                }
+                ev_hp_gained.send(PlayerHPGained);
+                commands.entity(tank_e).despawn();
             }
         }
 
