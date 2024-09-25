@@ -1,7 +1,7 @@
 use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::{self, Player}, GameState};
+use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player, GameState};
 
 pub struct ExpTankPlugin;
 
