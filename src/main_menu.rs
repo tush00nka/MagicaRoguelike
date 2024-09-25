@@ -114,9 +114,9 @@ fn handle_buttons(
             }, // добавить анимации
             Interaction::Pressed => {
                 match button.0 {
-                    ButtonType::NewRun => { game_state.set(GameState::Loading); },
-                    ButtonType::Settings => { game_state.set(GameState::Settings); },
-                    ButtonType::Quit => { app_exit_events.send(AppExit::Success); }
+                    ButtonType::NewRun => { game_state.set(GameState::Loading); }, // идём в загрузку
+                    ButtonType::Settings => { game_state.set(GameState::Settings); }, // открываем настройки
+                    ButtonType::Quit => { app_exit_events.send(AppExit::Success); } // выходим из игры
                 }
             },
             Interaction::None => {
@@ -131,8 +131,7 @@ fn despawn_ui(
     mut commands: Commands,
     ui_query: Query<Entity, With<UI>>,
 ) {
-    for e in ui_query.iter() {
-        print!("SHIT");
+    for e in ui_query.iter() { // удаляем главное меню
         commands.entity(e).despawn_recursive();
     }
 }

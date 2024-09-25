@@ -1,5 +1,7 @@
+use std::collections::{HashMap, LinkedList};
+
 //A* Pathfinding for enemies
-use crate::{player::Player, GameState};
+use crate::{gamemap::{LevelGenerator, TileType, ROOM_SIZE}, player::Player, GameState};
 use bevy::prelude::*;
 
 pub struct PathfindingPlugin;
@@ -25,7 +27,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(tile_type_new: crate::gamemap::TileType, position_new: Vec2) -> Self {
+    pub fn new(tile_type_new: TileType, position_new: Vec2) -> Self {
         Node {
             tile_type: tile_type_new,
             position: position_new,
@@ -36,13 +38,13 @@ impl Node {
 // Граф - хэшмапа массивов нодов, так называемый лист смежности, в каждом массиве - список нодов в которые можно прийти из ноды ((u16,u16) - индексы в LevelGenerator)
 #[derive(Resource)]
 pub struct Graph {
-    adj_list: std::collections::HashMap<(u16, u16), Vec<Node>>,
+    adj_list: HashMap<(u16, u16), Vec<Node>>,
 }
 
 impl Default for Graph {
     fn default() -> Graph {
         Graph {
-            adj_list: std::collections::HashMap::new(),
+            adj_list: HashMap::new(),
         }
     }
 }
@@ -112,13 +114,13 @@ fn get_list(slf: &Graph, vec: Vec2) -> Vec<Node> {
 #[derive(Clone)]
 struct CostNode {
     cost: u16,
-    path: std::collections::LinkedList<(u16, u16)>,
+    path: LinkedList<(u16, u16)>,
 }
 impl CostNode {
     fn new(cost_new: u16) -> Self {
         CostNode {
             cost: cost_new,
-            path: std::collections::LinkedList::new(),
+            path: LinkedList::new(),
         }
     }
     fn change_cost(&mut self, cost_new: u16) {
@@ -127,7 +129,7 @@ impl CostNode {
 }
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
 fn a_pathfinding(
-    mut player_query: Query<&Transform, With<Player>>, //maybe use globalTransform?
+    mut player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
     //    mob_query: // Query<(&Transform, With<Mob>)>, change when add mobs
     //    Vec<Vec2>,
     mut graph_search: ResMut<Graph>,
@@ -145,14 +147,14 @@ fn a_pathfinding(
         //получаем позицию игрока
         if let Ok(player) = player_query.get_single_mut() {
             //создаем нод где стоит моб
-            let start_node = Node::new(crate::gamemap::TileType::Floor, Vec2::new(mob.x, mob.y));
+            let start_node = Node::new(TileType::Floor, Vec2::new(mob.x, mob.y));
 
             let mut field: Vec<Vec<CostNode>> = Vec::new();
 
             //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
-            for i in 0..crate::gamemap::ROOM_SIZE {
+            for i in 0..ROOM_SIZE {
                 field.push(Vec::new());
-                for _ in 0..crate::gamemap::ROOM_SIZE {
+                for _ in 0..ROOM_SIZE {
                     field[i as usize].push(CostNode::new(u8::MAX as u16));
                 }
             }
@@ -167,8 +169,8 @@ fn a_pathfinding(
             field[(mob.x / 32.) as usize][(mob.y / 32.) as usize].change_cost(0);
 
             //создаем хэшмапы для пройденных нодов и доступных
-            let mut reachable = std::collections::HashMap::new();
-            let mut explored = std::collections::HashMap::new();
+            let mut reachable = HashMap::new();
+            let mut explored = HashMap::new();
 
             //добавляем нод с мобом в хэшмапу для доступных нодов
             reachable.insert(
@@ -284,7 +286,7 @@ fn a_pathfinding(
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
 fn create_new_graph(
-    room: Res<crate::gamemap::LevelGenerator>,
+    room: Res<LevelGenerator>,
     mut graph_search: ResMut<Graph>,
     mut game_state: ResMut<NextState<GameState>>,
 ) {
@@ -294,12 +296,12 @@ fn create_new_graph(
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
             //когда находим тайл пола, создаем новый массив в хэшмапе с этим нодом внутри, надо рефакторить, мб не стоит добавлять нод
-            if grid[i][j] == crate::gamemap::TileType::Floor {
+            if grid[i][j] == TileType::Floor {
                 add_node_list(
                     &mut graph_search,
                     (i as u16, j as u16),
                     Node::new(
-                        crate::gamemap::TileType::Floor,
+                        TileType::Floor,
                         Vec2::new(i as f32 * 32., j as f32 * 32.),
                     ),
                 );
@@ -308,30 +310,30 @@ fn create_new_graph(
                 let mut sub_grid_i = 0;
                 let mut sub_grid_j = 0;
 
-                if (grid[i][j - 1] == crate::gamemap::TileType::Wall)
-                    & (grid[i - 1][j] == crate::gamemap::TileType::Wall)
+                if (grid[i][j - 1] == TileType::Wall)
+                    & (grid[i - 1][j] == TileType::Wall)
                 {
                     sub_grid[0][0] += 1;
                     sub_grid[0][1] += 1;
                     sub_grid[1][0] += 1;
                 }
-                if (grid[i - 1][j] == crate::gamemap::TileType::Wall)
-                    & (grid[i][j + 1] == crate::gamemap::TileType::Wall)
+                if (grid[i - 1][j] == TileType::Wall)
+                    & (grid[i][j + 1] == TileType::Wall)
                 {
                     sub_grid[0][2] += 1;
                     sub_grid[0][1] += 1;
                     sub_grid[1][2] += 1;
                 }
 
-                if (grid[i][j - 1] == crate::gamemap::TileType::Wall)
-                    & (grid[i + 1][j] == crate::gamemap::TileType::Wall)
+                if (grid[i][j - 1] == TileType::Wall)
+                    & (grid[i + 1][j] == TileType::Wall)
                 {
                     sub_grid[2][0] += 1;
                     sub_grid[1][0] += 1;
                     sub_grid[2][1] += 1;
                 }
-                if (grid[i + 1][j] == crate::gamemap::TileType::Wall)
-                    & (grid[i][j + 1] == crate::gamemap::TileType::Wall)
+                if (grid[i + 1][j] == TileType::Wall)
+                    & (grid[i][j + 1] == TileType::Wall)
                 {
                     sub_grid[2][2] += 1;
                     sub_grid[2][1] += 1;
@@ -359,12 +361,12 @@ fn create_new_graph(
                         }
 
                         //добавляем в список ноду если она тайл пола
-                        if grid[k][m] == crate::gamemap::TileType::Floor {
+                        if grid[k][m] == TileType::Floor {
                             add_node_to_list(
                                 &mut graph_search,
                                 (i as u16, j as u16),
                                 Node::new(
-                                    crate::gamemap::TileType::Floor,
+                                    TileType::Floor,
                                     Vec2::new(k as f32 * 32., m as f32 * 32.),
                                 ),
                             );
@@ -390,7 +392,7 @@ fn build_path(node: CostNode) -> Vec<(u16, u16)> {
 //можно добавить что-то, например кастомные тайлы пола, по которым не будут хотеть ходить мобы
 fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>>) -> Node {
     let mut min_cost: usize = usize::MAX;
-    let mut best_node: Node = Node::new(crate::gamemap::TileType::Floor, Vec2::new(0., 0.));
+    let mut best_node: Node = Node::new(TileType::Floor, Vec2::new(0., 0.));
 
     for node in reachable {
         //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)
