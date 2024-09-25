@@ -6,7 +6,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera);
-        app.add_systems(FixedUpdate, sync_player_camera.run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, sync_player_camera.run_if(in_state(GameState::InGame)));
     }
 }
 
@@ -22,7 +22,7 @@ fn spawn_camera(
     commands.spawn(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 10.0),
         projection: OrthographicProjection {
-            scale: 0.5,
+            scale: 1.0,
             ..default()
         },
 

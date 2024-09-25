@@ -1,5 +1,7 @@
+use std::collections::{HashMap, LinkedList};
+
 //A* Pathfinding for enemies
-use crate::{player::Player, GameState};
+use crate::{gamemap::{LevelGenerator, TileType, ROOM_SIZE}, mob::Mob, player::Player, GameState};
 use bevy::prelude::*;
 
 pub struct PathfindingPlugin;
@@ -7,8 +9,14 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
-        app.add_systems(OnEnter(GameState::InGame), create_new_graph)
-            .add_systems(FixedUpdate, a_pathfinding.run_if(in_state(GameState::InGame)));
+        app.add_systems(
+            OnEnter(GameState::Loading),
+            create_new_graph.after(crate::gamemap::spawn_map),
+        )
+        .add_systems(
+            Update,
+            a_pathfinding.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре
@@ -19,7 +27,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(tile_type_new: crate::gamemap::TileType, position_new: Vec2) -> Self {
+    pub fn new(tile_type_new: TileType, position_new: Vec2) -> Self {
         Node {
             tile_type: tile_type_new,
             position: position_new,
@@ -30,13 +38,13 @@ impl Node {
 // Граф - хэшмапа массивов нодов, так называемый лист смежности, в каждом массиве - список нодов в которые можно прийти из ноды ((u16,u16) - индексы в LevelGenerator)
 #[derive(Resource)]
 pub struct Graph {
-    adj_list: std::collections::HashMap<(u16, u16), Vec<Node>>,
+    adj_list: HashMap<(u16, u16), Vec<Node>>,
 }
 
 impl Default for Graph {
     fn default() -> Graph {
         Graph {
-            adj_list: std::collections::HashMap::new(),
+            adj_list: HashMap::new(),
         }
     }
 }
@@ -56,38 +64,63 @@ fn add_node_to_list(slf: &mut Graph, tup: (u16, u16), node: Node) {
 
 //получение ноды где находится объект с помощью математики
 fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
-    let i = vec.x / 32.;
-    let j = vec.y / 32.; //мб рефакторинг?
-
-    return slf.adj_list[&(i as u16, j as u16)][0].clone();
+    let (i, j) = safe_get_pos(*vec, slf);
+    for k in slf.adj_list[&(i, j)].clone() {
+        if k.position == Vec2::new(vec.x, vec.y) {
+            return k.clone();
+        }
+    }
+    return slf.adj_list[&(i, j)][0].clone();
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
 }
+//безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
+//нужно отдебажить, может происходить попадание в другой нод
+fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
+    match slf
+        .adj_list
+        .get(&((vec.x / 32.) as u16, (vec.y / 32.) as u16))
+    {
+        Some(_) => {
+            return ((vec.x / 32.) as u16, (vec.y / 32.) as u16);
+        }
+        None => {
+            let mut i: u16 = (vec.x  / 32.) as u16;
+            let mut j: u16 = (vec.y / 32.) as u16;
+            if vec.x as u32 % 32 >= 16 {
+                i += 1;
+            }
+            if vec.y as u32 % 32 >= 16 {
+                j += 1;
+            }
+            return (i, j);
+        }
+    }
+}
 // получение массива нодов, в функции удаляется нод с которым смежны остальные в массиве
-fn get_list(slf: &Graph, vec: Vec2, node: Node) -> Vec<Node> {
-    let i = vec.x / 32.;
-    let j = vec.y / 32.;
+fn get_list(slf: &Graph, vec: Vec2) -> Vec<Node> {
+    let (i, j) = safe_get_pos(vec, slf);
 
-    let mut ans = slf.adj_list[&(i as u16, j as u16)].clone();
-    for k in 0..ans.len() {
+    let ans = slf.adj_list[&(i, j)].clone();
+    /*     for k in 0..ans.len() {
         if ans[k].position == node.position {
             ans.remove(k);
 
             return ans;
         }
-    }
+    }*/
     return ans;
 }
 //структура нодов с ценами и путем, из них создается двумерная матрица по которой ищем и составляем путь
 #[derive(Clone)]
 struct CostNode {
     cost: u16,
-    path: std::collections::LinkedList<(u16, u16)>,
+    path: LinkedList<(u16, u16)>,
 }
 impl CostNode {
     fn new(cost_new: u16) -> Self {
         CostNode {
             cost: cost_new,
-            path: std::collections::LinkedList::new(),
+            path: LinkedList::new(),
         }
     }
     fn change_cost(&mut self, cost_new: u16) {
@@ -96,167 +129,172 @@ impl CostNode {
 }
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
 fn a_pathfinding(
-    mut player_query: Query<&Transform, With<Player>>, //maybe use globalTransform?
-    //    mob_query: // Query<(&Transform, With<Mob>)>, change when add mobs
-    //    Vec<Vec2>,
+    player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
+    mut mob_query: Query<(&Transform, &mut Mob), Without<Player>>,
     mut graph_search: ResMut<Graph>,
 ) {
-    let mob_query: Vec<Vec2> = vec![Vec2::new(64., 64.), Vec2::new(96., 96.)]; //затычка
-    for mob in mob_query {
-        //получаем позицию игрока
-        if let Ok(player) = player_query.get_single_mut() {
-            //создаем нод где стоит моб
-            let start_node = Node::new(crate::gamemap::TileType::Floor, Vec2::new(mob.x, mob.y));
+    for (mob_transform, mut mob) in mob_query.iter_mut() {
+        if mob.needs_path {
+            //получаем позицию игрока
+            if let Ok(player) = player_query.get_single() {
+                //создаем нод где стоит моб
+                let start_node = Node::new(TileType::Floor, mob_transform.translation.truncate());
 
-            let mut field: Vec<Vec<CostNode>> = Vec::new();
+                let mut field: Vec<Vec<CostNode>> = Vec::new();
 
-            //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
-            for i in 0..9 {
-                field.push(Vec::new());
-                for _ in 0..10 {
-                    field[i].push(CostNode::new(u8::MAX as u16));
-                }
-            }
-
-            //делаем на основе позиции игрока goal_node
-            let goal_node = get_node_where_object_is(
-                &mut graph_search,
-                &Vec2::new(player.translation.x, player.translation.y),
-            );
-
-            //задаем нод где стоит моб нулевой ценой
-            field[(mob.x / 32.) as usize][(mob.y / 32.) as usize].change_cost(0);
-
-            //создаем хэшмапы для пройденных нодов и доступных
-            let mut reachable = std::collections::HashMap::new();
-            let mut explored = std::collections::HashMap::new();
-
-            //добавляем нод с мобом в хэшмапу для доступных нодов
-            reachable.insert(
-                (
-                    start_node.position.x as usize,
-                    start_node.position.y as usize,
-                ),
-                start_node,
-            );
-            while reachable.len() > 0 {
-                //функция выбора нода описана ниже
-                let node: Node = pick_node(
-                    reachable.values().cloned().collect(),
-                    goal_node.clone(),
-                    field.clone(),
-                );
-
-                //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам? или в ресурс
-                if node == goal_node {
-                    field[(goal_node.position.x / 32.) as usize]
-                        [(goal_node.position.y / 32.) as usize]
-                        .path
-                        .push_back((
-                            (goal_node.position.x / 32.) as u16,
-                            (goal_node.position.y / 32.) as u16,
-                        ));
-                    break;
-                    /*
-                    return build_path(
-                        field[(goal_node.position.x / 32.) as usize]
-                            [(goal_node.position.y / 32.) as usize]
-                            .clone(),
-                    );*/
-                }
-
-                //записываем что мы прошли нод и убираем из доступных
-                reachable.remove(&(node.position.x as usize, node.position.y as usize));
-                explored.insert(
-                    (node.position.x as usize, node.position.y as usize),
-                    node.clone(),
-                );
-
-                //берем ноды в которые можно прийти
-                let new_reachable_potential =
-                    get_list(&mut graph_search, node.position, node.clone());
-                let mut new_reachable: Vec<Node> = Vec::new();
-
-                //записываем ноды, которые не были еще посещены и записываем их в new_reachable
-                for potential in 0..new_reachable_potential.len() {
-                    match explored.get(&(
-                        new_reachable_potential[potential].position.x as usize,
-                        new_reachable_potential[potential].position.y as usize,
-                    )) {
-                        Some(_) => {}
-                        None => {
-                            new_reachable.push(new_reachable_potential[potential].clone());
-                        }
+                //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
+                for i in 0..ROOM_SIZE {
+                    field.push(Vec::new());
+                    for _ in 0..ROOM_SIZE {
+                        field[i as usize].push(CostNode::new(u8::MAX as u16));
                     }
                 }
 
-                //проходим по new_reachable, если нод уже есть в reachable, не добавляем
-                for adjacent in new_reachable {
-                    match reachable
-                        .get(&(adjacent.position.x as usize, adjacent.position.y as usize))
-                    {
-                        Some(_) => {}
-                        None => {
-                            reachable.insert(
-                                (adjacent.position.x as usize, adjacent.position.y as usize),
-                                adjacent.clone(),
-                            );
-                        }
-                    }
+                //делаем на основе позиции игрока goal_node
+                let goal_node = get_node_where_object_is(
+                    &mut graph_search,
+                    &Vec2::new(player.translation.x, player.translation.y),
+                );
 
-                    //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
-                    if field[(node.position.x / 32.) as usize][(node.position.y / 32.) as usize]
-                        .cost
-                        + 1
-                        < field[(adjacent.position.x / 32.) as usize]
-                            [(adjacent.position.y / 32.) as usize]
-                            .cost
-                    {
-                        field[(adjacent.position.x / 32.) as usize]
-                            [(adjacent.position.y / 32.) as usize]
-                            .path = field[(node.position.x / 32.) as usize]
-                            [(node.position.y / 32.) as usize]
+                //задаем нод где стоит моб нулевой ценой
+                field[(mob_transform.translation.x / ROOM_SIZE as f32) as usize][(mob_transform.translation.y / ROOM_SIZE as f32) as usize].change_cost(0);
+
+                //создаем хэшмапы для пройденных нодов и доступных
+                let mut reachable = HashMap::new();
+                let mut explored = HashMap::new();
+
+                //добавляем нод с мобом в хэшмапу для доступных нодов
+                reachable.insert(
+                    (
+                        start_node.position.x as usize,
+                        start_node.position.y as usize,
+                    ),
+                    start_node,
+                );
+                while reachable.len() > 0 {
+                    //функция выбора нода описана ниже
+                    let node: Node = pick_node(
+                        reachable.values().cloned().collect(),
+                        goal_node.clone(),
+                        field.clone(),
+                    );
+
+                    //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам?
+                    if node == goal_node {
+                        field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
+                            [(goal_node.position.y / ROOM_SIZE as f32) as usize]
                             .path
-                            .clone();
+                            .push_back((
+                                (goal_node.position.x / ROOM_SIZE as f32) as u16,
+                                (goal_node.position.y / ROOM_SIZE as f32) as u16,
+                            ));
 
-                        let k = (
-                            (node.position.x / 32.) as u16,
-                            (node.position.y / 32.) as u16,
+                        mob.path = build_path(
+                            field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
+                                [(goal_node.position.y / ROOM_SIZE as f32) as usize]
+                                .clone(),
                         );
 
-                        field[(adjacent.position.x / 32.) as usize]
-                            [(adjacent.position.y / 32.) as usize]
-                            .path
-                            .push_back(k);
+                        break;
+                    }
 
-                        field[(adjacent.position.x / 32.) as usize]
-                            [(adjacent.position.y / 32.) as usize]
-                            .cost = field[(node.position.x / 32.) as usize]
-                            [(node.position.y / 32.) as usize]
+                    //записываем что мы прошли нод и убираем из доступных
+                    reachable.remove(&(node.position.x as usize, node.position.y as usize));
+                    explored.insert(
+                        (node.position.x as usize, node.position.y as usize),
+                        node.clone(),
+                    );
+
+                    //берем ноды в которые можно прийти
+                    let new_reachable_potential =
+                        get_list(&mut graph_search, node.position);
+                    let mut new_reachable: Vec<Node> = Vec::new();
+
+                    //записываем ноды, которые не были еще посещены и записываем их в new_reachable
+                    for potential in 0..new_reachable_potential.len() {
+                        match explored.get(&(
+                            new_reachable_potential[potential].position.x as usize,
+                            new_reachable_potential[potential].position.y as usize,
+                        )) {
+                            Some(_) => {}
+                            None => {
+                                new_reachable.push(new_reachable_potential[potential].clone());
+                            }
+                        }
+                    }
+
+                    //проходим по new_reachable, если нод уже есть в reachable, не добавляем
+                    for adjacent in new_reachable {
+                        match reachable
+                            .get(&(adjacent.position.x as usize, adjacent.position.y as usize))
+                        {
+                            Some(_) => {}
+                            None => {
+                                reachable.insert(
+                                    (adjacent.position.x as usize, adjacent.position.y as usize),
+                                    adjacent.clone(),
+                                );
+                            }
+                        }
+
+                        //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
+                        if field[(node.position.x / ROOM_SIZE as f32) as usize][(node.position.y / ROOM_SIZE as f32) as usize]
                             .cost
-                            + 1;
+                            + 1
+                            < field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                                .cost
+                        {
+                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                                .path = field[(node.position.x / ROOM_SIZE as f32) as usize]
+                                [(node.position.y / ROOM_SIZE as f32) as usize]
+                                .path
+                                .clone();
+
+                            let k = (
+                                (node.position.x / ROOM_SIZE as f32) as u16,
+                                (node.position.y / ROOM_SIZE as f32) as u16,
+                            );
+
+                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                                .path
+                                .push_back(k);
+
+                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                                .cost = field[(node.position.x / ROOM_SIZE as f32) as usize]
+                                [(node.position.y / ROOM_SIZE as f32) as usize]
+                                .cost
+                                + 1;
+                        }
                     }
                 }
+                //     return Vec::new(); //can't use return
             }
-            //     return Vec::new(); //can't use return
         }
     }
 }
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
-fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search: ResMut<Graph>) {
+fn create_new_graph(
+    room: Res<LevelGenerator>,
+    mut graph_search: ResMut<Graph>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
     let grid = room.grid.clone();
 
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
             //когда находим тайл пола, создаем новый массив в хэшмапе с этим нодом внутри, надо рефакторить, мб не стоит добавлять нод
-            if grid[i][j] == crate::gamemap::TileType::Floor {
+            if grid[i][j] == TileType::Floor {
                 add_node_list(
                     &mut graph_search,
                     (i as u16, j as u16),
                     Node::new(
-                        crate::gamemap::TileType::Floor,
+                        TileType::Floor,
                         Vec2::new(i as f32 * 32., j as f32 * 32.),
                     ),
                 );
@@ -265,30 +303,30 @@ fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search:
                 let mut sub_grid_i = 0;
                 let mut sub_grid_j = 0;
 
-                if (grid[i][j - 1] == crate::gamemap::TileType::Wall)
-                    & (grid[i - 1][j] == crate::gamemap::TileType::Wall)
+                if (grid[i][j - 1] == TileType::Wall)
+                    & (grid[i - 1][j] == TileType::Wall)
                 {
                     sub_grid[0][0] += 1;
                     sub_grid[0][1] += 1;
                     sub_grid[1][0] += 1;
                 }
-                if (grid[i - 1][j] == crate::gamemap::TileType::Wall)
-                    & (grid[i][j + 1] == crate::gamemap::TileType::Wall)
+                if (grid[i - 1][j] == TileType::Wall)
+                    & (grid[i][j + 1] == TileType::Wall)
                 {
                     sub_grid[0][2] += 1;
                     sub_grid[0][1] += 1;
                     sub_grid[1][2] += 1;
                 }
 
-                if (grid[i][j - 1] == crate::gamemap::TileType::Wall)
-                    & (grid[i + 1][j] == crate::gamemap::TileType::Wall)
+                if (grid[i][j - 1] == TileType::Wall)
+                    & (grid[i + 1][j] == TileType::Wall)
                 {
                     sub_grid[2][0] += 1;
                     sub_grid[1][0] += 1;
                     sub_grid[2][1] += 1;
                 }
-                if (grid[i + 1][j] == crate::gamemap::TileType::Wall)
-                    & (grid[i][j + 1] == crate::gamemap::TileType::Wall)
+                if (grid[i + 1][j] == TileType::Wall)
+                    & (grid[i][j + 1] == TileType::Wall)
                 {
                     sub_grid[2][2] += 1;
                     sub_grid[2][1] += 1;
@@ -316,12 +354,12 @@ fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search:
                         }
 
                         //добавляем в список ноду если она тайл пола
-                        if grid[k][m] == crate::gamemap::TileType::Floor {
+                        if grid[k][m] == TileType::Floor {
                             add_node_to_list(
                                 &mut graph_search,
                                 (i as u16, j as u16),
                                 Node::new(
-                                    crate::gamemap::TileType::Floor,
+                                    TileType::Floor,
                                     Vec2::new(k as f32 * 32., m as f32 * 32.),
                                 ),
                             );
@@ -331,21 +369,24 @@ fn create_new_graph(room: Res<crate::gamemap::LevelGenerator>, mut graph_search:
             }
         }
     }
+    print!("Graph is generated");
+    game_state.set(GameState::InGame);
 }
-/* ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
+// ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
 fn build_path(node: CostNode) -> Vec<(u16, u16)> {
     let mut path: Vec<(u16, u16)> = Vec::new();
     for i in node.path {
         path.push(i);
     }
+    path.remove(0); // удаляем точку, в которой уже стоит моб на момент создания пути
     return path;
 }
-*/
+
 //функция выбора нода, эвристика, учитывает только расстояние до цели и длину пути,
 //можно добавить что-то, например кастомные тайлы пола, по которым не будут хотеть ходить мобы
 fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>>) -> Node {
     let mut min_cost: usize = usize::MAX;
-    let mut best_node: Node = Node::new(crate::gamemap::TileType::Floor, Vec2::new(0., 0.));
+    let mut best_node: Node = Node::new(TileType::Floor, Vec2::new(0., 0.));
 
     for node in reachable {
         //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)

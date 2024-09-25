@@ -1,9 +1,6 @@
 use avian2d::PhysicsPlugins;
 use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
 
-#[allow(unused)]
-use bevy_hanabi::HanabiPlugin;
-
 mod player;
 use player::PlayerPlugin;
 
@@ -47,12 +44,16 @@ mod pathfinding;
 #[allow(unused)]
 use pathfinding::PathfindingPlugin;
 
+mod mob;
+use mob::MobPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
     MainMenu,
     InGame,
-    Settings
+    Settings,
+    Loading
 }
 
 fn main() {
@@ -70,7 +71,6 @@ fn main() {
             }))
         .add_plugins(PhysicsPlugins::default())
         .init_state::<GameState>()
-        // .add_plugins(HanabiPlugin)
         .add_plugins(MainMenuPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)
@@ -81,6 +81,7 @@ fn main() {
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins(HealthPlugin)
-        // .add_plugins(PathfindingPlugin)
+        .add_plugins(PathfindingPlugin)
+        .add_plugins(MobPlugin)
         .run();
 }

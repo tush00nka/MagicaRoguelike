@@ -10,7 +10,7 @@ pub struct GameMapPlugin;
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LevelGenerator::default());
-        app.add_systems(OnEnter(GameState::InGame), spawn_map);
+        app.add_systems(OnEnter(GameState::Loading), spawn_map);
     }
 }
 
@@ -229,7 +229,7 @@ impl LevelGenerator {
 
 }
 
-fn spawn_map(
+pub fn spawn_map(
     mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -317,7 +317,7 @@ fn spawn_map(
                             ..default()
                         })
                         .insert(RigidBody::Static)
-                        .insert(Collider::rectangle(32.0, 32.0))
+                        .insert(Collider::rectangle(31.9, 31.9))
                         .insert(Wall {});
                 },
                 _ => {}
