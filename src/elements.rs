@@ -23,7 +23,7 @@ pub enum ElementType {
 }
 
 impl ElementType {
-    fn value(&self) -> i32 {
+    fn value(&self) -> u32 {
         match *self {
             ElementType::Fire => 1000,
             ElementType::Water => 100,
@@ -88,7 +88,7 @@ fn cast_spell(
     asset_server: Res<AssetServer>,
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
-    player_query: Query<&Transform, With<crate::player::Player>>,
+    player_query: Query<&Transform, With<crate::wand::Wand>>,
 
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -99,7 +99,7 @@ fn cast_spell(
         
         ev_bar_filled.send(ElementBarFilled);
 
-        let recipe: i32 = bar.bar.iter().map(|e| e.value()).sum();
+        let recipe: u32 = bar.bar.iter().map(|e| e.value()).sum();
 
         let mut spell_desc: String = "".to_string();
         let mut dmg = 0;
@@ -172,7 +172,7 @@ fn cast_spell(
                                     projectile: Projectile {
                                         direction: Vec2::from_angle(angle),
                                         speed: 200.0 + rng.gen_range(0.0..50.0),
-                                        damage: dmg/ fire_elements,
+                                        damage: dmg / fire_elements,
                                         is_friendly: true
                                     },
                                     collider: Collider::circle(8.0),

@@ -15,7 +15,7 @@ impl Plugin for WandPlugin {
 }
 
 #[derive(Component)]
-struct Wand;
+pub struct Wand;
 
 fn spawn_wand( // спавним палку
     mut commands: Commands,

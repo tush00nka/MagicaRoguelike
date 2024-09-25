@@ -15,12 +15,12 @@ impl Plugin for HealthPlugin {
 
 #[derive(Component)]
 pub struct Health {
-    pub max: u32,
-    pub current: u32,
+    pub max: i32,
+    pub current: i32,
 }
 
 impl Health {
-    pub fn heal(&mut self, value: u32) {
+    pub fn heal(&mut self, value: i32) {
         if self.current + value >= self.max {
             self.current = self.max;
         }
@@ -28,7 +28,7 @@ impl Health {
             self.current += value;
         }
     }
-    pub fn damage(&mut self, value: u32,) {
+    pub fn damage(&mut self, value: i32,) {
         self.current -= value;
     }
 }
@@ -41,11 +41,11 @@ pub struct PlayerHPGained;
 
 #[derive(Component)]
 pub struct HealthTank{
-    pub hp: u32,
+    pub hp: i32,
 }
 
 #[derive(Event)]
-struct DeathEvent(Entity);
+pub struct DeathEvent(pub Entity);
 
 fn death(
     mut commands: Commands,
@@ -128,7 +128,6 @@ fn pick_up_health(
             if tank_e.is_some() && tank_e.unwrap() == candiate_e {
                 for (_player, mut health) in player_hp_query.iter_mut() {
                     health.heal(tank.hp);
-                    health.damage(2 * tank.hp);
                 }
                 ev_hp_gained.send(PlayerHPGained);
                 commands.entity(tank_e.unwrap()).despawn();

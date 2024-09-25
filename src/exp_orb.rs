@@ -52,7 +52,7 @@ fn move_particles(
 
                 let direction = Vec3::new(player_transform.translation.x, player_transform.translation.y, orb_transform.translation.z);
                 //orb_transform.translation = orb_transform.translation.lerp(direction, time.delta_seconds() * (100.0 /  distance));
-                orb_transform.translation = orb_transform.translation.move_towards(direction, time.delta_seconds() * (1000.0 /  distance));
+                orb_transform.translation = orb_transform.translation.move_towards(direction, time.delta_seconds() * (5000.0 /  distance));
                 if distance <= 4.0 { // опыт считается поднятым
                     player_experience.give(orb.exp);
                     ev_exp_gained.send(ExpGained);

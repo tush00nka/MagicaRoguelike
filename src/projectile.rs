@@ -18,7 +18,7 @@ impl Plugin for ProjectilePlugin {
 pub struct Projectile {
     pub direction: Vec2,
     pub speed: f32,
-    pub damage: i32,
+    pub damage: u32,
     pub is_friendly: bool
 }
 
