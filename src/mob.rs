@@ -34,12 +34,10 @@ fn debug_spawn_mobs(
     room: Res<LevelGenerator>,
 ) {
     let grid = room.grid.clone();
-
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
-
                 if rng.gen::<f32>() > 0.9 {
                     let mob = commands.spawn(SpriteBundle {
                         texture: asset_server.load("textures/mob_mossling.png"),
@@ -70,15 +68,16 @@ fn move_mobs(
     for (mut linvel, transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
             mob.needs_path = false;
-            let mob_tile_pos = Vec2::new(transform.translation.x / ROOM_SIZE as f32, transform.translation.y / ROOM_SIZE as f32).floor();
-            let direction = Vec2::new(mob.path[0].0 as f32 - mob_tile_pos.x, mob.path[0].1 as f32 - mob_tile_pos.y);
+            //let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor();
+            let direction = Vec2::new(mob.path[0].0 as f32 * 32. - transform.translation.x, mob.path[0].1 as f32 * 32. - transform.translation.y).normalize();
 
             linvel.0 = direction * mob.speed * time.delta_seconds();
 
-            if mob_tile_pos.distance(Vec2::new(mob.path[0].0 as f32, mob.path[0].1 as f32)) <= 0.25 {
+            if transform.translation.truncate().distance(Vec2::new(mob.path[0].0 as f32 * 32., mob.path[0].1 as f32 * 32.)) <= 4. {
                 mob.needs_path = true;
                 mob.path.remove(0);
             }
+
         }
     }
 }

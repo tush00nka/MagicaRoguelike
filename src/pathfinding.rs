@@ -1,7 +1,12 @@
 use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
-use crate::{gamemap::{LevelGenerator, TileType, ROOM_SIZE}, mob::Mob, player::Player, GameState};
+use crate::{
+    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
+    mob::Mob,
+    player::Player,
+    GameState,
+};
 use bevy::prelude::*;
 
 pub struct PathfindingPlugin;
@@ -13,10 +18,7 @@ impl Plugin for PathfindingPlugin {
             OnEnter(GameState::Loading),
             create_new_graph.after(crate::gamemap::spawn_map),
         )
-        .add_systems(
-            Update,
-            a_pathfinding.run_if(in_state(GameState::InGame)),
-        );
+        .add_systems(Update, a_pathfinding.run_if(in_state(GameState::InGame)));
     }
 }
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре
@@ -76,25 +78,25 @@ fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
 //безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
 //нужно отдебажить, может происходить попадание в другой нод
 fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
-    match slf
-        .adj_list
-        .get(&((vec.x / 32.) as u16, (vec.y / 32.) as u16))
-    {
-        Some(_) => {
-            return ((vec.x / 32.) as u16, (vec.y / 32.) as u16);
-        }
-        None => {
-            let mut i: u16 = (vec.x  / 32.) as u16;
-            let mut j: u16 = (vec.y / 32.) as u16;
-            if vec.x as u32 % 32 >= 16 {
-                i += 1;
-            }
-            if vec.y as u32 % 32 >= 16 {
-                j += 1;
-            }
-            return (i, j);
+    let mut best = Vec2::new(0., 0.);
+    let mut range: usize = u32::MAX as usize;
+    for i in slf.adj_list.clone() {
+        let temp_range = distance(
+            &Node::new(TileType::Floor, vec),
+            &Node::new(
+                TileType::Floor,
+                Vec2::new(
+                    (i.0.0 as f32 * ROOM_SIZE as f32).floor(),
+                    (i.0.1 as f32 * ROOM_SIZE as f32).floor(),
+                ),
+            ),
+        );
+        if range > temp_range {
+            range = temp_range;
+            best = Vec2::new(i.0.0 as f32, i.0.1 as f32);
         }
     }
+    return (best.x.floor() as u16, best.y.floor() as u16);
 }
 // получение массива нодов, в функции удаляется нод с которым смежны остальные в массиве
 fn get_list(slf: &Graph, vec: Vec2) -> Vec<Node> {
@@ -127,6 +129,7 @@ impl CostNode {
         self.cost = cost_new;
     }
 }
+
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
 fn a_pathfinding(
     player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
@@ -138,7 +141,13 @@ fn a_pathfinding(
             //получаем позицию игрока
             if let Ok(player) = player_query.get_single() {
                 //создаем нод где стоит моб
-                let start_node = Node::new(TileType::Floor, mob_transform.translation.truncate());
+                let start_node = Node::new(
+                    TileType::Floor,
+                    Vec2::new(
+                        mob_transform.translation.x.floor(),
+                        mob_transform.translation.y.floor(),
+                    ),
+                );
 
                 let mut field: Vec<Vec<CostNode>> = Vec::new();
 
@@ -153,11 +162,12 @@ fn a_pathfinding(
                 //делаем на основе позиции игрока goal_node
                 let goal_node = get_node_where_object_is(
                     &mut graph_search,
-                    &Vec2::new(player.translation.x, player.translation.y),
+                    &Vec2::new(player.translation.x.floor(), player.translation.y.floor()),
                 );
 
                 //задаем нод где стоит моб нулевой ценой
-                field[(mob_transform.translation.x / ROOM_SIZE as f32) as usize][(mob_transform.translation.y / ROOM_SIZE as f32) as usize].change_cost(0);
+                field[mob_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
+                     [mob_transform.translation.y.floor() as usize / ROOM_SIZE as usize].change_cost(0);
 
                 //создаем хэшмапы для пройденных нодов и доступных
                 let mut reachable = HashMap::new();
@@ -182,16 +192,16 @@ fn a_pathfinding(
                     //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам?
                     if node == goal_node {
                         field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
-                            [(goal_node.position.y / ROOM_SIZE as f32) as usize]
+                             [(goal_node.position.y / ROOM_SIZE as f32) as usize]
                             .path
                             .push_back((
-                                (goal_node.position.x / ROOM_SIZE as f32) as u16,
-                                (goal_node.position.y / ROOM_SIZE as f32) as u16,
+                                ((goal_node.position.x ) / ROOM_SIZE as f32) as u16,
+                                ((goal_node.position.y ) / ROOM_SIZE as f32) as u16,
                             ));
 
                         mob.path = build_path(
-                            field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
-                                [(goal_node.position.y / ROOM_SIZE as f32) as usize]
+                            field[((goal_node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((goal_node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .clone(),
                         );
 
@@ -206,8 +216,7 @@ fn a_pathfinding(
                     );
 
                     //берем ноды в которые можно прийти
-                    let new_reachable_potential =
-                        get_list(&mut graph_search, node.position);
+                    let new_reachable_potential = get_list(&mut graph_search, node.position);
                     let mut new_reachable: Vec<Node> = Vec::new();
 
                     //записываем ноды, которые не были еще посещены и записываем их в new_reachable
@@ -238,40 +247,40 @@ fn a_pathfinding(
                         }
 
                         //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
-                        if field[(node.position.x / ROOM_SIZE as f32) as usize][(node.position.y / ROOM_SIZE as f32) as usize]
+                        if field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                            [((node.position.y ) / ROOM_SIZE as f32) as usize]
                             .cost
                             + 1
                             < field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
                                 [(adjacent.position.y / ROOM_SIZE as f32) as usize]
                                 .cost
                         {
-                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
-                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
-                                .path = field[(node.position.x / ROOM_SIZE as f32) as usize]
-                                [(node.position.y / ROOM_SIZE as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
+                                .path = field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .path
                                 .clone();
 
                             let k = (
-                                (node.position.x / ROOM_SIZE as f32) as u16,
-                                (node.position.y / ROOM_SIZE as f32) as u16,
+                                ((node.position.x ) / ROOM_SIZE as f32) as u16,
+                                ((node.position.y ) / ROOM_SIZE as f32) as u16,
                             );
 
-                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
-                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
                                 .path
                                 .push_back(k);
 
-                            field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
-                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
-                                .cost = field[(node.position.x / ROOM_SIZE as f32) as usize]
-                                [(node.position.y / ROOM_SIZE as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
+                                .cost = field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .cost
                                 + 1;
                         }
                     }
                 }
-                //     return Vec::new(); //can't use return
             }
         }
     }
@@ -295,7 +304,10 @@ fn create_new_graph(
                     (i as u16, j as u16),
                     Node::new(
                         TileType::Floor,
-                        Vec2::new(i as f32 * 32., j as f32 * 32.),
+                        Vec2::new(
+                            i as f32 * ROOM_SIZE as f32,
+                            j as f32 * ROOM_SIZE as f32,
+                        ),
                     ),
                 );
                 //otdelnyy func
@@ -303,34 +315,25 @@ fn create_new_graph(
                 let mut sub_grid_i = 0;
                 let mut sub_grid_j = 0;
 
-                if (grid[i][j - 1] == TileType::Wall)
-                    & (grid[i - 1][j] == TileType::Wall)
-                {
+                if grid[i][j - 1] == TileType::Wall {
+                    sub_grid[0][0] += 1;
+                    sub_grid[1][0] += 1;
+                    sub_grid[2][0] += 1;
+                }
+                if grid[i][j + 1] == TileType::Wall {
+                    sub_grid[0][2] += 1;
+                    sub_grid[1][2] += 1;
+                    sub_grid[2][2] += 1;
+                }
+                if grid[i - 1][j] == TileType::Wall {
                     sub_grid[0][0] += 1;
                     sub_grid[0][1] += 1;
-                    sub_grid[1][0] += 1;
-                }
-                if (grid[i - 1][j] == TileType::Wall)
-                    & (grid[i][j + 1] == TileType::Wall)
-                {
                     sub_grid[0][2] += 1;
-                    sub_grid[0][1] += 1;
-                    sub_grid[1][2] += 1;
                 }
-
-                if (grid[i][j - 1] == TileType::Wall)
-                    & (grid[i + 1][j] == TileType::Wall)
-                {
+                if grid[i + 1][j] == TileType::Wall {
                     sub_grid[2][0] += 1;
-                    sub_grid[1][0] += 1;
                     sub_grid[2][1] += 1;
-                }
-                if (grid[i + 1][j] == TileType::Wall)
-                    & (grid[i][j + 1] == TileType::Wall)
-                {
                     sub_grid[2][2] += 1;
-                    sub_grid[2][1] += 1;
-                    sub_grid[1][2] += 1;
                 }
                 //otdelnyy func vinesti
 
@@ -339,6 +342,7 @@ fn create_new_graph(
                     for m in j - 1..j + 2 {
                         //смотрим, если стены закрывают диагональ, то не добавляем их в граф смежности
                         if (k == i) & (m == j) {
+                            sub_grid_j += 1;
                             continue;
                         }
                         if (k == i - 1) & (m == j - 1) {
@@ -360,7 +364,10 @@ fn create_new_graph(
                                 (i as u16, j as u16),
                                 Node::new(
                                     TileType::Floor,
-                                    Vec2::new(k as f32 * 32., m as f32 * 32.),
+                                    Vec2::new(
+                                        k as f32 * ROOM_SIZE as f32,
+                                        m as f32 * ROOM_SIZE as f32,
+                                    ),
                                 ),
                             );
                         }
@@ -391,8 +398,9 @@ fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>
     for node in reachable {
         //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)
         let cost_to_start: usize = 10
-            * cost_grid[(node.position.x / 32.) as usize][(node.position.y / 32.) as usize].cost
-                as usize
+            * cost_grid[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                [((node.position.y ) / ROOM_SIZE as f32) as usize]
+                .cost as usize
             + 100;
 
         //добавление цены за дистанцию до нода
@@ -408,12 +416,11 @@ fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>
 }
 
 //функция расчета дистанции для функции выбора нода
-fn distance(node1: &Node, node2: &Node) -> usize {
+fn distance(node1: &Node, node2: &Node) -> usize { // maybe this comment back
     return std::cmp::min(
         (node2.position.x - node1.position.x).abs() as usize
             + (node2.position.y - node1.position.y).abs() as usize,
         ((node1.position.x - node2.position.x).powf(2.)
             + (node1.position.y - node2.position.y).powf(2.))
-        .sqrt() as usize,
-    );
+        .sqrt() as usize);
 }
