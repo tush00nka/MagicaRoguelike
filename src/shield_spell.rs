@@ -1,7 +1,6 @@
-use avian2d::prelude::{FixedJoint, LinearVelocity};
 use bevy::prelude::*;
 
-use crate::{player::Player, GameState};
+use crate::GameState;
 
 pub struct ShieldSpellPlugin;
 

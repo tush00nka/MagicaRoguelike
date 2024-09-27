@@ -42,7 +42,7 @@ impl Default for ProjectileBundle {
                 is_friendly: true,
             },
             collider: Collider::circle(8.0),
-            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player]),
+            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall]),
             sensor: Sensor
         }
     }

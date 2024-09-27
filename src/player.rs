@@ -31,7 +31,7 @@ fn spawn_player(
     }).id();
 
     commands.entity(player)
-        .insert(RigidBody::Kinematic)
+        .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::circle(8.0))

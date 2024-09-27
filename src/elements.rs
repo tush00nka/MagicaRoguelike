@@ -157,7 +157,7 @@ fn cast_spell(
                         commands.spawn(FixedJoint::new(player_e, shield_e));
                     }
                 }
-
+                
                 1111 | 2222 => {
                     spell_desc += "black hole\n";
                 }
