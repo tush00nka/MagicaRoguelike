@@ -16,6 +16,7 @@ impl Plugin for MainMenuPlugin {
 #[derive(Component)]
 struct UI;
 
+#[allow(unused)]
 enum ButtonType {
     NewRun,
     Settings,
@@ -25,6 +26,7 @@ enum ButtonType {
 #[derive(Component)]
 struct MainMenuButton(ButtonType);
 
+#[allow(unused)]
 impl MainMenuButton {
     const NEW_RUN: Self = Self(ButtonType::NewRun);
     const SETTINGS: Self = Self(ButtonType::Settings);

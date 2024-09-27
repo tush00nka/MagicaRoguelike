@@ -86,12 +86,12 @@ fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
             &Node::new(
                 TileType::Floor,
                 Vec2::new(
-                    (i.0.0 as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32).floor(),
-                    (i.0.1 as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32).floor(),
+                    (i.0.0 as f32 * ROOM_SIZE as f32).floor(),
+                    (i.0.1 as f32 * ROOM_SIZE as f32).floor(),
                 ),
             ),
         );
-        if (range > temp_range) {
+        if range > temp_range {
             range = temp_range;
             best = Vec2::new(i.0.0 as f32, i.0.1 as f32);
         }
@@ -166,7 +166,8 @@ fn a_pathfinding(
                 );
 
                 //задаем нод где стоит моб нулевой ценой
-                field[((mob_transform.translation.x.floor() as usize - (ROOM_SIZE / 2) as usize) / (ROOM_SIZE) as usize)][((mob_transform.translation.y.floor() as usize- (ROOM_SIZE / 2) as usize)/ (ROOM_SIZE) as usize)].change_cost(0);
+                field[mob_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
+                     [mob_transform.translation.y.floor() as usize / ROOM_SIZE as usize].change_cost(0);
 
                 //создаем хэшмапы для пройденных нодов и доступных
                 let mut reachable = HashMap::new();
@@ -190,17 +191,17 @@ fn a_pathfinding(
 
                     //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам?
                     if node == goal_node {
-                        field[((goal_node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                            [((goal_node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                        field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
+                             [(goal_node.position.y / ROOM_SIZE as f32) as usize]
                             .path
                             .push_back((
-                                ((goal_node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as u16,
-                                ((goal_node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as u16,
+                                ((goal_node.position.x ) / ROOM_SIZE as f32) as u16,
+                                ((goal_node.position.y ) / ROOM_SIZE as f32) as u16,
                             ));
 
                         mob.path = build_path(
-                            field[((goal_node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((goal_node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                            field[((goal_node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((goal_node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .clone(),
                         );
 
@@ -246,35 +247,35 @@ fn a_pathfinding(
                         }
 
                         //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
-                        if field[((node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                            [((node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                        if field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                            [((node.position.y ) / ROOM_SIZE as f32) as usize]
                             .cost
                             + 1
-                            < field[((adjacent.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE ) as f32) as usize]
-                                [((adjacent.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                            < field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
                                 .cost
                         {
-                            field[((adjacent.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((adjacent.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                .path = field[((node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
+                                .path = field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .path
                                 .clone();
 
                             let k = (
-                                ((node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as u16,
-                                ((node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as u16,
+                                ((node.position.x ) / ROOM_SIZE as f32) as u16,
+                                ((node.position.y ) / ROOM_SIZE as f32) as u16,
                             );
 
-                            field[((adjacent.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((adjacent.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
                                 .path
                                 .push_back(k);
 
-                            field[((adjacent.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((adjacent.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                .cost = field[((node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                                [((node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+                            field[((adjacent.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((adjacent.position.y ) / ROOM_SIZE as f32) as usize]
+                                .cost = field[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                                [((node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .cost
                                 + 1;
                         }
@@ -304,8 +305,8 @@ fn create_new_graph(
                     Node::new(
                         TileType::Floor,
                         Vec2::new(
-                            i as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32,
-                            j as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32,
+                            i as f32 * ROOM_SIZE as f32,
+                            j as f32 * ROOM_SIZE as f32,
                         ),
                     ),
                 );
@@ -364,8 +365,8 @@ fn create_new_graph(
                                 Node::new(
                                     TileType::Floor,
                                     Vec2::new(
-                                        k as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32,
-                                        m as f32 * (ROOM_SIZE) as f32 + (ROOM_SIZE / 2) as f32,
+                                        k as f32 * ROOM_SIZE as f32,
+                                        m as f32 * ROOM_SIZE as f32,
                                     ),
                                 ),
                             );
@@ -397,8 +398,8 @@ fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>
     for node in reachable {
         //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)
         let cost_to_start: usize = 10
-            * cost_grid[((node.position.x - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
-                [((node.position.y - (ROOM_SIZE / 2) as f32) / (ROOM_SIZE) as f32) as usize]
+            * cost_grid[((node.position.x ) / ROOM_SIZE as f32) as usize]
+                [((node.position.y ) / ROOM_SIZE as f32) as usize]
                 .cost as usize
             + 100;
 
