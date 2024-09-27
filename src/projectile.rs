@@ -3,7 +3,7 @@ use core::f32;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{gamemap::Wall, GameState};
+use crate::{gamemap::Wall, GameLayer, GameState};
 
 pub struct ProjectilePlugin;
 
@@ -18,7 +18,7 @@ impl Plugin for ProjectilePlugin {
 pub struct Projectile {
     pub direction: Vec2,
     pub speed: f32,
-    pub damage: i32,
+    pub damage: u32,
     pub is_friendly: bool
 }
 
@@ -27,7 +27,25 @@ pub struct ProjectileBundle {
     pub sprite: SpriteBundle,
     pub projectile: Projectile,
     pub collider: Collider,
+    pub collision_layers: CollisionLayers,
     pub sensor: Sensor,
+}
+
+impl Default for ProjectileBundle {
+    fn default() -> Self {
+        Self {
+            sprite: SpriteBundle::default(),
+            projectile: Projectile {
+                direction: Vec2::X,
+                speed: 100.0,
+                damage: 100,
+                is_friendly: true,
+            },
+            collider: Collider::circle(8.0),
+            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player]),
+            sensor: Sensor
+        }
+    }
 }
 
 fn move_projectile(

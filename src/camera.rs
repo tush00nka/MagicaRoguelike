@@ -22,7 +22,7 @@ fn spawn_camera(
     commands.spawn(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 10.0),
         projection: OrthographicProjection {
-            scale: 1.0,
+            scale: 0.75,
             ..default()
         },
 

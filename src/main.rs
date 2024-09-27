@@ -1,4 +1,4 @@
-use avian2d::PhysicsPlugins;
+use avian2d::{prelude::PhysicsLayer, PhysicsPlugins};
 use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
 
 mod player;
@@ -47,6 +47,9 @@ use pathfinding::PathfindingPlugin;
 mod mob;
 use mob::MobPlugin;
 
+mod shield_spell;
+use shield_spell::ShieldSpellPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -54,6 +57,16 @@ pub enum GameState {
     InGame,
     Settings,
     Loading
+}
+
+#[derive(PhysicsLayer)]
+pub enum GameLayer {
+    Player,
+    Enemy,
+    Projectile,
+    Wall,
+    Interactable,
+    Shield
 }
 
 fn main() {
@@ -78,6 +91,7 @@ fn main() {
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
         .add_plugins((ElementsPlugin, ElementsUiPlugin))
+        .add_plugins(ShieldSpellPlugin)
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins(HealthPlugin)
