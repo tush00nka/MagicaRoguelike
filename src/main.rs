@@ -56,7 +56,8 @@ pub enum GameState {
     MainMenu,
     InGame,
     Settings,
-    Loading
+    Loading,
+    SpellSelection
 }
 
 #[derive(PhysicsLayer)]
