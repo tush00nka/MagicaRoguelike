@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{color::palettes::css::TAN, prelude::*};
 use avian2d::prelude::*;
 use rand::Rng;
 
@@ -34,7 +34,7 @@ fn debug_spawn_mobs(
                 if rng.gen::<f32>() > 0.98 {
                     let mob = commands.spawn(SpriteBundle {
                         texture: asset_server.load("textures/player_placeholder.png"),
-                        transform: Transform::from_xyz( (i as i32 * ROOM_SIZE) as f32, (j as i32 * ROOM_SIZE) as f32, 1.0),
+                        transform: Transform::from_xyz( (i as i32 * ROOM_SIZE) as f32 + 16., (j as i32 * ROOM_SIZE) as f32 + 16., 1.0),
                         ..default()
                     }).id();
                 
@@ -57,17 +57,13 @@ fn move_mobs(
 ) {
     for (mut linvel, transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
-            for i in mob.path.clone(){
-                println!("{} {}",i.0,i.1);
-            }
-            println!("");
             mob.needs_path = false;
-            let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 4) as f32) * 2. / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 4) as f32) * 2. / ROOM_SIZE as f32).floor();
-            let direction = Vec2::new(mob.path[0].0 as f32 - mob_tile_pos.x, mob.path[0].1 as f32 - mob_tile_pos.y);
+            //let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor();
+            let direction = Vec2::new(mob.path[0].0 as f32 * 32. + 16. - transform.translation.x, mob.path[0].1 as f32 * 32. + 16. - transform.translation.y).normalize();
 
             linvel.0 = direction * mob.speed * time.delta_seconds();
 
-            if mob_tile_pos.distance(Vec2::new(mob.path[0].0 as f32, mob.path[0].1 as f32)) <= 1. {
+            if transform.translation.truncate().distance(Vec2::new(mob.path[0].0 as f32, mob.path[0].1 as f32)) <= 1. {
                 mob.needs_path = true;
                 mob.path.remove(0);
             }
