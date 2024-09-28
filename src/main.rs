@@ -57,7 +57,7 @@ pub enum GameState {
     InGame,
     Settings,
     Loading,
-    SpellSelection
+    Hub //rename?
 }
 
 #[derive(PhysicsLayer)]
