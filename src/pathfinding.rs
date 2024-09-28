@@ -135,9 +135,11 @@ fn a_pathfinding(
     player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
     mut mob_query: Query<(&Transform, &mut Mob), Without<Player>>,
     mut graph_search: ResMut<Graph>,
+    time: Res<Time>,
 ) {
     for (mob_transform, mut mob) in mob_query.iter_mut() {
-        if mob.needs_path {
+        mob.update_path_timer.tick(time.delta());
+        if mob.update_path_timer.just_finished() {
             //получаем позицию игрока
             if let Ok(player) = player_query.get_single() {
                 //создаем нод где стоит моб
