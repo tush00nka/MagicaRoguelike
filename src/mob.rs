@@ -5,11 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop},
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
-    health::{DeathEvent, Health},
-    projectile::Projectile,
-    GameLayer, GameState,
+    exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health}, level_completion::PortalEvent, projectile::Projectile, GameLayer, GameState
 };
 
 pub struct MobPlugin;
@@ -34,11 +30,12 @@ pub struct Mob {
 
 #[derive(Resource)]
 pub struct AmountOfMobs {
-    amount: u32, //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
+    amount: u32
+     //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
 }
 impl Default for AmountOfMobs {
     fn default() -> Self {
-        AmountOfMobs { amount: 0 }
+        AmountOfMobs { amount: 0}
     }
 }
 impl AmountOfMobs {
@@ -146,6 +143,7 @@ fn hit_projectiles(
     mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
     mut ev_death: EventWriter<DeathEvent>,
     mut amount_mobs: ResMut<AmountOfMobs>,
+    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         let proj_e: Option<Entity>;
@@ -207,6 +205,9 @@ fn hit_projectiles(
                                     });
                             }
                             amount_mobs.pop();
+                            if amount_mobs.amount == 0{
+                                ev_spawn_portal.send(PortalEvent{pos:transform.translation});
+                            }
                         }
                     }
                 }

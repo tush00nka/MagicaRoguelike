@@ -4,6 +4,9 @@ use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPl
 mod player;
 use player::PlayerPlugin;
 
+mod level_completion;
+use level_completion::LevelCompletionPlugin;
+
 mod camera;
 use camera::CameraPlugin;
 
@@ -67,7 +70,8 @@ pub enum GameLayer {
     Projectile,
     Wall,
     Interactable,
-    Shield
+    Shield,
+    Portal
 }
 
 fn main() {
@@ -98,5 +102,6 @@ fn main() {
         .add_plugins(HealthPlugin)
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
+        .add_plugins(LevelCompletionPlugin)
         .run();
 }
