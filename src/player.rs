@@ -11,7 +11,8 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(OnEnter(GameState::InGame), spawn_player)
-        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)));
+        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)))
+        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::Hub)));
     }
 }
 
@@ -35,7 +36,7 @@ fn spawn_player(
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::circle(8.0))
-        .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy,GameLayer::Portal]))
+        .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
         .insert(Player { speed: 10000.0 })
         .insert(Health{max: 100, current: 50});

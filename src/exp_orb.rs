@@ -6,7 +6,8 @@ pub struct ExpOrbPlugin;
 
 impl Plugin for ExpOrbPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (drop_particles, move_particles).run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, (drop_particles, move_particles).run_if(in_state(GameState::InGame)))
+        .add_systems(Update, (drop_particles, move_particles).run_if(in_state(GameState::Hub)));
     }
 }
 

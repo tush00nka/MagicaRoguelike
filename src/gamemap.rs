@@ -22,7 +22,7 @@ pub enum TileType {
 }
 
 #[derive(Component, Clone, Copy)]
-struct Floor {}
+pub struct Floor {}
 
 #[derive(Component, Clone, Copy)]
 pub struct Wall {}

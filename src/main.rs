@@ -70,8 +70,7 @@ pub enum GameLayer {
     Projectile,
     Wall,
     Interactable,
-    Shield,
-    Portal
+    Shield
 }
 
 fn main() {

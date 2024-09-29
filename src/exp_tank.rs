@@ -7,7 +7,8 @@ pub struct ExpTankPlugin;
 
 impl Plugin for ExpTankPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::InGame)))
+        .add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::Hub)));
     }
 }
 

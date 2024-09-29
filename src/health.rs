@@ -9,6 +9,7 @@ impl Plugin for HealthPlugin {
             .add_event::<PlayerHPGained>()
             .add_event::<DeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::Hub)))
             .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
     }
 }
