@@ -55,6 +55,9 @@ use mob::MobPlugin;
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
 
+mod gameover;
+use gameover::GameOverPlugin;
+
 mod animation;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -64,7 +67,9 @@ pub enum GameState {
     InGame,
     Settings,
     Loading,
-    Hub //rename?
+    //SpellSelection,
+    GameOver,
+    Hub,
 }
 
 #[derive(PhysicsLayer)]
@@ -105,6 +110,7 @@ fn main() {
         .add_plugins(HealthPlugin)
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
+        .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HubPlugin)
         .run();

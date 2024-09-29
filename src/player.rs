@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::mouse_position::MouseCoords;
-use crate::GameLayer;
+use crate::{health, GameLayer};
 use crate::{gamemap::ROOM_SIZE, GameState};
-use crate::health::Health;
+use crate::health::*;
 
 use crate::animation::AnimationConfig;
 
@@ -15,10 +15,13 @@ impl Plugin for PlayerPlugin {
         app
         .add_systems(OnExit(GameState::MainMenu), spawn_player)
         .add_systems(OnExit(GameState::Hub), reset_player_position)
-        .add_systems(Update, (animate_player, flip_towards_mouse))
+        .add_systems(Update, (animate_player, flip_towards_mouse, take_damage))
         .add_systems(FixedUpdate, move_player);
     }
 }
+
+#[derive(Event)]
+pub struct PlayerDeathEvent;
 
 #[derive(Component, Clone, Copy)]
 pub struct Player {
@@ -134,6 +137,23 @@ fn flip_towards_mouse(
         }
         else {
             sprite.flip_x = false;
+        }
+    }
+}
+
+fn take_damage(
+    mut ev_death: EventWriter<DeathEvent>,
+    mut ev_hp: EventWriter<PlayerHPChanged>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut health_query: Query<(&mut Health, Entity), With<Player>>
+){
+    if keyboard.just_pressed(KeyCode::KeyZ) {
+        if let Ok((mut health, ent)) = health_query.get_single_mut(){
+            health.damage(25);
+            ev_hp.send(PlayerHPChanged);
+            if health.current <= 0 {
+                ev_death.send(DeathEvent(ent));
+            }
         }
     }
 }
