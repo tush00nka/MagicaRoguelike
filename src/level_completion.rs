@@ -13,44 +13,22 @@ impl Plugin for LevelCompletionPlugin {
         .add_systems(Update, spawn_portal.run_if(in_state(GameState::Hub)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
-            .add_systems(
-                OnEnter(GameState::Hub),
+            .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,
-            )
-            .add_systems(
-                OnEnter(GameState::Hub),
                 despawn_all_with::<crate::health::HealthTank>,
-            )
-            .add_systems(
-                OnEnter(GameState::Hub),
                 despawn_all_with::<crate::gamemap::Floor>,
-            )
-            .add_systems(
-                OnEnter(GameState::Hub),
                 despawn_all_with::<crate::gamemap::Wall>,
-            )
-            .add_systems(
-                OnEnter(GameState::Hub),
                 despawn_all_with::<crate::exp_orb::ExpOrb>,
-            )
-            .add_systems(
-                OnExit(GameState::Hub),
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<Portal>,
+            ))
+            .add_systems(OnExit(GameState::Hub), (
                 despawn_all_with::<crate::gamemap::Wall>,
-            )
-            .add_systems(
-                OnExit(GameState::Hub),
                 despawn_all_with::<crate::gamemap::Floor>,
-            )
-            .add_systems(
-                OnExit(GameState::Hub),
-                despawn_all_with::<Player>,
-            )
-            .add_systems(
-                OnExit(GameState::Hub),
                 despawn_all_with::<crate::wand::Wand>,
-            )//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
-            .add_systems(OnEnter(GameState::Hub), despawn_all_with::<Portal>)
-            .add_systems(OnExit(GameState::Hub), despawn_all_with::<Portal>)
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<Portal>,
+            ))//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
             .insert_resource(PortalPosition::default());
     }
 }
@@ -79,9 +57,8 @@ fn spawn_portal(
         commands
             .entity(portal)
             .insert(RigidBody::Static)
-            .insert(GravityScale(0.0))
-            .insert(LockedAxes::ROTATION_LOCKED)
             .insert(Collider::circle(6.0))
+            .insert(Sensor)
             .insert(CollisionLayers::new(
                 GameLayer::Interactable,
                 [GameLayer::Player],
@@ -92,8 +69,8 @@ fn spawn_portal(
 
 fn collision_portal(
     mut collision_event_reader: EventReader<Collision>,
-    player_query: Query<(&Transform, Entity), With<Player>>,
-    portal_query: Query<(&Transform, Entity), With<Portal>>,
+    player_query: Query<(&Transform, Entity), (With<Player>, Without<Portal>)>,
+    portal_query: Query<(&Transform, Entity), (With<Portal>, Without<Player>)>,
     mut game_state: ResMut<NextState<GameState>>,
     current_state: Res<State<GameState>>,
     mut amount_mobs: ResMut<PortalPosition>
@@ -102,7 +79,7 @@ fn collision_portal(
         if player_query.contains(contacts.entity2) && portal_query.contains(contacts.entity1)
             || player_query.contains(contacts.entity1) && portal_query.contains(contacts.entity2)
         {
-            match (current_state.get()) {
+            match current_state.get() {
                 GameState::InGame => {
                     game_state.set(GameState::Hub);
                 }
@@ -115,7 +92,8 @@ fn collision_portal(
         }
     }
 }
-fn despawn_all_with<C: Component>(query: Query<Entity, With<C>>, mut commands: Commands) {
+
+pub fn despawn_all_with<C: Component>(query: Query<Entity, With<C>>, mut commands: Commands) {
     for e in query.iter() {
         commands.entity(e).despawn();
     }

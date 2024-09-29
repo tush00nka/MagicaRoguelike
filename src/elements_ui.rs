@@ -7,7 +7,7 @@ pub struct ElementsUiPlugin;
 impl Plugin for ElementsUiPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(OnExit(GameState::MainMenu), spawn_ui)
             .add_systems(Update, (update_ui, add_slots_from_lv).run_if(in_state(GameState::Hub)))
             .add_systems(Update, (update_ui, add_slots_from_lv).run_if(in_state(GameState::InGame)));
     }
