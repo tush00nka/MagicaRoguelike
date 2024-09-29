@@ -15,8 +15,8 @@ impl Plugin for PlayerPlugin {
         app
         .add_systems(OnExit(GameState::MainMenu), spawn_player)
         .add_systems(OnExit(GameState::Hub), reset_player_position)
-        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)))
-        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::Hub)));
+        .add_systems(Update, (animate_player, flip_towards_mouse))
+        .add_systems(FixedUpdate, move_player);
     }
 }
 
