@@ -5,14 +5,19 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health}, level_completion::PortalEvent, projectile::Projectile, GameLayer, GameState
+    exp_orb::{ExpOrb, ExpOrbDrop},
+    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
+    health::{DeathEvent, Health},
+    level_completion::PortalEvent,
+    projectile::Projectile,
+    GameLayer, GameState,
 };
 
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(AmountOfMobs::default())
+        app.insert_resource(PortalPosition::default())
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
@@ -29,21 +34,18 @@ pub struct Mob {
 }
 
 #[derive(Resource)]
-pub struct AmountOfMobs {
-    amount: u32
-     //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
+pub struct PortalPosition {
+    position: Vec3,
+    check: bool //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
 }
-impl Default for AmountOfMobs {
-    fn default() -> Self {
-        AmountOfMobs { amount: 0}
+impl Default for PortalPosition{
+    fn default() -> PortalPosition{
+        PortalPosition{position: Vec3{x:0.,y:0.,z:0.},check: false}
     }
 }
-impl AmountOfMobs {
-    fn add(&mut self) {
-        self.amount += 1;
-    }
-    fn pop(&mut self) {
-        self.amount -= 1;
+impl PortalPosition {
+    fn set_pos(&mut self, pos:Vec3){
+        self.position = pos;
     }
 }
 
@@ -56,7 +58,7 @@ fn debug_spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
-    mut amount_mobs: ResMut<AmountOfMobs>,
+    mut amount_mobs: ResMut<PortalPosition>,
 ) {
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
@@ -103,7 +105,6 @@ fn debug_spawn_mobs(
                             max: 100,
                             current: 100,
                         });
-                    amount_mobs.add();
                 }
             }
         }
@@ -142,13 +143,13 @@ fn hit_projectiles(
     projectile_query: Query<(Entity, &Projectile, &Transform)>,
     mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
     mut ev_death: EventWriter<DeathEvent>,
-    mut amount_mobs: ResMut<AmountOfMobs>,
-    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>
+    mut amount_mobs: ResMut<PortalPosition>,
+    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         let proj_e: Option<Entity>;
         let mob_e: Option<Entity>;
-
+        
         if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
             proj_e = Some(contacts.entity2);
             mob_e = Some(contacts.entity1);
@@ -160,6 +161,11 @@ fn hit_projectiles(
         } else {
             proj_e = None;
             mob_e = None;
+        }
+        
+        if mob_query.is_empty() && !amount_mobs.check{
+            amount_mobs.check = true;
+            ev_spawn_portal.send( PortalEvent{pos:amount_mobs.position});
         }
 
         for (candidate_e, mut health, transform, loot) in mob_query.iter_mut() {
@@ -178,6 +184,7 @@ fn hit_projectiles(
                         );
 
                         if health.current <= 0 {
+                            amount_mobs.set_pos(transform.translation);
                             ev_death.send(DeathEvent(mob_e.unwrap()));
 
                             let offset = PI / 12.;
@@ -203,10 +210,6 @@ fn hit_projectiles(
                                     .insert(ExpOrbDrop {
                                         drop_destination: destination,
                                     });
-                            }
-                            amount_mobs.pop();
-                            if amount_mobs.amount == 0{
-                                ev_spawn_portal.send(PortalEvent{pos:transform.translation});
                             }
                         }
                     }

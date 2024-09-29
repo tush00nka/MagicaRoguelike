@@ -1,4 +1,4 @@
-use crate::{mob::AmountOfMobs, GameState};
+use crate::{mob::PortalPosition, GameState};
 use crate::GameLayer;
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -9,7 +9,7 @@ impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
             .add_systems(Update, spawn_portal.run_if(in_state(GameState::InGame)))
-            .insert_resource(AmountOfMobs::default());
+            .insert_resource(PortalPosition::default());
     }
 }
 
