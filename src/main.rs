@@ -22,6 +22,8 @@ use wand::WandPlugin;
 mod elements;
 use elements::ElementsPlugin;
 
+mod hub_location;
+use hub_location::HubPlugin;
 mod elements_ui;
 use elements_ui::ElementsUiPlugin;
 
@@ -102,5 +104,6 @@ fn main() {
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
         .add_plugins(LevelCompletionPlugin)
+        .add_plugins(HubPlugin)
         .run();
 }

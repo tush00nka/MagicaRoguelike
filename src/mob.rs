@@ -36,7 +36,7 @@ pub struct Mob {
 #[derive(Resource)]
 pub struct PortalPosition {
     position: Vec3,
-    check: bool //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
+    pub check: bool //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
 }
 impl Default for PortalPosition{
     fn default() -> PortalPosition{
@@ -58,7 +58,6 @@ fn debug_spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
-    mut amount_mobs: ResMut<PortalPosition>,
 ) {
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
@@ -146,6 +145,10 @@ fn hit_projectiles(
     mut amount_mobs: ResMut<PortalPosition>,
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
 ) {
+    if mob_query.is_empty() && !amount_mobs.check{
+        amount_mobs.check = true;
+        ev_spawn_portal.send( PortalEvent{pos:amount_mobs.position});
+    }
     for Collision(contacts) in collision_event_reader.read() {
         let proj_e: Option<Entity>;
         let mob_e: Option<Entity>;
@@ -161,11 +164,6 @@ fn hit_projectiles(
         } else {
             proj_e = None;
             mob_e = None;
-        }
-        
-        if mob_query.is_empty() && !amount_mobs.check{
-            amount_mobs.check = true;
-            ev_spawn_portal.send( PortalEvent{pos:amount_mobs.position});
         }
 
         for (candidate_e, mut health, transform, loot) in mob_query.iter_mut() {

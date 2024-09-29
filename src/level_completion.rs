@@ -9,8 +9,10 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-            .add_systems(Update, spawn_portal.run_if(in_state(GameState::InGame)))
+        .add_systems(Update, spawn_portal.run_if(in_state(GameState::InGame)))
+        .add_systems(Update, spawn_portal.run_if(in_state(GameState::Hub)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
+            .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
             .add_systems(
                 OnEnter(GameState::Hub),
                 despawn_all_with::<crate::exp_tank::ExpTank>,
@@ -27,7 +29,28 @@ impl Plugin for LevelCompletionPlugin {
                 OnEnter(GameState::Hub),
                 despawn_all_with::<crate::gamemap::Wall>,
             )
+            .add_systems(
+                OnEnter(GameState::Hub),
+                despawn_all_with::<crate::exp_orb::ExpOrb>,
+            )
+            .add_systems(
+                OnExit(GameState::Hub),
+                despawn_all_with::<crate::gamemap::Wall>,
+            )
+            .add_systems(
+                OnExit(GameState::Hub),
+                despawn_all_with::<crate::gamemap::Floor>,
+            )
+            .add_systems(
+                OnExit(GameState::Hub),
+                despawn_all_with::<Player>,
+            )
+            .add_systems(
+                OnExit(GameState::Hub),
+                despawn_all_with::<crate::wand::Wand>,
+            )//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
             .add_systems(OnEnter(GameState::Hub), despawn_all_with::<Portal>)
+            .add_systems(OnExit(GameState::Hub), despawn_all_with::<Portal>)
             .insert_resource(PortalPosition::default());
     }
 }
@@ -72,12 +95,23 @@ fn collision_portal(
     player_query: Query<(&Transform, Entity), With<Player>>,
     portal_query: Query<(&Transform, Entity), With<Portal>>,
     mut game_state: ResMut<NextState<GameState>>,
+    current_state: Res<State<GameState>>,
+    mut amount_mobs: ResMut<PortalPosition>
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         if player_query.contains(contacts.entity2) && portal_query.contains(contacts.entity1)
             || player_query.contains(contacts.entity1) && portal_query.contains(contacts.entity2)
         {
-            game_state.set(GameState::Hub);
+            match (current_state.get()) {
+                GameState::InGame => {
+                    game_state.set(GameState::Hub);
+                }
+                GameState::Hub =>{
+                    game_state.set(GameState::Loading);
+                    amount_mobs.check = false;
+                }
+                _ => {}
+            }
         }
     }
 }
