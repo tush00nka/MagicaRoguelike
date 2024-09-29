@@ -15,7 +15,7 @@ impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
         app.add_systems(
-            OnEnter(GameState::Loading),
+            OnExit(GameState::Loading),
             create_new_graph.after(crate::gamemap::spawn_map),
         )
         .add_systems(Update, a_pathfinding.run_if(in_state(GameState::InGame)));
@@ -135,9 +135,11 @@ fn a_pathfinding(
     player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
     mut mob_query: Query<(&Transform, &mut Mob), Without<Player>>,
     mut graph_search: ResMut<Graph>,
+    time: Res<Time>,
 ) {
     for (mob_transform, mut mob) in mob_query.iter_mut() {
-        if mob.needs_path {
+        mob.update_path_timer.tick(time.delta());
+        if mob.update_path_timer.just_finished() {
             //получаем позицию игрока
             if let Ok(player) = player_query.get_single() {
                 //создаем нод где стоит моб
@@ -290,7 +292,6 @@ fn a_pathfinding(
 fn create_new_graph(
     room: Res<LevelGenerator>,
     mut graph_search: ResMut<Graph>,
-    mut game_state: ResMut<NextState<GameState>>,
 ) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
     let grid = room.grid.clone();
@@ -377,7 +378,6 @@ fn create_new_graph(
         }
     }
     print!("Graph is generated");
-    game_state.set(GameState::InGame);
 }
 // ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
 fn build_path(node: CostNode) -> Vec<(u16, u16)> {

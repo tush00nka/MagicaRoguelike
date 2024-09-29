@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{exp_tank::ExpTank, health::HealthTank, GameState};
+use crate::{exp_tank::ExpTank, health::HealthTank, GameLayer, GameState};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -234,6 +234,7 @@ pub fn spawn_map(
     mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut game_state: ResMut<NextState<GameState>>,
 ) {
     room.start();
     let room_height = room.room_height;
@@ -319,10 +320,13 @@ pub fn spawn_map(
                         })
                         .insert(RigidBody::Static)
                         .insert(Collider::rectangle(31.9, 31.9))
+                        .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
                         .insert(Wall);
                 },
                 _ => {}
             }
         }
     }
+
+    game_state.set(GameState::InGame);
 }

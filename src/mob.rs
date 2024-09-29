@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -28,8 +28,8 @@ impl Plugin for MobPlugin {
 
 #[derive(Component)]
 pub struct Mob {
-    pub path: Vec<(u16, u16)>,
-    pub needs_path: bool,
+    pub path: Vec<(u16, u16)>, 
+    pub update_path_timer: Timer,
     speed: f32,
 }
 
@@ -94,11 +94,7 @@ fn debug_spawn_mobs(
                             ],
                         ))
                         .insert(LinearVelocity::ZERO)
-                        .insert(Mob {
-                            path: vec![],
-                            needs_path: true,
-                            speed: 2500.,
-                        })
+                        .insert(Mob { path: vec![], update_path_timer: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(500..900)), TimerMode::Repeating), speed: 2500. })
                         .insert(MobLoot { orbs: 2 })
                         .insert(Health {
                             max: 100,
@@ -113,7 +109,6 @@ fn debug_spawn_mobs(
 fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Mob)>, time: Res<Time>) {
     for (mut linvel, transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
-            mob.needs_path = false;
             //let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor();
             let direction = Vec2::new(
                 mob.path[0].0 as f32 * 32. - transform.translation.x,
@@ -123,12 +118,7 @@ fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Mob)>, 
 
             linvel.0 = direction * mob.speed * time.delta_seconds();
 
-            if transform.translation.truncate().distance(Vec2::new(
-                mob.path[0].0 as f32 * 32.,
-                mob.path[0].1 as f32 * 32.,
-            )) <= 4.
-            {
-                mob.needs_path = true;
+            if transform.translation.truncate().distance(Vec2::new(mob.path[0].0 as f32 * 32., mob.path[0].1 as f32 * 32.)) <= 4. {
                 mob.path.remove(0);
             }
         }

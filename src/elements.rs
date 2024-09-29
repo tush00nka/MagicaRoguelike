@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
-use avian2d::prelude::{Collider, CollisionLayers, FixedJoint, Joint, RigidBody};
+use avian2d::prelude::{Collider, CollisionLayers, FixedJoint, GravityScale, Joint, RigidBody};
 use rand::Rng;
 
 use crate::{player::Player, projectile::{Projectile, ProjectileBundle}, shield_spell::{Shield, ShieldAnimation}, wand::Wand, GameLayer, GameState};
@@ -152,13 +152,14 @@ fn cast_spell(
                         .insert(Shield { timer: Timer::new(Duration::from_secs(earth_elements as u64 * 2), TimerMode::Once) })
                         .insert(ShieldAnimation { speed: 25.0 })
                         .insert(RigidBody::Dynamic)
+                        .insert(GravityScale(0.0))
                         .insert(Collider::circle(16.0))
                         .insert(CollisionLayers::new(GameLayer::Shield, GameLayer::Enemy)).id();
 
                         commands.spawn(FixedJoint::new(player_e, shield_e));
                     }
                 }
-                
+
                 1111 | 2222 => {
                     spell_desc += "black hole\n";
                 }

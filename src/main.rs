@@ -55,6 +55,8 @@ use mob::MobPlugin;
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
 
+mod animation;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
