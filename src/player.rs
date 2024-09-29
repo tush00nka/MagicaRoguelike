@@ -13,9 +13,10 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(OnEnter(GameState::InGame), spawn_player)
+        .add_systems(OnExit(GameState::MainMenu), spawn_player)
+        .add_systems(OnExit(GameState::Hub), reset_player_position)
         .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)))
-        .add_systems(Update, (animate_player, flip_towards_mouse).run_if(in_state(GameState::InGame)));
+        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::Hub)));
     }
 }
 
@@ -82,6 +83,14 @@ fn move_player(
         }
 
         player_velocity.0 = direction.normalize_or_zero() * player.speed * time.delta_seconds();
+    }
+}
+
+fn reset_player_position(
+    mut player_query: Query<&mut Transform, With<Player>>,
+) {
+    if let Ok(mut transform) = player_query.get_single_mut() {
+        transform.translation = Vec3::new((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0);
     }
 }
 

@@ -14,7 +14,8 @@ impl Plugin for ExperiencePlugin {
                 max_lv: 9,
             })
             .add_event::<ExpGained>()
-            .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(OnExit(GameState::MainMenu), spawn_ui)
+            .add_systems(Update, update_ui.run_if(in_state(GameState::Hub)))
             .add_systems(Update, update_ui.run_if(in_state(GameState::InGame)));
     }
 }
@@ -41,6 +42,9 @@ impl PlayerExperience {
 }
 
 #[derive(Component)]
+pub struct ExpBarUI;
+
+#[derive(Component)]
 struct ExpBar;
 
 #[derive(Event)]
@@ -58,7 +62,9 @@ fn spawn_ui(
             ..default()
         },
         ..default()
-    }).with_children(|parent| { // сама полоска опыта
+    })
+    .insert(ExpBarUI)
+    .with_children(|parent| { // сама полоска опыта
         parent.spawn(ImageBundle {
             image: UiImage::solid_color(Color::hsl(35.0, 1.0, 0.5)),
             style: Style {

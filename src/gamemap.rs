@@ -22,10 +22,10 @@ pub enum TileType {
 }
 
 #[derive(Component, Clone, Copy)]
-struct Floor {}
+pub struct Floor;
 
 #[derive(Component, Clone, Copy)]
-pub struct Wall {}
+pub struct Wall;
 
 pub struct Walker {
     dir: (f32, f32),
@@ -110,6 +110,7 @@ impl LevelGenerator {
             pos: spawn_pos,
         };
 
+        self.walkers = Vec::new();
         self.walkers.push(new_walker);
     }
 
@@ -257,7 +258,7 @@ pub fn spawn_map(
                         })
                         //.insert(RigidBody::Fixed)
                         //.insert(Collider::cuboid(16.0, 16.0))
-                        .insert(Floor {});
+                        .insert(Floor);
 
                     if rand::thread_rng().gen::<f32>() > chance_tank_spawn {
 
@@ -320,7 +321,7 @@ pub fn spawn_map(
                         .insert(RigidBody::Static)
                         .insert(Collider::rectangle(31.9, 31.9))
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
-                        .insert(Wall {});
+                        .insert(Wall);
                 },
                 _ => {}
             }

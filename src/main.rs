@@ -4,6 +4,9 @@ use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPl
 mod player;
 use player::PlayerPlugin;
 
+mod level_completion;
+use level_completion::LevelCompletionPlugin;
+
 mod camera;
 use camera::CameraPlugin;
 
@@ -19,6 +22,8 @@ use wand::WandPlugin;
 mod elements;
 use elements::ElementsPlugin;
 
+mod hub_location;
+use hub_location::HubPlugin;
 mod elements_ui;
 use elements_ui::ElementsUiPlugin;
 
@@ -59,7 +64,7 @@ pub enum GameState {
     InGame,
     Settings,
     Loading,
-    SpellSelection
+    Hub //rename?
 }
 
 #[derive(PhysicsLayer)]
@@ -100,5 +105,7 @@ fn main() {
         .add_plugins(HealthPlugin)
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
+        .add_plugins(LevelCompletionPlugin)
+        .add_plugins(HubPlugin)
         .run();
 }

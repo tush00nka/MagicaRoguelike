@@ -6,7 +6,8 @@ pub struct ShieldSpellPlugin;
 
 impl Plugin for ShieldSpellPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, (animate_shield, despawn_shield).run_if(in_state(GameState::InGame)));
+        app.add_systems(FixedUpdate, (animate_shield, despawn_shield).run_if(in_state(GameState::InGame)))
+        .add_systems(FixedUpdate, (animate_shield, despawn_shield).run_if(in_state(GameState::Hub)));
     }
 }
 
