@@ -13,6 +13,7 @@ impl Plugin for ElementsPlugin {
         app
             .insert_resource(ElementBar::default())
             .add_event::<ElementBarFilled>()
+            .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::Hub)))
             .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::InGame)));
     }
 }

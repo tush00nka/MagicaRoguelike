@@ -8,7 +8,8 @@ impl Plugin for HealthPlugin {
         app
             .add_event::<PlayerHPChanged>()
             .add_event::<DeathEvent>()
-            .add_systems(OnEnter(GameState::InGame), spawn_ui)
+            .add_systems(OnExit(GameState::MainMenu), spawn_ui)
+            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::Hub)))
             .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
     }
 }
@@ -32,6 +33,9 @@ impl Health {
         self.current -= value;
     }
 }
+
+#[derive(Component)]
+pub struct HPBarUI;
 
 #[derive(Component)]
 struct HPBar;
@@ -78,7 +82,9 @@ fn spawn_ui(
             ..default()
         },
         ..default()
-    }).with_children(|parent| { // сама полоска ХП
+    })
+    .insert(HPBarUI)
+    .with_children(|parent| { // сама полоска ХП
         parent.spawn(ImageBundle {
             image: UiImage::solid_color(Color::hsl(0.0, 1.0, 0.4)),
             style: Style {

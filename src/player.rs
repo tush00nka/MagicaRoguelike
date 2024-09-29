@@ -13,9 +13,10 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(OnEnter(GameState::InGame), spawn_player)
-        .add_systems(FixedUpdate, move_player.run_if(in_state(GameState::InGame)))
-        .add_systems(Update, (animate_player, flip_towards_mouse, take_damage).run_if(in_state(GameState::InGame)));
+        .add_systems(OnExit(GameState::MainMenu), spawn_player)
+        .add_systems(OnExit(GameState::Hub), reset_player_position)
+        .add_systems(Update, (animate_player, flip_towards_mouse, take_damage))
+        .add_systems(FixedUpdate, move_player);
     }
 }
 
@@ -88,6 +89,14 @@ fn move_player(
     }
 }
 
+fn reset_player_position(
+    mut player_query: Query<&mut Transform, With<Player>>,
+) {
+    if let Ok(mut transform) = player_query.get_single_mut() {
+        transform.translation = Vec3::new((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0);
+    }
+}
+
 fn animate_player(
     time: Res<Time>,
     mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), With<Player>>,
@@ -131,7 +140,6 @@ fn flip_towards_mouse(
         }
     }
 }
-
 
 fn take_damage(
     mut ev_death: EventWriter<DeathEvent>,
