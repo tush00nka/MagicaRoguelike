@@ -154,6 +154,7 @@ fn take_damage(
             health.damage(25);
             ev_hp.send(PlayerHPChanged);
             commands.entity(ent).insert(Invincibility::default());
+            
             if health.current <= 0 {
                 ev_death.send(DeathEvent(ent));
             }
