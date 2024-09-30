@@ -72,7 +72,7 @@ fn spawn_gameover_ui(
         .insert(MainMenuButton::MAIN_MENU)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
-                "Main Menu", 
+                "в главное меню", 
                 TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 16.0,
@@ -97,7 +97,7 @@ fn spawn_gameover_ui(
         .insert(MainMenuButton::QUIT)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
-                "Rage Quit", 
+                "что закибербуллили тебя, да? ну не знаю, выключи комьютер", 
                 TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 16.0,

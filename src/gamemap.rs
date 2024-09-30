@@ -54,7 +54,7 @@ impl Default for LevelGenerator {
             chance_walker_change_dir: 0.5,
             chance_walker_spawn: 0.05,
             chance_walker_destroy: 0.05,
-            max_walkers: 10,
+            max_walkers: 16,
             percent_to_fill: 0.1,
         }
     }
@@ -287,10 +287,10 @@ pub fn spawn_map(
                             .id();
 
                         if tank_type >= 0.5 {
-                            commands.entity(tank).insert(HealthTank { hp: 5 });
+                            commands.entity(tank).insert(HealthTank { hp: 15 });
                         }
                         else {
-                            commands.entity(tank).insert(ExpTank { orbs: 5 });
+                            commands.entity(tank).insert(ExpTank { orbs: 6 });
                         }
                     }
                 },
