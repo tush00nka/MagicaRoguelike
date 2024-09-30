@@ -23,7 +23,7 @@ impl Plugin for GameOverPlugin {
                 despawn_all_with::<crate::shield_spell::Shield>,
                 despawn_all_with::<crate::elements_ui::ElementBarUI>,
                 despawn_all_with::<crate::experience::ExpBarUI>,
-                despawn_all_with::<crate::health::HPBarUI>
+                despawn_all_with::<crate::health_ui::HPBarUI>
             ));
 
     }
@@ -72,7 +72,7 @@ fn spawn_gameover_ui(
         .insert(MainMenuButton::MAIN_MENU)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
-                "quit to main menu", 
+                "Main Menu", 
                 TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 16.0,

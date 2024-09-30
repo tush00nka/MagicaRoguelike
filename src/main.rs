@@ -42,6 +42,9 @@ use exp_tank::ExpTankPlugin;
 mod health;
 use health::HealthPlugin;
 
+mod health_ui;
+use health_ui::HealthUIPlugin;
+
 mod main_menu;
 use main_menu::MainMenuPlugin;
 
@@ -110,7 +113,7 @@ fn main() {
         .add_plugins(ShieldSpellPlugin)
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
-        .add_plugins(HealthPlugin)
+        .add_plugins((HealthPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
         .add_plugins(GameOverPlugin)
