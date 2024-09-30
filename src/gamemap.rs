@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{exp_tank::ExpTank, health::HealthTank, GameLayer, GameState};
+use crate::{exp_tank::SpawnExpTankEvent, health_tank::SpawnHealthTankEvent, GameLayer, GameState};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -235,6 +235,8 @@ pub fn spawn_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
+    mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
 ) {
     room.start();
     let room_height = room.room_height;
@@ -264,33 +266,19 @@ pub fn spawn_map(
 
                         let tank_type = rand::thread_rng().gen::<f32>();
 
-                        let texture_path;
+                        let pos = Vec3::new(tile_size * x as f32, tile_size * y as f32, 1.);
 
                         if tank_type >= 0.5 {
-                            texture_path = "textures/health_tank.png";
+                            ev_exp_tank.send(SpawnExpTankEvent {
+                                pos,
+                                orbs: 6 
+                            });
                         }
                         else {
-                            texture_path = "textures/exp_tank.png";
-                        }
-
-                        let tank = commands
-                            .spawn(SpriteBundle{
-                                texture: asset_server.load(texture_path),
-                                transform: Transform::from_xyz(
-                                    tile_size * x as f32,
-                                    tile_size * y as f32,
-                                    1.0),
-                                ..default()
-                            })
-                            .insert(Collider::rectangle(16.0, 16.0))
-                            .insert(Sensor)
-                            .id();
-
-                        if tank_type >= 0.5 {
-                            commands.entity(tank).insert(HealthTank { hp: 15 });
-                        }
-                        else {
-                            commands.entity(tank).insert(ExpTank { orbs: 6 });
+                            ev_health_tank.send(SpawnHealthTankEvent {
+                                pos,
+                                hp: 15 
+                            });
                         }
                     }
                 },

@@ -41,6 +41,9 @@ use exp_tank::ExpTankPlugin;
 mod health;
 use health::HealthPlugin;
 
+mod health_tank;
+use health_tank::HealthTankPlugin;
+
 mod pathfinding;
 use pathfinding::PathfindingPlugin;
 
@@ -114,7 +117,7 @@ fn main() {
         .add_plugins(ShieldSpellPlugin)
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExperienceUIPlugin, ExpOrbPlugin, ExpTankPlugin))
-        .add_plugins((HealthPlugin, HealthUIPlugin))
+        .add_plugins((HealthPlugin, HealthTankPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)
         .add_plugins(GameOverPlugin)

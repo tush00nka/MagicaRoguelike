@@ -37,7 +37,7 @@ impl PlayerExperience {
         if self.current + value >= self.to_lv_up && self.lv < self.max_lv{
             self.lv += 1;
             self.current = self.current + value - self.to_lv_up; 
-            self.to_lv_up = (self.to_lv_up as f32 * 1.2) as u32;
+            self.to_lv_up = (self.to_lv_up as f32 * 1.4) as u32;
         }
         else {
             self.current += value;

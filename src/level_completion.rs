@@ -15,7 +15,7 @@ impl Plugin for LevelCompletionPlugin {
             .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
             .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,
-                despawn_all_with::<crate::health::HealthTank>,
+                despawn_all_with::<crate::health_tank::HealthTank>,
                 despawn_all_with::<crate::gamemap::Floor>,
                 despawn_all_with::<crate::gamemap::Wall>,
                 despawn_all_with::<crate::exp_orb::ExpOrb>,

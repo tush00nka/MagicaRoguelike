@@ -1,14 +1,15 @@
 use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player, GameState};
+use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player};
 
 pub struct ExpTankPlugin;
 
 impl Plugin for ExpTankPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::InGame)))
-        .add_systems(Update, (debug_tank, break_tank).run_if(in_state(GameState::Hub)));
+        app
+            .add_event::<SpawnExpTankEvent>()
+            .add_systems(Update, (spawn_tank, debug_tank, break_tank));
     }
 }
 
@@ -17,21 +18,39 @@ pub struct ExpTank {
     pub orbs: u32,
 }
 
-fn debug_tank(
+#[derive(Event)]
+pub struct SpawnExpTankEvent {
+    pub pos: Vec3,
+    pub orbs: u32,
+}
+
+fn spawn_tank(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mouse_coords: Res<MouseCoords>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut ev_spawn_exp_tank: EventReader<SpawnExpTankEvent>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyT) {
+    for ev in ev_spawn_exp_tank.read() {
         commands.spawn(SpriteBundle {
             texture: asset_server.load("textures/exp_tank.png"),
-            transform: Transform::from_xyz((mouse_coords.0.x / 32.0).round() * 32.0, (mouse_coords.0.y / 32.0).round() * 32.0, 2.0),
+            transform: Transform::from_translation(ev.pos),
             ..default()
         })
         .insert(Collider::rectangle(16.0, 16.0))
         .insert(Sensor)
-        .insert(ExpTank { orbs: 6 });
+        .insert(ExpTank { orbs: ev.orbs });
+    }
+}
+
+fn debug_tank(
+    mouse_coords: Res<MouseCoords>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut ev_spawn_exp_tank: EventWriter<SpawnExpTankEvent>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyT) {
+        ev_spawn_exp_tank.send(SpawnExpTankEvent {
+            pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 2.),
+            orbs: 6,
+        });
     }
 }
 
