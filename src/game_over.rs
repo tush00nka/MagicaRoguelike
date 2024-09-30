@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{main_menu::*, player::*, utils::*, GameState};
+use crate::{player::*, ui::*, utils::*, GameState};
 pub struct GameOverPlugin;
 
 impl Plugin for GameOverPlugin {
@@ -20,14 +20,18 @@ impl Plugin for GameOverPlugin {
                 despawn_all_with::<crate::level_completion::Portal>,
                 despawn_all_with::<crate::mob::Mob>,
                 despawn_all_with::<crate::wand::Wand>,
+                despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
-                despawn_all_with::<crate::elements_ui::ElementBarUI>,
-                despawn_all_with::<crate::experience::ExpBarUI>,
-                despawn_all_with::<crate::health_ui::HPBarUI>
+                despawn_all_with::<crate::ui::ElementBarUI>,
+                despawn_all_with::<crate::ui::ExpBarUI>,
+                despawn_all_with::<crate::ui::HPBarUI>
             ));
 
     }
 }
+
+#[derive(Component)]
+pub struct GameOverUI;
 
 fn player_death(
     mut ev_player_death: EventReader<PlayerDeathEvent>,
@@ -55,7 +59,7 @@ fn spawn_gameover_ui(
         },
         ..default()
     })
-    .insert(UI)
+    .insert(GameOverUI)
     .with_children(|parent| {
         parent.spawn(ButtonBundle {
             style: Style {
@@ -112,7 +116,7 @@ fn spawn_gameover_ui(
 
 fn despawn_gameover_ui(
     mut commands: Commands,
-    ui_query: Query<Entity, With<UI>>,
+    ui_query: Query<Entity, With<GameOverUI>>,
 ) {
     for e in ui_query.iter() { // удаляем меню гейовера
         commands.entity(e).despawn_recursive();

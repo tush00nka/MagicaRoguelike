@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 use crate::{elements::{ElementBar, ElementBarFilled, ElementType}, experience::{ExpGained, PlayerExperience}, GameState};
 
-pub struct ElementsUiPlugin;
+pub struct ElementsUIPlugin;
 
-impl Plugin for ElementsUiPlugin {
+impl Plugin for ElementsUIPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnExit(GameState::MainMenu), spawn_ui)

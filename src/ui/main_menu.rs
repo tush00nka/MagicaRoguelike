@@ -14,7 +14,7 @@ impl Plugin for MainMenuPlugin {
 }
 
 #[derive(Component)]
-pub struct UI;
+pub struct MainMenuUI;
 
 #[allow(unused)]
 pub enum ButtonType {
@@ -51,7 +51,7 @@ fn spawn_ui(
         },
         ..default()
     })
-    .insert(UI)
+    .insert(MainMenuUI)
     .with_children(|parent| {
         parent.spawn(ButtonBundle {
             style: Style {
@@ -134,7 +134,7 @@ pub fn handle_buttons(
 
 fn despawn_ui(
     mut commands: Commands,
-    ui_query: Query<Entity, With<UI>>,
+    ui_query: Query<Entity, With<MainMenuUI>>,
 ) {
     for e in ui_query.iter() { // удаляем главное меню
         commands.entity(e).despawn_recursive();

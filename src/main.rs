@@ -24,8 +24,7 @@ use elements::ElementsPlugin;
 
 mod hub_location;
 use hub_location::HubPlugin;
-mod elements_ui;
-use elements_ui::ElementsUiPlugin;
+
 
 mod projectile;
 use projectile::ProjectilePlugin;
@@ -41,12 +40,6 @@ use exp_tank::ExpTankPlugin;
 
 mod health;
 use health::HealthPlugin;
-
-mod health_ui;
-use health_ui::HealthUIPlugin;
-
-mod main_menu;
-use main_menu::MainMenuPlugin;
 
 mod pathfinding;
 use pathfinding::PathfindingPlugin;
@@ -65,6 +58,14 @@ use invincibility::InvincibilityPlugin;
 
 mod animation;
 mod utils;
+
+mod ui;
+use ui::{
+    ElementsUIPlugin,
+    ExperienceUIPlugin,
+    HealthUIPlugin,
+    MainMenuPlugin,
+};
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
@@ -109,10 +110,10 @@ fn main() {
         .add_plugins(CameraPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
-        .add_plugins((ElementsPlugin, ElementsUiPlugin))
+        .add_plugins((ElementsPlugin, ElementsUIPlugin))
         .add_plugins(ShieldSpellPlugin)
         .add_plugins(ProjectilePlugin)
-        .add_plugins((ExperiencePlugin, ExpOrbPlugin, ExpTankPlugin))
+        .add_plugins((ExperiencePlugin, ExperienceUIPlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins((HealthPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
         .add_plugins(MobPlugin)

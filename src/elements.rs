@@ -11,8 +11,9 @@ pub struct ElementsPlugin;
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(ElementBar::default())
             .add_event::<ElementBarFilled>()
+            .insert_resource(ElementBar::default())
+            .add_systems(OnExit(GameState::MainMenu), init_bar)
             .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::Hub)))
             .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::InGame)));
     }
@@ -64,6 +65,12 @@ impl ElementBar {
 
 #[derive(Event)]
 pub struct ElementBarFilled;
+
+fn init_bar(
+    mut commands: Commands,
+) {
+    commands.insert_resource(ElementBar::default());
+}
 
 fn fill_bar(
     mut bar: ResMut<ElementBar>,
