@@ -1,4 +1,4 @@
-use crate::{gamemap::{Floor, Wall}, GameState};
+use crate::{chapter::ChapterManager, gamemap::{Floor, Wall}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -14,7 +14,8 @@ fn spawn_hub(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut player_query: Query<&mut Transform, With<crate::player::Player>>,
-    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>
+    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     let tile_size = 32.0;
     for x in 0..8 {
@@ -23,13 +24,13 @@ fn spawn_hub(
                 let texture_path = {
                     if y > 0 {
                         if y == 7 && 0 < x && x < 7 {
-                            "textures/t_wall_top.png"
+                            format!("textures/t_wall_top_{}.png", chapter_manager.get_current_chapter())
                         }
                         else {
-                            "textures/t_wall.png"
+                            format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())
                         }
                     } else {
-                        "textures/t_wall.png"
+                        format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())
                     }
                 };
 
@@ -50,7 +51,7 @@ fn spawn_hub(
             else {
                 commands
                     .spawn(SpriteBundle {
-                        texture: asset_server.load("textures/t_floor.png"),
+                        texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
                         transform: Transform::from_xyz(
                             tile_size * x as f32,
                             tile_size * y as f32,

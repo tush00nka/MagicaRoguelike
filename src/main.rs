@@ -62,6 +62,9 @@ use invincibility::InvincibilityPlugin;
 mod animation;
 mod utils;
 
+mod chapter;
+use chapter::ChapterPlugin;
+
 mod ui;
 use ui::{
     ElementsUIPlugin,
@@ -124,5 +127,6 @@ fn main() {
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HubPlugin)
         .add_plugins(InvincibilityPlugin)
+        .add_plugins(ChapterPlugin)
         .run();
 }
