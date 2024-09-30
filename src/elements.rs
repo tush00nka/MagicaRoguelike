@@ -1,10 +1,10 @@
-use std::{f32::consts::PI, time::Duration};
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use avian2d::prelude::{Collider, CollisionLayers, FixedJoint, GravityScale, Joint, RigidBody};
+use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{player::Player, projectile::{Projectile, ProjectileBundle}, shield_spell::{Shield, ShieldAnimation}, wand::Wand, GameLayer, GameState};
+use crate::{projectile::{Projectile, ProjectileBundle}, shield_spell::SpawnShieldEvent, wand::Wand, GameState};
 
 pub struct ElementsPlugin;
 
@@ -97,7 +97,7 @@ fn cast_spell(
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
     wand_query: Query<&Transform, With<Wand>>,
-    player_query: Query<(Entity, &Transform), With<Player>>,
+    mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
 
     mut bar: ResMut<ElementBar>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -146,25 +146,7 @@ fn cast_spell(
             match recipe {
 
                 120 | 130 | 140 | 150 | 160 | 170 | 180 => {
-                    if let Ok((player_e, player_transform)) = player_query.get_single() {
-                        let shield_e = commands.spawn(SpriteBundle {
-                            texture: asset_server.load("textures/shield.png"),
-                            transform: Transform {
-                                scale: Vec3::splat(0.1),
-                                translation: player_transform.translation,
-                                ..default()
-                            },
-                            ..default()
-                        })
-                        .insert(Shield { timer: Timer::new(Duration::from_secs(earth_elements as u64 * 2), TimerMode::Once) })
-                        .insert(ShieldAnimation { speed: 25.0 })
-                        .insert(RigidBody::Dynamic)
-                        .insert(GravityScale(0.0))
-                        .insert(Collider::circle(16.0))
-                        .insert(CollisionLayers::new(GameLayer::Shield, GameLayer::Enemy)).id();
-
-                        commands.spawn(FixedJoint::new(player_e, shield_e));
-                    }
+                    ev_spawn_shield.send(SpawnShieldEvent { duration: earth_elements as f32 * 2. });
                 }
 
                 1111 | 2222 => {
