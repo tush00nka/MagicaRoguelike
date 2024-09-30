@@ -131,16 +131,20 @@ fn cast_spell(
         dmg += bar.air as u32 * 20;
 
         let color = {
-            if bar.fire > 0 {
+            if bar.fire > 0 && bar.water > 0 {
+                Color::hsl(200.0, 0.25, 0.75)
+            }
+            else if bar.fire > 0 {
                 Color::hsl(20.0, 0.75, 0.5)
             }
             else if bar.water > 0 {
                 Color::hsl(200.0, 0.75, 0.5)
-            } else if bar.earth > 0 {
+            }
+            else if bar.earth > 0 {
                 Color::hsl(20.0, 0.5, 0.5)
-            } else {
+            }
+            else {
                 Color::hsl(200.0, 0.25, 0.75)
-
             }
         };
 
@@ -205,7 +209,9 @@ fn cast_spell(
                 }
             }
         
-            if bar.earth > 0 && bar.air <= 0 {
+            if bar.earth > 0
+            && bar.air <= 0
+            && bar.water != 1 {
                 spell_desc += "AoE, e.g. earthquake\n";
     
                 let offset = (2.0*PI)/(bar.len()*3) as f32;

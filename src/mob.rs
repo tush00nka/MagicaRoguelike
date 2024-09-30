@@ -68,7 +68,7 @@ fn debug_spawn_mobs(
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
-                if rng.gen::<f32>() > 0.9 {
+                if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14) { // make sure emenies don't spawn too close to player (todo: rewrite)
                     let mob = commands
                         .spawn(SpriteBundle {
                             texture: asset_server.load("textures/mob_mossling.png"),
