@@ -60,6 +60,9 @@ use shield_spell::ShieldSpellPlugin;
 mod game_over;
 use game_over::GameOverPlugin;
 
+mod invincibility;
+use invincibility::InvincibilityPlugin;
+
 mod animation;
 mod utils;
 
@@ -116,5 +119,6 @@ fn main() {
         .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HubPlugin)
+        .add_plugins(InvincibilityPlugin)
         .run();
 }

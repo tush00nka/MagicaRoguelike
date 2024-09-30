@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
+use crate::invincibility::Invincibility;
 use crate::mouse_position::MouseCoords;
 use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
@@ -61,7 +62,7 @@ fn spawn_player(
         .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
         .insert(Player { speed: 10000.0 })
-        .insert(Health{max: 100, current: 50});
+        .insert(Health{max: 100, current: 100});
 }
 
 fn move_player(
@@ -142,15 +143,17 @@ fn flip_towards_mouse(
 }
 
 fn take_damage(
+    mut commands: Commands,
     mut ev_death: EventWriter<DeathEvent>,
     mut ev_hp: EventWriter<PlayerHPChanged>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut health_query: Query<(&mut Health, Entity), With<Player>>
+    mut health_query: Query<(&mut Health, Entity), (With<Player>, Without<Invincibility>)>
 ){
     if keyboard.just_pressed(KeyCode::KeyZ) {
         if let Ok((mut health, ent)) = health_query.get_single_mut(){
             health.damage(25);
             ev_hp.send(PlayerHPChanged);
+            commands.entity(ent).insert(Invincibility::default());
             if health.current <= 0 {
                 ev_death.send(DeathEvent(ent));
             }
