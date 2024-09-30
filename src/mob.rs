@@ -5,12 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop},
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
-    health::{DeathEvent, Health},
-    level_completion::PortalEvent,
-    projectile::Projectile,
-    GameLayer, GameState,
+    exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health, PlayerHPChanged}, invincibility::Invincibility, level_completion::PortalEvent, player::{self, Player}, projectile::Projectile, GameLayer, GameState
 };
 
 pub struct MobPlugin;
@@ -21,7 +16,7 @@ impl Plugin for MobPlugin {
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, hit_player).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -31,6 +26,7 @@ pub struct Mob {
     pub path: Vec<(u16, u16)>, 
     pub update_path_timer: Timer,
     speed: f32,
+    damage: i32,
 }
 
 #[derive(Resource)]
@@ -94,7 +90,13 @@ fn debug_spawn_mobs(
                             ],
                         ))
                         .insert(LinearVelocity::ZERO)
-                        .insert(Mob { path: vec![], update_path_timer: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(500..900)), TimerMode::Repeating), speed: 2500. })
+                        .insert(Mob { 
+                            path: vec![],
+                            update_path_timer: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(500..900)),
+                                                    TimerMode::Repeating),
+                            speed: 2500.,
+                            damage: 20
+                         })
                         .insert(MobLoot { orbs: 3 })
                         .insert(Health {
                             max: 100,
@@ -139,19 +141,25 @@ fn hit_projectiles(
         amount_mobs.check = true;
         ev_spawn_portal.send( PortalEvent{pos:amount_mobs.position});
     }
+
     for Collision(contacts) in collision_event_reader.read() {
         let proj_e: Option<Entity>;
         let mob_e: Option<Entity>;
         
-        if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
+        if projectile_query.contains(contacts.entity2)
+            && mob_query.contains(contacts.entity1)
+        {
             proj_e = Some(contacts.entity2);
             mob_e = Some(contacts.entity1);
-        } else if projectile_query.contains(contacts.entity1)
-            && mob_query.contains(contacts.entity2)
+        } 
+        else if projectile_query.contains(contacts.entity1)
+            && mob_query.contains(contacts.entity2) 
         {
             proj_e = Some(contacts.entity1);
             mob_e = Some(contacts.entity2);
-        } else {
+        } 
+        else 
+        {
             proj_e = None;
             mob_e = None;
         }
@@ -167,10 +175,10 @@ fn hit_projectiles(
 
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
-                        commands.entity(mob_e.unwrap()).insert( // knockback
-                            ExternalImpulse::new(shot_dir.truncate() * 50_000.0)
-                                .with_persistence(false),
-                        );
+                        // commands.entity(mob_e.unwrap()).insert( // knockback
+                        //     ExternalImpulse::new(shot_dir.truncate() * 50_000.0)
+                        //         .with_persistence(false),
+                        // );
 
                         if health.current <= 0 {
                             health.current += 10000;
@@ -202,6 +210,44 @@ fn hit_projectiles(
                                     });
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn hit_player(
+    mut commands: Commands,
+    mut collision_event_reader: EventReader<Collision>,
+    mob_query: Query<(Entity, &Mob), Without<Player>>,
+    mut player_query: Query<(Entity, &mut Health), (With<Player>, Without<Invincibility>)>,
+    mut ev_hp: EventWriter<PlayerHPChanged>,
+    mut ev_death: EventWriter<DeathEvent>,
+) {
+    for Collision(contacts) in collision_event_reader.read() {
+
+        let mut mob_e = Entity::PLACEHOLDER;
+
+        if mob_query.contains(contacts.entity1)
+        && player_query.contains(contacts.entity2)
+        {
+            mob_e = contacts.entity1;
+        }
+        else if mob_query.contains(contacts.entity2)
+        && player_query.contains(contacts.entity1)
+        {
+            mob_e = contacts.entity2;
+        }
+
+        if let Ok((player_e, mut health)) = player_query.get_single_mut() {
+            for (mob_cadidate_e, mob) in mob_query.iter() {
+                if mob_cadidate_e == mob_e {
+                    health.damage(mob.damage);
+                    ev_hp.send(PlayerHPChanged);
+                    commands.entity(player_e).insert(Invincibility::default());
+                    if health.current <= 0 {
+                        ev_death.send(DeathEvent(player_e));
                     }
                 }
             }

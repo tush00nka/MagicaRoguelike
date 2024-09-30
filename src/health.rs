@@ -87,7 +87,7 @@ fn spawn_ui(
         parent.spawn(ImageBundle {
             image: UiImage::solid_color(Color::hsl(0.0, 1.0, 0.4)),
             style: Style {
-                width: Val::Percent(50.0),
+                width: Val::Percent(100.0),
                 height: Val::Px(24.0),
                 left: Val::Px(0.0),
                 top: Val::Px(0.0),
