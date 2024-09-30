@@ -8,8 +8,7 @@ impl Plugin for ElementsUiPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnExit(GameState::MainMenu), spawn_ui)
-            .add_systems(Update, (update_ui, add_slots_from_lv).run_if(in_state(GameState::Hub)))
-            .add_systems(Update, (update_ui, add_slots_from_lv).run_if(in_state(GameState::InGame)));
+            .add_systems(Update, (update_ui, add_slots_from_lv));
     }
 }
 
@@ -17,7 +16,7 @@ impl Plugin for ElementsUiPlugin {
 struct ElementSlot(usize);
 
 #[derive(Component)]
-struct ElementBarUI;
+pub struct ElementBarUI;
 
 fn spawn_ui(
     mut commands: Commands,

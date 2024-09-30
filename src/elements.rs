@@ -316,6 +316,6 @@ fn cast_spell(
         // println!("[{}] ({} DMG)", spell_desc, dmg);
 
         bar.clear();
-        println!("{:?}", bar.bar);
+        // println!("{:?}", bar.bar);
     }
 }

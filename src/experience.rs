@@ -15,8 +15,7 @@ impl Plugin for ExperiencePlugin {
             })
             .add_event::<ExpGained>()
             .add_systems(OnExit(GameState::MainMenu), spawn_ui)
-            .add_systems(Update, update_ui.run_if(in_state(GameState::Hub)))
-            .add_systems(Update, update_ui.run_if(in_state(GameState::InGame)));
+            .add_systems(Update, update_ui);
     }
 }
 

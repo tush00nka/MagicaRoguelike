@@ -46,7 +46,6 @@ mod main_menu;
 use main_menu::MainMenuPlugin;
 
 mod pathfinding;
-#[allow(unused)]
 use pathfinding::PathfindingPlugin;
 
 mod mob;
@@ -55,10 +54,11 @@ use mob::MobPlugin;
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
 
-mod gameover;
-use gameover::GameOverPlugin;
+mod game_over;
+use game_over::GameOverPlugin;
 
 mod animation;
+mod utils;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {

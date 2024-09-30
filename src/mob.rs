@@ -95,7 +95,7 @@ fn debug_spawn_mobs(
                         ))
                         .insert(LinearVelocity::ZERO)
                         .insert(Mob { path: vec![], update_path_timer: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(500..900)), TimerMode::Repeating), speed: 2500. })
-                        .insert(MobLoot { orbs: 2 })
+                        .insert(MobLoot { orbs: 3 })
                         .insert(Health {
                             max: 100,
                             current: 100,
@@ -162,16 +162,18 @@ fn hit_projectiles(
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
                         health.damage(projectile.damage.try_into().unwrap());
+
                         commands.entity(proj_e.unwrap()).despawn();
 
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
-                        commands.entity(mob_e.unwrap()).insert(
+                        commands.entity(mob_e.unwrap()).insert( // knockback
                             ExternalImpulse::new(shot_dir.truncate() * 50_000.0)
                                 .with_persistence(false),
                         );
 
                         if health.current <= 0 {
+                            health.current += 10000;
                             amount_mobs.set_pos(transform.translation);
                             ev_death.send(DeathEvent(mob_e.unwrap()));
 

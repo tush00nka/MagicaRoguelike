@@ -1,4 +1,5 @@
 use crate::player::Player;
+use crate::utils::*;
 use crate::GameLayer;
 use crate::{mob::PortalPosition, GameState};
 use avian2d::prelude::*;
@@ -9,8 +10,7 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-        .add_systems(Update, spawn_portal.run_if(in_state(GameState::InGame)))
-        .add_systems(Update, spawn_portal.run_if(in_state(GameState::Hub)))
+        .add_systems(Update, (spawn_portal, rotate_portal))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
             .add_systems(OnEnter(GameState::Hub), (
@@ -38,11 +38,10 @@ pub struct PortalEvent {
     pub pos: Vec3,
 }
 #[derive(Component)]
-struct Portal;
+pub struct Portal;
 
 fn spawn_portal(
     mut commands: Commands,
-
     mut ev_portal: EventReader<PortalEvent>,
     asset_server: Res<AssetServer>,
 ) {
@@ -64,6 +63,15 @@ fn spawn_portal(
                 [GameLayer::Player],
             ))
             .insert(Portal);
+    }
+}
+
+fn rotate_portal(
+    mut portal_query: Query<&mut Transform, With<Portal>>,
+    time: Res<Time>,
+) {
+    for mut transform in portal_query.iter_mut() {
+        transform.rotate_z(time.delta_seconds());
     }
 }
 
@@ -90,11 +98,5 @@ fn collision_portal(
                 _ => {}
             }
         }
-    }
-}
-
-pub fn despawn_all_with<C: Component>(query: Query<Entity, With<C>>, mut commands: Commands) {
-    for e in query.iter() {
-        commands.entity(e).despawn();
     }
 }

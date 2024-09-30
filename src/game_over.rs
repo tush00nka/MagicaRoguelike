@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{GameState,player::*, main_menu::*};
+use crate::{main_menu::*, player::*, utils::*, GameState};
 pub struct GameOverPlugin;
 
 impl Plugin for GameOverPlugin {
@@ -7,19 +7,33 @@ impl Plugin for GameOverPlugin {
         app
             .add_event::<PlayerDeathEvent>()
             .add_systems(OnEnter(GameState::GameOver), spawn_gameover_ui)
-            .add_systems(Update, (player_death).run_if(in_state(GameState::InGame)))
+            .add_systems(Update, player_death)
             .add_systems(Update, handle_buttons.run_if(in_state(GameState::GameOver)))
-            .add_systems(OnExit(GameState::MainMenu), despawn_gameover_ui);
+            .add_systems(OnEnter(GameState::MainMenu), despawn_gameover_ui)
+            .add_systems(OnEnter(GameState::GameOver), (
+                despawn_all_with::<crate::exp_tank::ExpTank>,
+                despawn_all_with::<crate::health::HealthTank>,
+                despawn_all_with::<crate::gamemap::Floor>,
+                despawn_all_with::<crate::gamemap::Wall>,
+                despawn_all_with::<crate::exp_orb::ExpOrb>,
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::level_completion::Portal>,
+                despawn_all_with::<crate::mob::Mob>,
+                despawn_all_with::<crate::wand::Wand>,
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::elements_ui::ElementBarUI>,
+                despawn_all_with::<crate::experience::ExpBarUI>,
+                despawn_all_with::<crate::health::HPBarUI>
+            ));
 
     }
 }
 
 fn player_death(
-    mut commands: Commands,
     mut ev_player_death: EventReader<PlayerDeathEvent>,
     mut game_state: ResMut<NextState<GameState>>,
 ){
-    for ev in ev_player_death.read(){
+    for _ev in ev_player_death.read(){
         game_state.set(GameState::GameOver);
     }
 }
@@ -83,7 +97,7 @@ fn spawn_gameover_ui(
         .insert(MainMenuButton::QUIT)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
-                "process.kill()", 
+                "Rage Quit", 
                 TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 16.0,
@@ -100,7 +114,7 @@ fn despawn_gameover_ui(
     mut commands: Commands,
     ui_query: Query<Entity, With<UI>>,
 ) {
-    for e in ui_query.iter() { // удаляем главное меню
+    for e in ui_query.iter() { // удаляем меню гейовера
         commands.entity(e).despawn_recursive();
     }
 }

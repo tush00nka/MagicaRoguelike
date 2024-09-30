@@ -377,7 +377,7 @@ fn create_new_graph(
             }
         }
     }
-    print!("Graph is generated");
+    // print!("Graph is generated");
 }
 // ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
 fn build_path(node: CostNode) -> Vec<(u16, u16)> {

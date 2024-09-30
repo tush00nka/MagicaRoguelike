@@ -1,6 +1,6 @@
 use avian2d::prelude::Collision;
 use bevy::prelude::*;
-use crate::{player::{self, *}, GameState};
+use crate::{player::*, GameState};
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
@@ -9,8 +9,7 @@ impl Plugin for HealthPlugin {
             .add_event::<PlayerHPChanged>()
             .add_event::<DeathEvent>()
             .add_systems(OnExit(GameState::MainMenu), spawn_ui)
-            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::Hub)))
-            .add_systems(Update, (update_ui, pick_up_health, death).run_if(in_state(GameState::InGame)));
+            .add_systems(Update, (update_ui, pick_up_health, death));
     }
 }
 

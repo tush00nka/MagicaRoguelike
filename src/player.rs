@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::mouse_position::MouseCoords;
-use crate::{health, GameLayer};
+use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
 use crate::health::*;
 

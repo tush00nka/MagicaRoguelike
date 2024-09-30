@@ -10,8 +10,7 @@ impl Plugin for WandPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnEnter(GameState::InGame), spawn_wand)
-            .add_systems(FixedUpdate, move_rotate_wand.run_if(in_state(GameState::InGame)))
-            .add_systems(FixedUpdate, move_rotate_wand.run_if(in_state(GameState::Hub)));
+            .add_systems(FixedUpdate, move_rotate_wand);
     }
 }
 
