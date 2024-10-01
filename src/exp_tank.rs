@@ -39,7 +39,7 @@ fn spawn_tank(
             transform: Transform::from_translation(ev.pos),
             ..default()
         })
-        .insert(Collider::rectangle(16.0, 16.0))
+        .insert(Collider::circle(8.0))
         .insert(Sensor)
         .insert(ExpTank { orbs: ev.orbs });
     }

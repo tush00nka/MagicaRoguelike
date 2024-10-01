@@ -22,9 +22,11 @@ impl Plugin for GameOverPlugin {
                 despawn_all_with::<crate::wand::Wand>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<crate::ui::ElementBarUI>,
                 despawn_all_with::<crate::ui::ExpBarUI>,
-                despawn_all_with::<crate::ui::HPBarUI>
+                despawn_all_with::<crate::ui::HPBarUI>,
+                despawn_all_with::<crate::ui::ItemUI>,
             ));
 
     }

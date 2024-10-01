@@ -65,12 +65,16 @@ mod utils;
 mod chapter;
 use chapter::ChapterPlugin;
 
+mod item;
+use item::ItemPlugin;
+
 mod ui;
 use ui::{
     ElementsUIPlugin,
     ExperienceUIPlugin,
     HealthUIPlugin,
     MainMenuPlugin,
+    ItemUIPlugin,
 };
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -128,5 +132,6 @@ fn main() {
         .add_plugins(HubPlugin)
         .add_plugins(InvincibilityPlugin)
         .add_plugins(ChapterPlugin)
+        .add_plugins((ItemPlugin, ItemUIPlugin))
         .run();
 }
