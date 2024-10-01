@@ -24,6 +24,7 @@ pub enum ElementType {
     Water,
     Earth,
     Air,
+    Steam,
 }
 
 #[derive(Resource)]
@@ -54,6 +55,7 @@ impl ElementBar {
                 ElementType::Water => self.water+=1,
                 ElementType::Earth => self.earth+=1,
                 ElementType::Air => self.air+=1,
+                ElementType::Steam => {}
             }
         }
     }
@@ -97,7 +99,7 @@ fn fill_bar(
             _ => { new_element = None }
         }
 
-        if new_element.is_some() {
+        if new_element.is_some() && bar.len() < bar.max {
             ev_bar_filled.send(ElementBarFilled(new_element.unwrap()));
             bar.add(new_element.unwrap());
         }
@@ -130,25 +132,39 @@ fn cast_spell(
         dmg += bar.earth as u32 * 20;
         dmg += bar.air as u32 * 20;
 
+        let mut rng = rand::thread_rng();
+
+        let mut element: ElementType;
+        let elements_to_comapre = vec![bar.fire, bar.water, bar.earth, bar.air];
+
+        // need to rewrite to look better
+        if *elements_to_comapre.iter().max().unwrap() == bar.fire {
+            element = ElementType::Fire;
+        }
+        else if *elements_to_comapre.iter().max().unwrap() == bar.water {
+            element = ElementType::Water;
+        }
+        else if *elements_to_comapre.iter().max().unwrap() == bar.earth {
+            element = ElementType::Earth;
+        }
+        else {
+            element = ElementType::Air;
+        }
+
+        // sub-element, cannot directly cast
+        if bar.fire > 0 && bar.water > 0 {
+            element = ElementType::Steam;
+        }
+
         let color = {
-            if bar.fire > 0 && bar.water > 0 {
-                Color::hsl(200.0, 0.25, 0.75)
-            }
-            else if bar.fire > 0 {
-                Color::hsl(20.0, 0.75, 0.5)
-            }
-            else if bar.water > 0 {
-                Color::hsl(200.0, 0.75, 0.5)
-            }
-            else if bar.earth > 0 {
-                Color::hsl(20.0, 0.5, 0.5)
-            }
-            else {
-                Color::hsl(200.0, 0.25, 0.75)
+            match element {
+                ElementType::Fire => Color::hsl(20.0, 0.75, 0.5),
+                ElementType::Water => Color::hsl(200.0, 0.75, 0.5),
+                ElementType::Earth => Color::hsl(20.0, 0.5, 0.5),
+                ElementType::Air => Color::hsl(200.0, 0.25, 0.75),
+                ElementType::Steam => Color::hsl(200.0, 0.25, 0.75),
             }
         };
-
-        let mut rng = rand::thread_rng();
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
@@ -182,6 +198,7 @@ fn cast_spell(
                         radius: 6.,
                         speed: 150.0 + rng.gen_range(-25.0..25.0),
                         damage: dmg / bar.fire as u32,
+                        element,
                         is_friendly: true,
                     });
                 }
@@ -204,6 +221,7 @@ fn cast_spell(
                         radius: 6.,
                         speed: 150.0 + rng.gen_range(-25.0..25.0),
                         damage: dmg / bar.water as u32,
+                        element,
                         is_friendly: true,
                     });
                 }
@@ -227,6 +245,7 @@ fn cast_spell(
                         radius: 12.,
                         speed: 100.0,
                         damage: dmg,
+                        element,
                         is_friendly: true,
                     });
                 }
@@ -246,6 +265,7 @@ fn cast_spell(
                     radius: 8.0,
                     speed: 150.,
                     damage: dmg,
+                    element,
                     is_friendly: true,
                 });
             }

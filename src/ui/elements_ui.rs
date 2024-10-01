@@ -60,6 +60,7 @@ fn update_ui(
                     ElementType::Water => image.texture = asset_server.load("textures/water_slot.png"),
                     ElementType::Earth => image.texture = asset_server.load("textures/earth_slot.png"),
                     ElementType::Air => image.texture = asset_server.load("textures/air_slot.png"),
+                    _ => image.texture = asset_server.load("textures/empty_slot.png")
                 }
             }
         }

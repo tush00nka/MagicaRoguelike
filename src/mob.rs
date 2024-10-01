@@ -5,15 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop},
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
-    health::{DeathEvent, Health, PlayerHPChanged},
-    invincibility::Invincibility,
-    level_completion::PortalEvent,
-    player::Player,
-    projectile::Projectile,
-    GameLayer,
-    GameState
+    exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health, PlayerHPChanged}, invincibility::Invincibility, level_completion::PortalEvent, pathfinding::Pathfinder, player::Player, projectile::Projectile, GameLayer, GameState
 };
 
 pub struct MobPlugin;
@@ -31,9 +23,6 @@ impl Plugin for MobPlugin {
 
 #[derive(Component)]
 pub struct Mob {
-    pub path: Vec<(u16, u16)>, 
-    pub update_path_timer: Timer,
-    speed: f32,
     damage: i32,
 }
 
@@ -99,12 +88,14 @@ fn debug_spawn_mobs(
                         ))
                         .insert(LinearVelocity::ZERO)
                         .insert(Mob { 
+                            damage: 20
+                         })
+                        .insert(Pathfinder {
                             path: vec![],
                             update_path_timer: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(500..900)),
                                                     TimerMode::Repeating),
                             speed: 2500.,
-                            damage: 20
-                         })
+                        })
                         .insert(MobLoot { orbs: 3 })
                         .insert(Health {
                             max: 100,
@@ -116,20 +107,20 @@ fn debug_spawn_mobs(
     }
 }
 
-fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Mob)>, time: Res<Time>) {
-    for (mut linvel, transform, mut mob) in mob_query.iter_mut() {
-        if mob.path.len() > 0 {
+fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder)>, time: Res<Time>) {
+    for (mut linvel, transform, mut pathfinder) in mob_query.iter_mut() {
+        if pathfinder.path.len() > 0 {
             //let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor();
             let direction = Vec2::new(
-                mob.path[0].0 as f32 * 32. - transform.translation.x,
-                mob.path[0].1 as f32 * 32. - transform.translation.y,
+                pathfinder.path[0].0 as f32 * 32. - transform.translation.x,
+                pathfinder.path[0].1 as f32 * 32. - transform.translation.y,
             )
             .normalize();
 
-            linvel.0 = direction * mob.speed * time.delta_seconds();
+            linvel.0 = direction * pathfinder.speed * time.delta_seconds();
 
-            if transform.translation.truncate().distance(Vec2::new(mob.path[0].0 as f32 * 32., mob.path[0].1 as f32 * 32.)) <= 4. {
-                mob.path.remove(0);
+            if transform.translation.truncate().distance(Vec2::new(pathfinder.path[0].0 as f32 * 32., pathfinder.path[0].1 as f32 * 32.)) <= 4. {
+                pathfinder.path.remove(0);
             }
         }
     }

@@ -3,7 +3,7 @@ use core::f32;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{gamemap::Wall, GameLayer};
+use crate::{elements::ElementType, gamemap::Wall, GameLayer};
 
 pub struct ProjectilePlugin;
 
@@ -21,6 +21,7 @@ pub struct Projectile {
     pub direction: Vec2,
     pub speed: f32,
     pub damage: u32,
+    pub element: ElementType,
     pub is_friendly: bool
 }
 
@@ -41,6 +42,7 @@ impl Default for ProjectileBundle {
                 direction: Vec2::X,
                 speed: 100.0,
                 damage: 100,
+                element: ElementType::Air,
                 is_friendly: true,
             },
             collider: Collider::circle(8.0),
@@ -59,6 +61,7 @@ pub struct SpawnProjectileEvent {
     pub radius: f32,
     pub speed: f32,
     pub damage: u32,
+    pub element: ElementType,
     pub is_friendly: bool,
 }
 
@@ -87,6 +90,7 @@ fn spawn_projectile(
                 direction: Vec2::from_angle(ev.angle),
                 speed: ev.speed,
                 damage: ev.damage,
+                element: ev.element,
                 is_friendly: ev.is_friendly
             },
             collider: Collider::circle(ev.radius),

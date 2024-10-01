@@ -3,7 +3,6 @@ use std::collections::{HashMap, LinkedList};
 //A* Pathfinding for enemies
 use crate::{
     gamemap::{LevelGenerator, TileType, ROOM_SIZE},
-    mob::Mob,
     player::Player,
     GameState,
 };
@@ -21,6 +20,14 @@ impl Plugin for PathfindingPlugin {
         .add_systems(Update, a_pathfinding.run_if(in_state(GameState::InGame)));
     }
 }
+
+#[derive(Component)]
+pub struct Pathfinder {
+    pub path: Vec<(u16, u16)>, 
+    pub update_path_timer: Timer,
+    pub speed: f32,
+}
+
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре
 #[derive(Clone, PartialEq)]
 pub struct Node {
@@ -133,21 +140,21 @@ impl CostNode {
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
 fn a_pathfinding(
     player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
-    mut mob_query: Query<(&Transform, &mut Mob), Without<Player>>,
+    mut pathfinder_query: Query<(&Transform, &mut Pathfinder), Without<Player>>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
 ) {
-    for (mob_transform, mut mob) in mob_query.iter_mut() {
-        mob.update_path_timer.tick(time.delta());
-        if mob.update_path_timer.just_finished() {
+    for (pathfinder_transform, mut pathfinder) in pathfinder_query.iter_mut() {
+        pathfinder.update_path_timer.tick(time.delta());
+        if pathfinder.update_path_timer.just_finished() {
             //получаем позицию игрока
             if let Ok(player) = player_query.get_single() {
                 //создаем нод где стоит моб
                 let start_node = Node::new(
                     TileType::Floor,
                     Vec2::new(
-                        mob_transform.translation.x.floor(),
-                        mob_transform.translation.y.floor(),
+                        pathfinder_transform.translation.x.floor(),
+                        pathfinder_transform.translation.y.floor(),
                     ),
                 );
 
@@ -168,8 +175,8 @@ fn a_pathfinding(
                 );
 
                 //задаем нод где стоит моб нулевой ценой
-                field[mob_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
-                     [mob_transform.translation.y.floor() as usize / ROOM_SIZE as usize].change_cost(0);
+                field[pathfinder_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
+                     [pathfinder_transform.translation.y.floor() as usize / ROOM_SIZE as usize].change_cost(0);
 
                 //создаем хэшмапы для пройденных нодов и доступных
                 let mut reachable = HashMap::new();
@@ -201,7 +208,7 @@ fn a_pathfinding(
                                 ((goal_node.position.y ) / ROOM_SIZE as f32) as u16,
                             ));
 
-                        mob.path = build_path(
+                        pathfinder.path = build_path(
                             field[((goal_node.position.x ) / ROOM_SIZE as f32) as usize]
                                 [((goal_node.position.y ) / ROOM_SIZE as f32) as usize]
                                 .clone(),
