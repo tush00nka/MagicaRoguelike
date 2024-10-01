@@ -1,4 +1,4 @@
-use bevy::{core_pipeline::bloom::{BloomPrefilterSettings, BloomSettings}, prelude::{Camera, *}};
+use bevy::{core_pipeline::bloom::BloomSettings, prelude::{Camera, *}};
 
 use crate::{
     player::Player,
