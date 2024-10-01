@@ -40,7 +40,7 @@ fn init_chapter(
     mut commands: Commands,
 ) {
     commands.insert_resource(ChapterManager::default());
-    commands.insert_resource(ClearColor(Color::hsl(24.0, 0.68, 0.16)));
+    commands.insert_resource(ClearColor(Color::srgb(69./255., 35./255., 13./255.)));
 }
 
 fn update_chapter(
@@ -57,8 +57,8 @@ fn update_chapter(
             let bg_color: Color;
 
             match chapter_manager.current_chapter {
-                1 => bg_color = Color::hsl(24.0, 0.68, 0.16),
-                2 => bg_color = Color::hsl(72., 0.57, 0.09),
+                1 => bg_color = Color::srgb(69./255., 35./255., 13./255.),
+                2 => bg_color = Color::srgb(31./255., 36./255., 10./255.),
                 _ => bg_color = Color::WHITE,
             }
 

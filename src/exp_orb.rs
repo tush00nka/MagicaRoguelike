@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 
-use crate::{experience::{ExpGained, PlayerExperience}, player::Player, GameState};
+use crate::{
+    experience::{ExpGained, PlayerExperience},
+    player::Player,
+    GameState
+};
 
 pub struct ExpOrbPlugin;
 

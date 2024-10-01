@@ -46,7 +46,7 @@ fn spawn_hub(
                     })
                     .insert(RigidBody::Static)
                     .insert(Collider::rectangle(31.9, 31.9))
-                    .insert(Wall {});
+                    .insert(Wall);
             }
             else {
                 commands
@@ -59,9 +59,7 @@ fn spawn_hub(
                         ),
                         ..default()
                     })
-                    //.insert(RigidBody::Fixed)
-                    //.insert(Collider::cuboid(16.0, 16.0))
-                    .insert(Floor {});
+                    .insert(Floor);
             }
         }
     }

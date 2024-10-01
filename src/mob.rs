@@ -5,7 +5,16 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop}, gamemap::{LevelGenerator, TileType, ROOM_SIZE}, health::{DeathEvent, Health, PlayerHPChanged}, invincibility::Invincibility, level_completion::PortalEvent, pathfinding::Pathfinder, player::Player, projectile::Projectile, GameLayer, GameState
+    exp_orb::{ExpOrb, ExpOrbDrop},
+    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
+    health::{DeathEvent, Health, PlayerHPChanged},
+    invincibility::Invincibility,
+    level_completion::PortalEvent,
+    pathfinding::Pathfinder, 
+    player::Player,
+    projectile::Projectile,
+    GameLayer,
+    GameState
 };
 
 pub struct MobPlugin;
@@ -197,6 +206,10 @@ fn hit_projectiles(
 
                                 commands
                                     .spawn(SpriteBundle {
+                                        sprite: Sprite {
+                                            color: Color::srgb(2.0, 2.0, 2.0),
+                                            ..default()
+                                        },
                                         texture: asset_server.load("textures/exp_particle.png"),
                                         transform: Transform::from_translation(
                                             transform.translation,

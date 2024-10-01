@@ -50,7 +50,11 @@ fn spawn_portal(
     for ev in ev_portal.read() {
         let portal = commands
             .spawn(SpriteBundle {
-                texture: asset_server.load("textures/black_hole.png"),
+                sprite: Sprite {
+                    color: Color::srgb(2.0, 2.0, 2.0),
+                    ..default()
+                },
+                texture: asset_server.load("textures/portal.png"),
                 transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
                 ..default()
             })

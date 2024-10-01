@@ -1,7 +1,11 @@
 use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
-use crate::{exp_orb::{ExpOrb, ExpOrbDrop}, mouse_position::MouseCoords, player::Player};
+use crate::{
+    exp_orb::{ExpOrb, ExpOrbDrop},
+    mouse_position::MouseCoords,
+    player::Player
+};
 
 pub struct ExpTankPlugin;
 
@@ -87,6 +91,10 @@ fn break_tank(
                     let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);
     
                     commands.spawn(SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgb(2.0, 2.0, 2.0),
+                            ..default()
+                        },
                         texture: asset_server.load("textures/exp_particle.png"),
                         transform: Transform::from_translation(tank_transform.translation),
                         ..default()

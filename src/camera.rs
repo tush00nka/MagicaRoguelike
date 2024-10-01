@@ -1,6 +1,9 @@
-use bevy::prelude::*;
+use bevy::{core_pipeline::bloom::{BloomPrefilterSettings, BloomSettings}, prelude::{Camera, *}};
 
-use crate::{player::Player, GameState};
+use crate::{
+    player::Player,
+    GameState
+};
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
@@ -15,25 +18,38 @@ const CAM_LERP: f32 = 8.0;
 
 
 #[derive(Component)]
-struct Camera;
+struct PlayerCamera;
 
 fn spawn_camera(
     mut commands: Commands,
 ) {
-    commands.spawn(Camera2dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 10.0),
-        projection: OrthographicProjection {
-            scale: 0.6,
+    commands.spawn((Camera2dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            // tonemapping: Tonemapping::TonyMcMapface,
+            transform: Transform::from_xyz(0.0, 0.0, 10.0),
+            projection: OrthographicProjection {
+                scale: 0.6,
+                ..default()
+            },
             ..default()
         },
-
-        ..default()
-    }).insert(Camera); 
+        BloomSettings {
+            // prefilter_settings: BloomPrefilterSettings {
+            //     threshold: 1.0,
+            //     ..default()
+            // } ,
+            ..default()
+        },
+        PlayerCamera
+    )); 
 }
 
 fn sync_player_camera(
-    player_query: Query<&Transform, (With<Player>, Without<Camera>)>,
-    mut camera_query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    player_query: Query<&Transform, (With<Player>, Without<PlayerCamera>)>,
+    mut camera_query: Query<&mut Transform, (With<PlayerCamera>, Without<Player>)>,
     time: Res<Time>,
 ) {
     let Ok(mut camera_transform) = camera_query.get_single_mut() else {

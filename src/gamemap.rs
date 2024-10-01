@@ -2,7 +2,13 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{chapter::ChapterManager, exp_tank::SpawnExpTankEvent, health_tank::SpawnHealthTankEvent, GameLayer, GameState};
+use crate::{
+    chapter::ChapterManager,
+    exp_tank::SpawnExpTankEvent,
+    health_tank::SpawnHealthTankEvent,
+    GameLayer,
+    GameState
+};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -259,8 +265,6 @@ pub fn spawn_map(
                         ),
                         ..default()
                         })
-                        //.insert(RigidBody::Fixed)
-                        //.insert(Collider::cuboid(16.0, 16.0))
                         .insert(Floor);
 
                     if rand::thread_rng().gen::<f32>() > chance_tank_spawn {
@@ -312,7 +316,7 @@ pub fn spawn_map(
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
                         .insert(Wall);
                 },
-                _ => {}
+                TileType::Empty => {}
             }
         }
     }

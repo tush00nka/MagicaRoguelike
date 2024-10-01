@@ -101,7 +101,7 @@ fn main() {
     wpgu_settings.features.set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true,);
 
     App::new()
-        .insert_resource(ClearColor(Color::hsl(24.0, 0.68, 0.16)))
+        .insert_resource(ClearColor(Color::srgb(69./255., 35./255., 13./255.)))
         .add_plugins(DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(RenderPlugin {

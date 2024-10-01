@@ -3,7 +3,12 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::{projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState};
+use crate::{
+    projectile::SpawnProjectileEvent,
+    shield_spell::SpawnShieldEvent,
+    wand::Wand,
+    GameState
+};
 
 pub struct ElementsPlugin;
 
@@ -158,11 +163,11 @@ fn cast_spell(
 
         let color = {
             match element {
-                ElementType::Fire => Color::hsl(20.0, 0.75, 0.5),
-                ElementType::Water => Color::hsl(200.0, 0.75, 0.5),
-                ElementType::Earth => Color::hsl(20.0, 0.5, 0.5),
-                ElementType::Air => Color::hsl(200.0, 0.25, 0.75),
-                ElementType::Steam => Color::hsl(200.0, 0.25, 0.75),
+                ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
+                ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
+                ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
+                ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
+                ElementType::Steam => Color::srgb(1.5, 2.0, 1.5),
             }
         };
 
