@@ -2,9 +2,10 @@ use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop},
+    exp_orb::SpawnExpOrbEvent,
+    experience::PlayerExperience,
     mouse_position::MouseCoords,
-    player::Player
+    player::Player,
 };
 
 pub struct ExpTankPlugin;
@@ -60,10 +61,11 @@ fn debug_tank(
 
 fn break_tank(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut collision_event_reader: EventReader<Collision>,
     player_query: Query<&Player>,
+    player_experience: Res<PlayerExperience>,
     tank_query: Query<(&Transform, &ExpTank, Entity)>,
+    mut ev_spawn: EventWriter<SpawnExpOrbEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         let tank_e: Option<Entity>;
@@ -80,27 +82,22 @@ fn break_tank(
 
         for (tank_transform, tank, candidate_e) in tank_query.iter() {
 
-            if tank_e.is_some() && tank_e.unwrap() == candidate_e {
-                let offset = (2.0*PI)/tank.orbs as f32;
+            let orbs_count = tank.orbs + player_experience.orb_bonus;
 
-                for i in 0..tank.orbs {
+            if tank_e.is_some() && tank_e.unwrap() == candidate_e {
+                let offset = (2.0*PI)/orbs_count as f32;
+
+                for i in 0..orbs_count {
     
                     // считаем точки, куда будем выбрасывать частицы опыта
                     let angle = offset * i as f32;
                     let direction = Vec2::from_angle(angle) * 16.0;
                     let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);
     
-                    commands.spawn(SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::srgb(2.0, 2.0, 2.0),
-                            ..default()
-                        },
-                        texture: asset_server.load("textures/exp_particle.png"),
-                        transform: Transform::from_translation(tank_transform.translation),
-                        ..default()
-                    })
-                    .insert(ExpOrb { exp: 5 })
-                    .insert(ExpOrbDrop { drop_destination: destination });
+                    ev_spawn.send(SpawnExpOrbEvent {
+                        pos: tank_transform.translation,
+                        destination,
+                    });
                 }
 
                 commands.get_entity(tank_e.unwrap()).unwrap().despawn();

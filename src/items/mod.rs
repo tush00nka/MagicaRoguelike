@@ -9,6 +9,9 @@ use speed_potion::SpeedPotionPlugin;
 mod heart;
 use heart::HeartPlugin;
 
+mod amulet;
+use amulet::AmuletPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -16,6 +19,7 @@ impl Plugin for ItemEffectsPlugin {
             BaconPlugin,
             SpeedPotionPlugin,
             HeartPlugin,
+            AmuletPlugin,
         ));
     }
 }

@@ -14,15 +14,16 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(OnExit(GameState::MainMenu), spawn_player)
-        .add_systems(OnExit(GameState::Hub), reset_player_position)
-        .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage))
-        .add_systems(FixedUpdate, move_player);
+            .add_event::<PlayerDeathEvent>()
+            .add_systems(OnExit(GameState::MainMenu), spawn_player)
+            .add_systems(OnExit(GameState::Hub), reset_player_position)
+            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage))
+            .add_systems(FixedUpdate, move_player);
     }
 }
 
 #[derive(Event)]
-pub struct PlayerDeathEvent;
+pub struct PlayerDeathEvent(pub Entity);
 
 #[derive(Component, Clone, Copy)]
 pub struct Player {
@@ -148,7 +149,7 @@ fn flip_towards_mouse(
 
 fn debug_take_damage(
     mut commands: Commands,
-    mut ev_death: EventWriter<DeathEvent>,
+    mut ev_death: EventWriter<PlayerDeathEvent>,
     mut ev_hp: EventWriter<PlayerHPChanged>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut health_query: Query<(&mut Health, Entity, &Player), Without<Invincibility>>
@@ -160,7 +161,7 @@ fn debug_take_damage(
             commands.entity(ent).insert(Invincibility::new(player.invincibility_time));
             
             if health.current <= 0 {
-                ev_death.send(DeathEvent(ent));
+                ev_death.send(PlayerDeathEvent(ent));
             }
         }
     }

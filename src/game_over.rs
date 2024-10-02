@@ -5,7 +5,6 @@ pub struct GameOverPlugin;
 impl Plugin for GameOverPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<PlayerDeathEvent>()
             .add_systems(OnEnter(GameState::GameOver), spawn_gameover_ui)
             .add_systems(Update, player_death)
             .add_systems(Update, handle_buttons.run_if(in_state(GameState::GameOver)))

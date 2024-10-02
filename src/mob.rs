@@ -5,27 +5,30 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::{ExpOrb, ExpOrbDrop},
+    exp_orb::SpawnExpOrbEvent,
+    experience::PlayerExperience,
     gamemap::{LevelGenerator, TileType, ROOM_SIZE},
-    health::{DeathEvent, Health, PlayerHPChanged},
+    health::{Health, PlayerHPChanged},
     invincibility::Invincibility,
     level_completion::PortalEvent,
-    pathfinding::Pathfinder, 
-    player::Player,
+    pathfinding::Pathfinder,
+    player::{Player, PlayerDeathEvent},
     projectile::Projectile,
     GameLayer,
-    GameState
+    GameState,
 };
 
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(PortalPosition::default())
+        app
+            .add_event::<MobDeathEvent>()
+            .insert_resource(PortalPosition::default())
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, hit_player).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, hit_player, mob_death).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -54,6 +57,14 @@ impl PortalPosition {
 #[derive(Component)]
 pub struct MobLoot {
     pub orbs: u32,
+}
+
+#[derive(Event)]
+pub struct MobDeathEvent {
+    pub entity: Entity,
+    pub orbs: u32,
+    pub pos: Vec3,
+    pub dir: Vec3,
 }
 
 fn debug_spawn_mobs(
@@ -137,20 +148,14 @@ fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfin
 
 fn hit_projectiles(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut collision_event_reader: EventReader<Collision>,
+
     projectile_query: Query<(Entity, &Projectile, &Transform)>,
     mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
-    mut ev_death: EventWriter<DeathEvent>,
-    mut amount_mobs: ResMut<PortalPosition>,
-    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
-) {
-    if mob_query.is_empty() && !amount_mobs.check{
-        amount_mobs.check = true;
-        ev_spawn_portal.send( PortalEvent{pos:amount_mobs.position});
-    }
 
-    for Collision(contacts) in collision_event_reader.read() {
+    mut ev_collision: EventReader<Collision>,
+    mut ev_death: EventWriter<MobDeathEvent>,
+) {
+    for Collision(contacts) in ev_collision.read() {
         let proj_e: Option<Entity>;
         let mob_e: Option<Entity>;
         
@@ -183,48 +188,60 @@ fn hit_projectiles(
 
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
-                        // commands.entity(mob_e.unwrap()).insert( // knockback
-                        //     ExternalImpulse::new(shot_dir.truncate() * 50_000.0)
-                        //         .with_persistence(false),
-                        // );
 
                         if health.current <= 0 {
                             health.current += 10000;
-                            amount_mobs.set_pos(transform.translation);
-                            ev_death.send(DeathEvent(mob_e.unwrap()));
-
-                            let offset = PI / 12.;
-                            for i in -1..(loot.orbs as i32 - 1) {
-                                // считаем точки, куда будем выбрасывать частицы опыта
-                                let angle = shot_dir.y.atan2(shot_dir.x) + offset * i as f32;
-                                let direction = Vec2::from_angle(angle) * 32.0;
-                                let destination = Vec3::new(
-                                    transform.translation.x + direction.x,
-                                    transform.translation.y + direction.y,
-                                    transform.translation.z,
-                                );
-
-                                commands
-                                    .spawn(SpriteBundle {
-                                        sprite: Sprite {
-                                            color: Color::srgb(2.0, 2.0, 2.0),
-                                            ..default()
-                                        },
-                                        texture: asset_server.load("textures/exp_particle.png"),
-                                        transform: Transform::from_translation(
-                                            transform.translation,
-                                        ),
-                                        ..default()
-                                    })
-                                    .insert(ExpOrb { exp: 5 })
-                                    .insert(ExpOrbDrop {
-                                        drop_destination: destination,
-                                    });
-                            }
+                            ev_death.send(MobDeathEvent {
+                                entity: mob_e.unwrap(),
+                                orbs: loot.orbs,
+                                pos: transform.translation,
+                                dir: shot_dir,
+                            });
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+fn mob_death(
+    mut portal_position: ResMut<PortalPosition>,
+    player_experience: Res<PlayerExperience>,
+
+    mob_query: Query<&Mob>,
+
+    mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
+    mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
+
+    mut ev_mob_death: EventReader<MobDeathEvent>,
+) {
+    for ev in ev_mob_death.read() {
+        portal_position.set_pos(ev.pos);
+
+        if mob_query.is_empty() && !portal_position.check{
+            portal_position.check = true;
+            ev_spawn_portal.send( PortalEvent{pos: portal_position.position});
+        }    
+    
+        let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
+        let half_count = (orb_count as f32 / 2.).round() as i32;
+    
+        let offset = PI / 12.;
+        for i in (-orb_count/2)..half_count {
+            // считаем точки, куда будем выбрасывать частицы опыта
+            let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
+            let direction = Vec2::from_angle(angle) * 32.0;
+            let destination = Vec3::new(
+                ev.pos.x + direction.x,
+                ev.pos.y + direction.y,
+                ev.pos.z,
+            );
+    
+            ev_spawn_orb.send(SpawnExpOrbEvent {
+                pos: ev.pos,
+                destination,
+            });
         }
     }
 }
@@ -235,7 +252,7 @@ fn hit_player(
     mob_query: Query<(Entity, &Mob), Without<Player>>,
     mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
     mut ev_hp: EventWriter<PlayerHPChanged>,
-    mut ev_death: EventWriter<DeathEvent>,
+    mut ev_death: EventWriter<PlayerDeathEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
 
@@ -259,7 +276,7 @@ fn hit_player(
                     ev_hp.send(PlayerHPChanged);
                     commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
                     if health.current <= 0 {
-                        ev_death.send(DeathEvent(player_e));
+                        ev_death.send(PlayerDeathEvent(player_e));
                     }
                 }
             }
