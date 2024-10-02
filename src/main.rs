@@ -77,6 +77,9 @@ use ui::{
     ItemUIPlugin,
 };
 
+mod items;
+use items::ItemEffectsPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -132,6 +135,6 @@ fn main() {
         .add_plugins(HubPlugin)
         .add_plugins(InvincibilityPlugin)
         .add_plugins(ChapterPlugin)
-        .add_plugins((ItemPlugin, ItemUIPlugin))
+        .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .run();
 }

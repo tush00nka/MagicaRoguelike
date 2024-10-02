@@ -16,7 +16,7 @@ impl Plugin for PlayerPlugin {
         app
         .add_systems(OnExit(GameState::MainMenu), spawn_player)
         .add_systems(OnExit(GameState::Hub), reset_player_position)
-        .add_systems(Update, (animate_player, flip_towards_mouse, take_damage))
+        .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage))
         .add_systems(FixedUpdate, move_player);
     }
 }
@@ -27,6 +27,7 @@ pub struct PlayerDeathEvent;
 #[derive(Component, Clone, Copy)]
 pub struct Player {
     pub speed: f32,
+    pub invincibility_time: f32,
 }
 
 fn spawn_player(
@@ -61,7 +62,10 @@ fn spawn_player(
         .insert(Collider::circle(8.0))
         .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
-        .insert(Player { speed: 10000.0 })
+        .insert(Player {
+            speed: 8000.0,
+            invincibility_time: 1.0,
+        })
         .insert(Health{max: 100, current: 100});
 }
 
@@ -142,18 +146,18 @@ fn flip_towards_mouse(
     }
 }
 
-fn take_damage(
+fn debug_take_damage(
     mut commands: Commands,
     mut ev_death: EventWriter<DeathEvent>,
     mut ev_hp: EventWriter<PlayerHPChanged>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut health_query: Query<(&mut Health, Entity), (With<Player>, Without<Invincibility>)>
+    mut health_query: Query<(&mut Health, Entity, &Player), Without<Invincibility>>
 ){
     if keyboard.just_pressed(KeyCode::KeyZ) {
-        if let Ok((mut health, ent)) = health_query.get_single_mut(){
+        if let Ok((mut health, ent, player)) = health_query.get_single_mut(){
             health.damage(25);
             ev_hp.send(PlayerHPChanged);
-            commands.entity(ent).insert(Invincibility::default());
+            commands.entity(ent).insert(Invincibility::new(player.invincibility_time));
             
             if health.current <= 0 {
                 ev_death.send(DeathEvent(ent));

@@ -14,6 +14,15 @@ pub struct Invincibility {
     blink_timer: Timer,
 }
 
+impl Invincibility {
+    pub fn new(duration: f32) -> Self {
+        Self {
+            effect_timer: Timer::from_seconds(duration, TimerMode::Once),
+            blink_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+        }
+    }
+}
+
 impl Default for Invincibility {
     fn default() -> Self {
         Self {

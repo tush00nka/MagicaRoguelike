@@ -233,7 +233,7 @@ fn hit_player(
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
     mob_query: Query<(Entity, &Mob), Without<Player>>,
-    mut player_query: Query<(Entity, &mut Health), (With<Player>, Without<Invincibility>)>,
+    mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
     mut ev_hp: EventWriter<PlayerHPChanged>,
     mut ev_death: EventWriter<DeathEvent>,
 ) {
@@ -252,12 +252,12 @@ fn hit_player(
             mob_e = contacts.entity2;
         }
 
-        if let Ok((player_e, mut health)) = player_query.get_single_mut() {
+        if let Ok((player_e, mut health, player)) = player_query.get_single_mut() {
             for (mob_cadidate_e, mob) in mob_query.iter() {
                 if mob_cadidate_e == mob_e {
                     health.damage(mob.damage);
                     ev_hp.send(PlayerHPChanged);
-                    commands.entity(player_e).insert(Invincibility::default());
+                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
                     if health.current <= 0 {
                         ev_death.send(DeathEvent(player_e));
                     }

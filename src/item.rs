@@ -20,9 +20,10 @@ impl Plugin for ItemPlugin {
 }
 
 #[allow(unused)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ItemType {
     Amulet,
+    Bacon,
     Heart,
     LizardTail,
     SpeedPotion,
@@ -33,6 +34,7 @@ impl ItemType {
     pub fn get_texture_path(&self) -> &str{
         match self {
             ItemType::Amulet => "textures/items/amulet.png",
+            ItemType::Bacon => "textures/items/bacon.png",
             ItemType::Heart => "textures/items/heart.png",
             ItemType::LizardTail => "textures/items/lizard_tail.png",
             ItemType::SpeedPotion => "textures/items/speed_potion.png",
@@ -45,12 +47,13 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=4) {
+        match rng.gen_range(0..=5) {
             0 => ItemType::Amulet,
             1 => ItemType::Heart,
             2 => ItemType::LizardTail,
             3 => ItemType::SpeedPotion,
             4 => ItemType::WispInAJar,
+            5 => ItemType::Bacon,
             _ => ItemType::WispInAJar,
         }
     }
