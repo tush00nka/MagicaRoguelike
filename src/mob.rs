@@ -28,6 +28,10 @@ impl Plugin for MobPlugin {
             );
     }
 }
+pub enum MobType {
+    Mossling,
+    Teleport,
+}
 
 #[derive(Component)]
 pub struct Mob {
@@ -58,6 +62,17 @@ pub struct MobLoot {
     pub orbs: u32,
 }
 
+impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
+        // match rng.gen_range(0, 3) { // rand 0.5, 0.6, 0.7
+        match rng.gen_range(0..=1) { // rand 0.8
+            0 => MobType::Mossling,
+            1 => MobType::Teleport,
+            _ => MobType::Teleport
+        }
+    }
+}
+
 fn debug_spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -69,9 +84,19 @@ fn debug_spawn_mobs(
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
                 if rng.gen::<f32>() > 0.9 {
+                    let mob_type: MobType = rand::random();
+                    let mut texture_path: &str = "";
+                    match mob_type {
+                        MobType::Mossling => {
+                            texture_path = "textures/mob_mossling.png";
+                        }
+                        MobType::Teleport => {
+                            texture_path = "textures/mob_teleport_placeholder.png"                    
+                        }
+                    }
                     let mob = commands
                         .spawn(SpriteBundle {
-                            texture: asset_server.load("textures/mob_mossling.png"),
+                            texture: asset_server.load(texture_path),
                             transform: Transform::from_xyz(
                                 (i as i32 * ROOM_SIZE) as f32,
                                 (j as i32 * ROOM_SIZE) as f32,
