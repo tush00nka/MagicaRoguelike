@@ -3,7 +3,7 @@ use std::collections::{HashMap, LinkedList};
 //A* Pathfinding for enemies
 use crate::{
     gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE},
-    mob::Mob,
+    mob::{Mob, Teleport},
     player::Player,
     GameState::{InGame, Loading},
 };
@@ -82,6 +82,20 @@ fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
     return slf.adj_list[&(i, j)][0].clone();
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
 }
+fn unsafe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
+    match slf.adj_list.get(&(
+        (vec.x.floor() / ROOM_SIZE as f32) as u16,
+        (vec.y.floor() / ROOM_SIZE as f32) as u16,
+    )) {
+        None => return (u16::MAX, u16::MAX),
+        _ => {
+            return (
+                (vec.x.floor() / ROOM_SIZE as f32) as u16,
+                (vec.y.floor() / ROOM_SIZE as f32) as u16,
+            );
+        }
+    }
+}
 //безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
 fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
     let mut best = Vec2::new(0., 0.);
@@ -93,15 +107,15 @@ fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
             &Node::new(
                 TileType::Floor,
                 Vec2::new(
-                    (i.0.0 as f32 * ROOM_SIZE as f32).floor(),
-                    (i.0.1 as f32 * ROOM_SIZE as f32).floor(),
+                    (i.0 .0 as f32 * ROOM_SIZE as f32).floor(),
+                    (i.0 .1 as f32 * ROOM_SIZE as f32).floor(),
                 ),
             ),
         );
 
         if range > temp_range {
             range = temp_range;
-            best = Vec2::new(i.0.0 as f32, i.0.1 as f32);
+            best = Vec2::new(i.0 .0 as f32, i.0 .1 as f32);
         }
     }
 
@@ -134,12 +148,12 @@ impl CostNode {
 
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
 fn a_pathfinding(
-    player_query: Query<&Transform, With<Player>>, 
-    mut mob_query: Query<(&Transform, &mut Mob), Without<Player>>,
+    player_query: Query<&Transform, With<Player>>,
+    mut mob_query: Query<(&Transform, &mut Mob, &Teleport), Without<Player>>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
 ) {
-    for (mob_transform, mut mob) in mob_query.iter_mut() {
+    for (mob_transform, mut mob, teleport_ability) in mob_query.iter_mut() {
         mob.update_path_timer.tick(time.delta());
 
         if mob.update_path_timer.just_finished() {
@@ -153,6 +167,88 @@ fn a_pathfinding(
                         mob_transform.translation.y.floor(),
                     ),
                 );
+
+                if teleport_ability.has_teleport {
+                    let k = safe_get_pos(player.translation.truncate(), &mut graph_search);
+                    for i in k.0 - 5..k.0 + 6 {
+                        for j in k.1 - 5..k.1 + 6 {
+                            if i == k.0 - 5 || i == k.0 + 5 || j == k.1 - 5 || j == k.1 + 5 {
+                                let mut check:bool = true;
+                                let tp_pos = unsafe_get_pos(
+                                    Vec2::new(
+                                        (i as i32 * ROOM_SIZE) as f32,
+                                        (j as i32 * ROOM_SIZE) as f32,
+                                    ),
+                                    &mut graph_search,
+                                );
+                                if tp_pos.0 == u16::MAX && tp_pos.1 == u16::MAX {
+                                    continue;
+                                }
+                                let mut current_pos = (i, j);
+                                while current_pos != k {
+                                    let mut vec_tiles: Vec<(u16, u16)> = Vec::new();
+                                    if j > k.1 {
+                                        vec_tiles.push((i, j - 1));
+                                        if i > k.0 {
+                                            vec_tiles.push((i - 1, j));
+                                            vec_tiles.push((i - 1, j - 1));
+                                        } else {
+                                            vec_tiles.push((i + 1, j - 1));
+                                            vec_tiles.push((i + 1, j));
+                                        }
+                                    } else {
+                                        vec_tiles.push((i, j + 1));
+                                        if i > k.0 {
+                                            vec_tiles.push((i - 1, j));
+                                            vec_tiles.push((i - 1, j + 1));
+                                        } else {
+                                            vec_tiles.push((i + 1, j));
+                                            vec_tiles.push((i + 1, j + 1));
+                                        }
+                                    }
+                                    let mut best_dist: usize = usize::MAX;
+                                    for temp in vec_tiles {
+                                        let dist: usize = distance(
+                                            &Node::new(
+                                                TileType::Floor,
+                                                Vec2::new(
+                                                    (k.0 as u32 * ROOM_SIZE as u32) as f32,
+                                                    (k.1 as u32 * ROOM_SIZE as u32) as f32,
+                                                ),
+                                            ),
+                                            &Node::new(
+                                                TileType::Floor,
+                                                Vec2::new(
+                                                    (temp.0 as u32 * ROOM_SIZE as u32) as f32,
+                                                    (temp.1 as u32 * ROOM_SIZE as u32) as f32,
+                                                ),
+                                            ),
+                                        );
+                                        if dist < best_dist {
+                                            best_dist = dist;
+                                            current_pos = (temp.0, temp.1);
+                                        }
+                                    }
+                                    if safe_get_pos(
+                                        Vec2::new(
+                                            (current_pos.0 as u32 * ROOM_SIZE as u32) as f32,
+                                            (current_pos.1 as u32 * ROOM_SIZE as u32) as f32,
+                                        ),
+                                        &mut graph_search,
+                                    ) == (u16::MAX, u16::MAX)
+                                    {
+                                        check = false;
+                                        break;
+                                    }
+                                }
+                                if check{
+                                    mob.path = Vec::new();
+                                    mob.path.push((i,j));
+                                }
+                            }
+                        }
+                    }
+                }
 
                 let mut field: Vec<Vec<CostNode>> = Vec::new();
 
@@ -187,6 +283,7 @@ fn a_pathfinding(
                     ),
                     start_node,
                 );
+
                 while reachable.len() > 0 {
                     //функция выбора нода описана ниже
                     let node: Node = pick_node(
@@ -263,8 +360,7 @@ fn a_pathfinding(
                         {
                             field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
                                 [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
-                                .path = 
-                                field[((node.position.x) / ROOM_SIZE as f32) as usize]
+                                .path = field[((node.position.x) / ROOM_SIZE as f32) as usize]
                                 [((node.position.y) / ROOM_SIZE as f32) as usize]
                                 .path
                                 .clone();
@@ -281,8 +377,7 @@ fn a_pathfinding(
 
                             field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
                                 [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
-                                .cost = 
-                                field[((node.position.x) / ROOM_SIZE as f32) as usize]
+                                .cost = field[((node.position.x) / ROOM_SIZE as f32) as usize]
                                 [((node.position.y) / ROOM_SIZE as f32) as usize]
                                 .cost
                                 + 1;
@@ -295,7 +390,7 @@ fn a_pathfinding(
 }
 
 //function to avoid diagonal movement through walls
-fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>>{
+fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>> {
     let mut sub_grid: Vec<Vec<u8>> = vec![vec![0, 0, 0], vec![0, 0, 0], vec![0, 0, 0]];
 
     if grid[i][j - 1] == TileType::Wall {
@@ -319,7 +414,7 @@ fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>>{
         sub_grid[2][2] += 1;
     }
 
-    return sub_grid
+    return sub_grid;
 }
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется

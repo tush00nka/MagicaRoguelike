@@ -34,6 +34,12 @@ pub enum MobType {
 }
 
 #[derive(Component)]
+pub struct Teleport{
+    pub has_teleport: bool,
+    amount_of_tiles: u8
+}
+
+#[derive(Component)]
 pub struct Mob {
     pub path: Vec<(u16, u16)>, 
     pub update_path_timer: Timer,
@@ -61,7 +67,7 @@ impl PortalPosition {
 pub struct MobLoot {
     pub orbs: u32,
 }
-
+// range for enum of mobs
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
         // match rng.gen_range(0, 3) { // rand 0.5, 0.6, 0.7
@@ -86,11 +92,15 @@ fn debug_spawn_mobs(
                 if rng.gen::<f32>() > 0.9 {
                     let mob_type: MobType = rand::random();
                     let mut texture_path: &str = "";
+                    let mut has_teleport: bool = false;
+                    let mut amount_of_tiles: u8 = 0;
                     match mob_type {
                         MobType::Mossling => {
                             texture_path = "textures/mob_mossling.png";
                         }
                         MobType::Teleport => {
+                            amount_of_tiles = 5;
+                            has_teleport = true;
                             texture_path = "textures/mob_teleport_placeholder.png"                    
                         }
                     }
@@ -105,7 +115,7 @@ fn debug_spawn_mobs(
                             ..default()
                         })
                         .id();
-
+                        //need to create a way to add external component without 10000+ additional lines of code
                     commands
                         .entity(mob)
                         .insert(RigidBody::Dynamic)
@@ -122,6 +132,10 @@ fn debug_spawn_mobs(
                                 GameLayer::Player,
                             ],
                         ))
+                        .insert(Teleport{
+                            has_teleport,
+                            amount_of_tiles
+                        })
                         .insert(LinearVelocity::ZERO)
                         .insert(Mob { 
                             path: vec![],
