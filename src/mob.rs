@@ -36,7 +36,7 @@ pub enum MobType {
 #[derive(Component)]
 pub struct Teleport{
     pub has_teleport: bool,
-    amount_of_tiles: u8
+    pub amount_of_tiles: u8
 }
 
 #[derive(Component)]
@@ -132,10 +132,6 @@ fn debug_spawn_mobs(
                                 GameLayer::Player,
                             ],
                         ))
-                        .insert(Teleport{
-                            has_teleport,
-                            amount_of_tiles
-                        })
                         .insert(LinearVelocity::ZERO)
                         .insert(Mob { 
                             path: vec![],
@@ -149,6 +145,12 @@ fn debug_spawn_mobs(
                             max: 100,
                             current: 100,
                         });
+                        if has_teleport{
+                            commands.entity(mob).insert(Teleport{
+                                has_teleport,
+                                amount_of_tiles
+                            });
+                        }
                 }
             }
         }
