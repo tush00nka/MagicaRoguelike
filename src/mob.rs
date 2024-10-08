@@ -102,7 +102,7 @@ fn debug_spawn_mobs(
                             texture_path = "textures/mob_mossling.png";
                         }
                         MobType::Teleport => {
-                            amount_of_tiles = 5;
+                            amount_of_tiles = 4;
                             has_teleport = true;
                             texture_path = "textures/mob_teleport_placeholder.png"                    
                         }
