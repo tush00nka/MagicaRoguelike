@@ -24,7 +24,7 @@ impl Plugin for MobPlugin {
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, hit_player).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, hit_player,teleport_mobs).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -35,7 +35,6 @@ pub enum MobType {
 
 #[derive(Component)]
 pub struct Teleport{
-    pub has_teleport: bool,
     pub amount_of_tiles: u8
 }
 
@@ -84,14 +83,18 @@ fn debug_spawn_mobs(
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
 ) {
+    let mut check = true;
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
                 if rng.gen::<f32>() > 0.9 {
-                    let mob_type: MobType = rand::random();
-                    let mut texture_path: &str = "";
+                    if check{
+                    check = false;
+                    //let mob_type: MobType = rand::random();
+                    let mob_type: MobType = MobType::Teleport;
+                    let texture_path: &str;
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
                     match mob_type {
@@ -147,17 +150,25 @@ fn debug_spawn_mobs(
                         });
                         if has_teleport{
                             commands.entity(mob).insert(Teleport{
-                                has_teleport,
                                 amount_of_tiles
                             });
                         }
+                    }
                 }
             }
         }
     }
 }
+fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Mob), With<Teleport>>){ // maybe add time dependency to teleport time? idk
+    for (mut transform, mut mob) in mob_query.iter_mut() {
+        if mob.path.len() > 0 {
+            transform.translation = Vec3::new(mob.path[0].0 as f32 * ROOM_SIZE as f32, mob.path[0].1 as f32 * ROOM_SIZE as f32, 1.0);
+            mob.path.remove(0);
+        }
+    }
+}
 
-fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Mob)>, time: Res<Time>) {
+fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Mob),  Without<Teleport>>, time: Res<Time>) {
     for (mut linvel, transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
             //let mob_tile_pos = Vec2::new(((transform.translation.x - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor(), (transform.translation.y - (ROOM_SIZE / 2) as f32) / ROOM_SIZE as f32).floor();

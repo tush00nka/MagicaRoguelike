@@ -88,8 +88,11 @@ fn unsafe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
         (vec.x.floor() / ROOM_SIZE as f32) as u16,
         (vec.y.floor() / ROOM_SIZE as f32) as u16,
     )) {
-        None => return (u16::MAX, u16::MAX),
-        _ => {
+        None => {
+            println!("NO NODE");
+            return (u16::MAX, u16::MAX);
+        }
+        Some(smth) => {
             return (
                 (vec.x.floor() / ROOM_SIZE as f32) as u16,
                 (vec.y.floor() / ROOM_SIZE as f32) as u16,
@@ -146,51 +149,66 @@ impl CostNode {
         self.cost = cost_new;
     }
 }
+
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
-    mut mob_query: Query<(&mut Mob, &Teleport), Without<Player>>,
+    mut mob_query: Query<(&mut Mob, &Teleport), (Without<Player>, With<Teleport>)>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
 ) {
-    for (mut mob,teleport_ability) in mob_query.iter_mut() {
+    for (mut mob, teleport_ability) in mob_query.iter_mut() {
         mob.update_path_timer.tick(time.delta());
         if mob.update_path_timer.just_finished() {
+            println!("timer updated");
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
                 let k = safe_get_pos(player.translation.truncate(), &mut graph_search);
-                for i in k.0 - teleport_ability.amount_of_tiles as u16..k.0 + teleport_ability.amount_of_tiles as u16 + 1 {
-                    for j in k.1 - teleport_ability.amount_of_tiles as u16 .. k.1 + teleport_ability.amount_of_tiles as u16 + 1 {
-                        if (i == k.0 - 5 || i == k.0 + 5 || j == k.1 - 5 || j == k.1 + 5) && check == false {
+                for i in k.0 - teleport_ability.amount_of_tiles as u16
+                    ..k.0 + teleport_ability.amount_of_tiles as u16 + 1
+                {
+                    for j in k.1 - teleport_ability.amount_of_tiles as u16
+                        ..k.1 + teleport_ability.amount_of_tiles as u16 + 1
+                    {
+                        if (i == k.0 - teleport_ability.amount_of_tiles as u16
+                            || i == k.0 + teleport_ability.amount_of_tiles as u16
+                            || j == k.1 - teleport_ability.amount_of_tiles as u16
+                            || j == k.1 + teleport_ability.amount_of_tiles as u16) 
+                            && !check
+                        {
                             let tp_pos = unsafe_get_pos(
                                 Vec2::new(
-                                    (i as i32 * ROOM_SIZE) as f32,
-                                    (j as i32 * ROOM_SIZE) as f32,
+                                    (i as u32 * ROOM_SIZE as u32) as f32,
+                                    (j as u32 * ROOM_SIZE as u32) as f32,
                                 ),
                                 &mut graph_search,
                             );
                             if tp_pos.0 == u16::MAX && tp_pos.1 == u16::MAX {
+                                println!("lmao");
                                 continue;
                             }
                             let mut current_pos = (i, j);
                             while current_pos != k {
+                                println!("current pos: {} {}", current_pos.0, current_pos.1);
+                                println!("target pos: {} {}", k.0, k.1);
+
                                 let mut vec_tiles: Vec<(u16, u16)> = Vec::new();
-                                if j > k.1 {
-                                    vec_tiles.push((i, j - 1));
-                                    if i > k.0 {
-                                        vec_tiles.push((i - 1, j));
-                                        vec_tiles.push((i - 1, j - 1));
+                                if current_pos.1 > k.1 {
+                                    vec_tiles.push((current_pos.0, current_pos.1 - 1));
+                                    if current_pos.0 > k.0 {
+                                        vec_tiles.push((current_pos.0 - 1, current_pos.1));
+                                        vec_tiles.push((current_pos.0 - 1, current_pos.1 - 1));
                                     } else {
-                                        vec_tiles.push((i + 1, j - 1));
-                                        vec_tiles.push((i + 1, j));
+                                        vec_tiles.push((current_pos.0 + 1, current_pos.1 - 1));
+                                        vec_tiles.push((current_pos.0 + 1, current_pos.1));
                                     }
                                 } else {
-                                    vec_tiles.push((i, j + 1));
-                                    if i > k.0 {
-                                        vec_tiles.push((i - 1, j));
-                                        vec_tiles.push((i - 1, j + 1));
+                                    vec_tiles.push((current_pos.0, current_pos.1 + 1));
+                                    if current_pos.0 > k.0 {
+                                        vec_tiles.push((current_pos.0 - 1, current_pos.1));
+                                        vec_tiles.push((current_pos.0 - 1, current_pos.1 + 1));
                                     } else {
-                                        vec_tiles.push((i + 1, j));
-                                        vec_tiles.push((i + 1, j + 1));
+                                        vec_tiles.push((current_pos.0 + 1, current_pos.1));
+                                        vec_tiles.push((current_pos.0 + 1, current_pos.1 + 1));
                                     }
                                 }
                                 let mut best_dist: usize = usize::MAX;
@@ -202,12 +220,12 @@ fn pathfinding_with_tp(
                                                 (k.0 as u32 * ROOM_SIZE as u32) as f32,
                                                 (k.1 as u32 * ROOM_SIZE as u32) as f32,
                                             ),
-                                        ),
+                                        ),  //проблема в выборе нода, т.к. есть ситуации, когда шафлит 2 нода между собой бесконечно долго
                                         &Node::new(
                                             TileType::Floor,
                                             Vec2::new(
                                                 (temp.0 as u32 * ROOM_SIZE as u32) as f32,
-                                                (temp.1 as u32 * ROOM_SIZE as u32) as f32,
+                                                (temp.0 as u32 * ROOM_SIZE as u32) as f32,
                                             ),
                                         ),
                                     );
@@ -216,7 +234,8 @@ fn pathfinding_with_tp(
                                         current_pos = (temp.0, temp.1);
                                     }
                                 }
-                                if safe_get_pos(
+                                println!("pos after for: {} {}", current_pos.0, current_pos.1);
+                                if unsafe_get_pos(
                                     Vec2::new(
                                         (current_pos.0 as u32 * ROOM_SIZE as u32) as f32,
                                         (current_pos.1 as u32 * ROOM_SIZE as u32) as f32,
@@ -224,13 +243,15 @@ fn pathfinding_with_tp(
                                     &mut graph_search,
                                 ) == (u16::MAX, u16::MAX)
                                 {
-                                    check = true;
+                                    println!("met wall");
                                     break;
                                 }
                             }
-                            if check {
+                            if current_pos == k{
+                                println!("path is constructed");
                                 mob.path = Vec::new();
                                 mob.path.push((i, j));
+                                check = true;
                             }
                         }
                     }
@@ -488,7 +509,7 @@ fn create_new_graph(room: Res<LevelGenerator>, mut graph_search: ResMut<Graph>) 
             }
         }
     }
-    // print!("Graph is generated");
+    println!("Graph is generated");
 }
 // ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
 fn build_path(node: CostNode) -> Vec<(u16, u16)> {
