@@ -2,7 +2,7 @@ use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
 use crate::{
-    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE},
+    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, MobMap},
     mob::{Mob, Teleport},
     player::Player,
     GameState::{InGame, Loading},
@@ -13,6 +13,7 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
+        app.insert_resource(MobMap::default());
         app.add_systems(OnExit(Loading), create_new_graph.after(spawn_map))
             .add_systems(Update, pathfinding_with_tp.run_if(in_state(InGame)))
             .add_systems(Update, a_pathfinding.run_if(in_state(InGame)));
@@ -150,37 +151,41 @@ impl CostNode {
 
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
-    mut mob_query: Query<(&mut Mob, &Teleport), (Without<Player>, With<Teleport>)>,
+    mut mob_query: Query<(&mut Mob, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
     mut graph_search: ResMut<Graph>,
     level_map: Res<LevelGenerator>,
     time: Res<Time>,
+    mut mob_map: ResMut <MobMap>
 ) {
-    for (mut mob, teleport_ability) in mob_query.iter_mut() {
+    for (mut mob, teleport_ability, transform) in mob_query.iter_mut() {
         mob.update_path_timer.tick(time.delta());
         if mob.update_path_timer.just_finished() {
-            println!("timer updated");
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
+                
                 let k = safe_get_pos(player.translation.truncate(), &mut graph_search);
+                let mob_pos = ((transform.translation.x.floor() / 32.).floor() as u16, (transform.translation.y.floor() / 32.).floor() as u16); 
 
                 let mut padding_i: u16 = 0;
                 let mut padding_j: u16 = 0;
 
                 let mut padding_i_upper: u16 = 0;
                 let mut padding_j_upper: u16 = 0;
-
+                
                 if teleport_ability.amount_of_tiles as u16 > k.0 {
                     padding_i = teleport_ability.amount_of_tiles as u16 - k.0;
                 }
                 if teleport_ability.amount_of_tiles as u16 > k.1 {
                     padding_j = teleport_ability.amount_of_tiles as u16 - k.1;
                 }
-                
-                if teleport_ability.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16{
-                    padding_i_upper = teleport_ability.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
+
+                if teleport_ability.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
+                    padding_i_upper =
+                        teleport_ability.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
                 }
-                if teleport_ability.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16{
-                    padding_j_upper = teleport_ability.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
+                if teleport_ability.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
+                    padding_j_upper =
+                        teleport_ability.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
                 }
 
                 for i in k.0 + padding_i - teleport_ability.amount_of_tiles as u16
@@ -195,10 +200,16 @@ fn pathfinding_with_tp(
                             || j == k.1 + teleport_ability.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
-
-                            if level_map.grid[i as usize][j as usize] == TileType::Empty || level_map.grid[i as usize][j as usize] == TileType::Wall {
+                            if level_map.grid[i as usize][j as usize] == TileType::Empty
+                                || level_map.grid[i as usize][j as usize] == TileType::Wall
+                            {
                                 continue;
                             }
+
+                            if mob_map.map[i as usize][j as usize] != 0{
+                                continue;
+                            }
+
                             let mut current_pos = (i, j);
                             while current_pos != k {
                                 let mut diagonal_move: bool = false;
@@ -275,6 +286,9 @@ fn pathfinding_with_tp(
                                 mob.path = Vec::new();
                                 mob.path.push((i, j));
                                 check = true;
+
+                                mob_map.map[i as usize][j as usize] = mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize];
+                                mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize] = 0;
                             }
                         }
                     }

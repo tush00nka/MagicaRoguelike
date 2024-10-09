@@ -6,7 +6,7 @@ use rand::Rng;
 
 use crate::{
     exp_orb::{ExpOrb, ExpOrbDrop},
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE},
+    gamemap::{LevelGenerator, TileType, ROOM_SIZE, MobMap},
     health::{DeathEvent, Health, PlayerHPChanged},
     invincibility::Invincibility,
     level_completion::PortalEvent,
@@ -19,6 +19,7 @@ pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(MobMap::default());
         app.insert_resource(PortalPosition::default())
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
@@ -90,7 +91,9 @@ fn debug_spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
+    mut mob_map: ResMut<MobMap>
 ) {
+    let mut mob_id = 1;
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
@@ -124,7 +127,6 @@ fn debug_spawn_mobs(
                         .id();
                     commands
                         .entity(mob)
-                        .insert(RigidBody::Dynamic)
                         .insert(GravityScale(0.0))
                         .insert(LockedAxes::ROTATION_LOCKED)
                         .insert(Collider::circle(6.0))
@@ -154,7 +156,11 @@ fn debug_spawn_mobs(
                             current: 100,
                         });
                     if has_teleport {
-                        commands.entity(mob).insert(Teleport { amount_of_tiles });
+                        commands.entity(mob).insert(Teleport { amount_of_tiles }).insert(RigidBody::Kinematic);
+                        mob_map.map[i][j] = mob_id;
+                        mob_id += 1;
+                    }else{
+                        commands.entity(mob).insert(RigidBody::Dynamic);
                     }
                 }
             }
