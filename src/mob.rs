@@ -5,8 +5,26 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::SpawnExpOrbEvent, experience::PlayerExperience, gamemap::{LevelGenerator, MobMap, TileType, ROOM_SIZE}, health::Health, invincibility::Invincibility, level_completion::PortalEvent, pathfinding::Pathfinder, player::{Player, PlayerDeathEvent}, projectile::Projectile, stun::Stun, GameLayer, GameState
-
+    exp_orb::SpawnExpOrbEvent,
+    experience::PlayerExperience,
+    gamemap::{
+        LevelGenerator,
+        MobMap,
+        TileType,
+        ROOM_SIZE
+    }, 
+    health::Health,
+    invincibility::Invincibility, 
+    level_completion::{PortalEvent, PortalManager}, 
+    pathfinding::Pathfinder, 
+    player::{
+        Player, 
+        PlayerDeathEvent
+    }, 
+    projectile::Projectile, 
+    stun::Stun,
+    GameLayer,
+    GameState
 };
 
 pub struct MobPlugin;
@@ -16,8 +34,7 @@ impl Plugin for MobPlugin {
         app
             .insert_resource(MobMap::default())
             .add_event::<MobDeathEvent>()
-            .insert_resource(PortalPosition::default())
-            .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
+            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
                 FixedUpdate,
                 (move_mobs, hit_projectiles, hit_player, mob_death, teleport_mobs).run_if(in_state(GameState::InGame)),
@@ -37,29 +54,6 @@ pub struct Teleport {
 #[derive(Component)]
 pub struct Mob {
     damage: i32,
-}
-
-#[derive(Resource)]
-pub struct PortalPosition {
-    position: Vec3,
-    pub check: bool, //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
-}
-impl Default for PortalPosition {
-    fn default() -> PortalPosition {
-        PortalPosition {
-            position: Vec3 {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            },
-            check: false,
-        }
-    }
-}
-impl PortalPosition {
-    fn set_pos(&mut self, pos: Vec3) {
-        self.position = pos;
-    }
 }
 
 #[derive(Component)]
@@ -87,7 +81,7 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 
-fn debug_spawn_mobs(
+pub fn spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
@@ -265,10 +259,8 @@ fn hit_projectiles(
 }
 
 fn mob_death(
-    mut portal_position: ResMut<PortalPosition>,
+    mut portal_manager: ResMut<PortalManager>,
     player_experience: Res<PlayerExperience>,
-
-    mob_query: Query<&Mob>,
 
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
@@ -276,11 +268,11 @@ fn mob_death(
     mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
     for ev in ev_mob_death.read() {
-        portal_position.set_pos(ev.pos);
 
-        if mob_query.is_empty() && !portal_position.check{
-            portal_position.check = true;
-            ev_spawn_portal.send( PortalEvent{pos: portal_position.position});
+        portal_manager.set_pos(ev.pos);
+        portal_manager.pop_mob();
+        if portal_manager.no_mobs_on_level() {
+            ev_spawn_portal.send( PortalEvent{pos: portal_manager.get_pos()});
         }    
     
         let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
