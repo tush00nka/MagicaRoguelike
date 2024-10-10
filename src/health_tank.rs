@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{health::{Health, PlayerHPChanged}, player::Player};
+use crate::{health::Health, player::Player};
 
 pub struct HealthTankPlugin;
 
@@ -45,7 +45,6 @@ fn pick_up_health(
     mut commands: Commands,
     tank_query: Query<(Entity, &HealthTank)>,
     mut player_hp_query: Query<(&Player, &mut Health)>,
-    mut ev_hp_gained: EventWriter<PlayerHPChanged>,
     mut ev_collision: EventReader<Collision>,
 ) {
     for Collision(contacts) in ev_collision.read() {
@@ -67,7 +66,6 @@ fn pick_up_health(
                 for (_player, mut health) in player_hp_query.iter_mut() {
                     health.heal(tank.hp);
                 }
-                ev_hp_gained.send(PlayerHPChanged);
                 commands.entity(tank_e.unwrap()).despawn();
             }
         }

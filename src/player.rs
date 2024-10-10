@@ -150,14 +150,12 @@ fn flip_towards_mouse(
 fn debug_take_damage(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut health_query: Query<(&mut Health, Entity, &Player), Without<Invincibility>>
 ){
     if keyboard.just_pressed(KeyCode::KeyZ) {
         if let Ok((mut health, ent, player)) = health_query.get_single_mut(){
             health.damage(25);
-            ev_hp.send(PlayerHPChanged);
             commands.entity(ent).insert(Invincibility::new(player.invincibility_time));
             
             if health.current <= 0 {

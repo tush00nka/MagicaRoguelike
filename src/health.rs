@@ -8,7 +8,6 @@ pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<PlayerHPChanged>()
             .add_systems(Update, death);
     }
 }
@@ -32,9 +31,6 @@ impl Health {
         self.current -= value;
     }
 }
-
-#[derive(Event)]
-pub struct PlayerHPChanged;
 
 fn death(
     mut commands: Commands,

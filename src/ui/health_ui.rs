@@ -5,7 +5,6 @@ pub struct HealthUIPlugin;
 impl Plugin for HealthUIPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<PlayerHPChanged>()
             .add_systems(OnExit(GameState::MainMenu), spawn_ui)
             .add_systems(Update, update_ui);
     }
@@ -74,20 +73,16 @@ fn spawn_ui(
 fn update_ui(
     mut bar_query: Query<&mut Style, With<HPBar>>, 
     mut text_query: Query<&mut Text, With<HPText>>,
-    player_hp_query: Query<&Health, With <Player>>,
-    mut ev_hp_gained: EventReader<PlayerHPChanged>,
+    player_hp_query: Query<&Health, (With<Player>, Changed<Health>)>,
 ) {
-
-    for _ev in ev_hp_gained.read() {
-        if let Ok(health) = player_hp_query.get_single() {
-            if let Ok(mut style) = bar_query.get_single_mut() {
-                let percent = (health.current as f32 / health.max as f32) * 100.0; 
-                style.width = Val::Percent(percent);
-            }
-
-            if let Ok(mut text) = text_query.get_single_mut() {
-                text.sections[0].value = format!("{}/{}", health.current, health.max);
-            }   
+    if let Ok(health) = player_hp_query.get_single() {
+        if let Ok(mut style) = bar_query.get_single_mut() {
+            let percent = (health.current as f32 / health.max as f32) * 100.0; 
+            style.width = Val::Percent(percent);
         }
+
+        if let Ok(mut text) = text_query.get_single_mut() {
+            text.sections[0].value = format!("{}/{}", health.current, health.max);
+        }   
     }
 }

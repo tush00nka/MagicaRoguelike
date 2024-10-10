@@ -8,7 +8,7 @@ use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{LevelGenerator, TileType, ROOM_SIZE, MobMap},
-    health::{Health, PlayerHPChanged},
+    health::Health,
 
     invincibility::Invincibility,
     level_completion::PortalEvent,
@@ -318,7 +318,6 @@ fn hit_player(
     mut collision_event_reader: EventReader<Collision>,
     mob_query: Query<(Entity, &Mob), Without<Player>>,
     mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
@@ -334,7 +333,6 @@ fn hit_player(
             for (mob_cadidate_e, mob) in mob_query.iter() {
                 if mob_cadidate_e == mob_e {
                     health.damage(mob.damage);
-                    ev_hp.send(PlayerHPChanged);
                     commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
                     if health.current <= 0 {
                         ev_death.send(PlayerDeathEvent(player_e));
