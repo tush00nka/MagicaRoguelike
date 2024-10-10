@@ -115,11 +115,14 @@ fn debug_spawn_mobs(
                     let texture_path: &str;
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
+                    let timer: std::ops::Range<u64>;
                     match mob_type {
                         MobType::Mossling => {
                             texture_path = "textures/mob_mossling.png";
+                            timer = 500..999;
                         }
                         MobType::Teleport => {
+                            timer = 1500..2000;
                             amount_of_tiles = 4;
                             has_teleport = true;
                             texture_path = "textures/mob_teleport_placeholder.png"
@@ -160,7 +163,7 @@ fn debug_spawn_mobs(
                         .insert(Pathfinder {
                             path: vec![],
                             update_path_timer: Timer::new(
-                                Duration::from_millis(rand::thread_rng().gen_range(500..900)),
+                                Duration::from_millis(rand::thread_rng().gen_range(timer)),
                                 TimerMode::Repeating,
                             ),
                             speed: 2500.,
@@ -197,7 +200,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Te
     }
 }
 
-fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder)>, time: Res<Time>) {
+fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder), Without<Teleport>>, time: Res<Time>) {
     for (mut linvel, transform, mut pathfinder) in mob_query.iter_mut() {
         if pathfinder.path.len() > 0 {
 
@@ -249,7 +252,7 @@ fn hit_projectiles(
                         health.damage(projectile.damage.try_into().unwrap());
 
                         commands.entity(proj_e.unwrap()).despawn();
-
+                        println!("Mob is despawned");
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
