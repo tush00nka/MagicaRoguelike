@@ -123,6 +123,7 @@ pub fn spawn_mobs(
                             ..default()
                         })
                         .id();
+
                     commands
                         .entity(mob)
                         .insert(GravityScale(0.0))
@@ -156,11 +157,12 @@ pub fn spawn_mobs(
                             max: 100,
                             current: 100,
                         });
+
                     if has_teleport {
                         commands.entity(mob).insert(Teleport { amount_of_tiles }).insert(RigidBody::Kinematic);
                         mob_map.map[i][j] = mob_id;
                         mob_id += 1;
-                    }else{
+                    } else {
                         commands.entity(mob).insert(RigidBody::Dynamic);
                     }
                 }
@@ -168,6 +170,7 @@ pub fn spawn_mobs(
         }
     }
 }
+
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), (Without<Stun>, With<Teleport>)>) {
     // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
@@ -259,6 +262,8 @@ fn hit_projectiles(
 }
 
 fn mob_death(
+    mut commands: Commands,
+
     mut portal_manager: ResMut<PortalManager>,
     player_experience: Res<PlayerExperience>,
 
@@ -294,6 +299,8 @@ fn mob_death(
                 destination,
             });
         }
+
+        commands.entity(ev.entity).despawn();
     }
 }
 

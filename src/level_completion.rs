@@ -34,7 +34,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::shield_spell::Shield>,
                 despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
-            ))//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
+            ))
             .insert_resource(PortalManager::default());
     }
 }
