@@ -183,7 +183,7 @@ fn debug_spawn_mobs(
         }
     }
 }
-fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Mob), With<Teleport>>) {
+fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Teleport>>) {
     // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {

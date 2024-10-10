@@ -159,7 +159,7 @@ impl CostNode {
 
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
-    mut mob_query: Query<(&mut Mob, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
+    mut mob_query: Query<(&mut Pathfinder, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
     mut graph_search: ResMut<Graph>,
     level_map: Res<LevelGenerator>,
     time: Res<Time>,
