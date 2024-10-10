@@ -5,18 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_orb::SpawnExpOrbEvent,
-    experience::PlayerExperience,
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE, MobMap},
-    health::Health,
-
-    invincibility::Invincibility,
-    level_completion::PortalEvent,
-    pathfinding::Pathfinder,
-    player::{Player, PlayerDeathEvent},
-    projectile::Projectile,
-    GameLayer,
-    GameState,
+    exp_orb::SpawnExpOrbEvent, experience::PlayerExperience, gamemap::{LevelGenerator, MobMap, TileType, ROOM_SIZE}, health::Health, invincibility::Invincibility, level_completion::PortalEvent, pathfinding::Pathfinder, player::{Player, PlayerDeathEvent}, projectile::Projectile, stun::Stun, GameLayer, GameState
 
 };
 
@@ -156,7 +145,6 @@ fn debug_spawn_mobs(
                             ],
                         ))
                         .insert(LinearVelocity::ZERO)
-
                         .insert(Mob { 
                             damage: 20
                          })
@@ -186,7 +174,7 @@ fn debug_spawn_mobs(
         }
     }
 }
-fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Teleport>>) {
+fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), (Without<Stun>, With<Teleport>)>) {
     // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
@@ -200,7 +188,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Te
     }
 }
 
-fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder), Without<Teleport>>, time: Res<Time>) {
+fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder), (Without<Stun>, Without<Teleport>)>, time: Res<Time>) {
     for (mut linvel, transform, mut pathfinder) in mob_query.iter_mut() {
         if pathfinder.path.len() > 0 {
 
@@ -249,10 +237,14 @@ fn hit_projectiles(
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
+
                         health.damage(projectile.damage.try_into().unwrap());
+                        
+                        // кидаем стан на моба
+                        commands.entity(mob_e.unwrap()).insert(Stun::new(0.5));
 
                         commands.entity(proj_e.unwrap()).despawn();
-                        println!("Mob is despawned");
+
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
