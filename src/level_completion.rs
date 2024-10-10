@@ -10,7 +10,7 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-        .add_systems(Update, (spawn_portal, rotate_portal))
+        .add_systems(Update, (spawn_portal, rotate_portal,scale_portal))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
             .add_systems(OnEnter(GameState::Hub), (
@@ -80,6 +80,18 @@ fn rotate_portal(
 ) {
     for mut transform in portal_query.iter_mut() {
         transform.rotate_z(time.delta_seconds());
+    }
+}
+
+fn scale_portal(mut portal_query: Query<&mut Transform, With<Portal>>, timer: Res<Time>) {
+    for mut transform in &mut portal_query {
+        let mut xy = timer.elapsed_seconds().sin() * timer.elapsed_seconds().sin();
+        if xy <= 0.5 && xy + 0.05 <= 1.  {
+            xy = 1. - xy + 0.05;
+        }
+        transform.scale = Vec3::new(xy, xy, 1.0 );
+        //let mult = -1_i32.pow(timer.delta_seconds() as u32 % 4);
+        //transform.scale += Vec3::new(f32::sin(timer.delta_seconds() * mult as f32),f32::sin(timer.delta_seconds() * mult as f32),0.);
     }
 }
 
