@@ -3,14 +3,15 @@ use core::f32;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{gamemap::Wall, GameLayer, GameState};
+use crate::{elements::ElementType, gamemap::Wall, GameLayer};
 
 pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (move_projectile, hit_walls).run_if(in_state(GameState::InGame)))
-        .add_systems(Update, (move_projectile, hit_walls).run_if(in_state(GameState::Hub)));
+        app
+            .add_event::<SpawnProjectileEvent>()
+            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls));
     }
 }
 
@@ -20,6 +21,7 @@ pub struct Projectile {
     pub direction: Vec2,
     pub speed: f32,
     pub damage: u32,
+    pub element: ElementType,
     pub is_friendly: bool
 }
 
@@ -40,12 +42,60 @@ impl Default for ProjectileBundle {
                 direction: Vec2::X,
                 speed: 100.0,
                 damage: 100,
+                element: ElementType::Air,
                 is_friendly: true,
             },
             collider: Collider::circle(8.0),
             collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall]),
             sensor: Sensor
         }
+    }
+}
+
+#[derive(Event)]
+pub struct SpawnProjectileEvent {
+    pub texture_path: String,
+    pub color: Color,
+    pub translation: Vec3,
+    pub angle: f32,
+    pub radius: f32,
+    pub speed: f32,
+    pub damage: u32,
+    pub element: ElementType,
+    pub is_friendly: bool,
+}
+
+fn spawn_projectile(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut ev_projectile_spawn: EventReader<SpawnProjectileEvent>,
+) {
+    for ev in ev_projectile_spawn.read() {
+        commands.spawn(ProjectileBundle {
+            sprite: SpriteBundle {
+                transform: Transform {
+                    translation: ev.translation,
+                    rotation: Quat::from_rotation_z(ev.angle),
+                    ..default()
+                },
+                texture: asset_server.load(ev.texture_path.clone()),
+                sprite: Sprite {
+                    color: ev.color,
+                    ..default()
+                },
+                ..default()
+            },
+
+            projectile: Projectile {
+                direction: Vec2::from_angle(ev.angle),
+                speed: ev.speed,
+                damage: ev.damage,
+                element: ev.element,
+                is_friendly: ev.is_friendly
+            },
+            collider: Collider::circle(ev.radius),
+            ..default()
+        });
     }
 }
 

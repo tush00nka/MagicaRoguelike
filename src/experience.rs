@@ -19,6 +19,7 @@ pub struct PlayerExperience {
     pub to_lv_up: u32,
     pub lv: u8,
     max_lv: u8,
+    pub orb_bonus: u32,
 }
 
 impl Default for PlayerExperience {
@@ -28,6 +29,7 @@ impl Default for PlayerExperience {
             to_lv_up: 100,
             lv: 1,
             max_lv: 9,
+            orb_bonus: 0
         }
     }
 }

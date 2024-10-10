@@ -5,7 +5,6 @@ pub struct GameOverPlugin;
 impl Plugin for GameOverPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<PlayerDeathEvent>()
             .add_systems(OnEnter(GameState::GameOver), spawn_gameover_ui)
             .add_systems(Update, player_death)
             .add_systems(Update, handle_buttons.run_if(in_state(GameState::GameOver)))
@@ -22,9 +21,11 @@ impl Plugin for GameOverPlugin {
                 despawn_all_with::<crate::wand::Wand>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<crate::ui::ElementBarUI>,
                 despawn_all_with::<crate::ui::ExpBarUI>,
-                despawn_all_with::<crate::ui::HPBarUI>
+                despawn_all_with::<crate::ui::HPBarUI>,
+                despawn_all_with::<crate::ui::ItemUI>,
             ));
 
     }

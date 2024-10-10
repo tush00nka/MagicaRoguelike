@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{elements::{ElementBar, ElementBarFilled, ElementType}, experience::{ExpGained, PlayerExperience}, GameState};
+use crate::{elements::{ElementBar, ElementBarClear, ElementBarFilled, ElementType}, experience::{ExpGained, PlayerExperience}, GameState};
 
 pub struct ElementsUIPlugin;
 
@@ -49,21 +49,26 @@ fn update_ui(
     mut slot_query: Query<(&mut UiImage, &ElementSlot)>,
     element_bar: Res<crate::elements::ElementBar>,
     mut ev_bar_filled: EventReader<ElementBarFilled>,
+    mut ev_bar_clear: EventReader<ElementBarClear>,
     asset_server: Res<AssetServer>,
 ) {
-    for _ev in ev_bar_filled.read() {
+    for ev in ev_bar_filled.read() {
         for (mut image, slot) in slot_query.iter_mut() {
-            if element_bar.bar.len() > slot.0 {
-                match element_bar.bar[slot.0] {
+            if element_bar.len() == slot.0 as u8 + 1 {
+                match ev.0 {
                     ElementType::Fire => image.texture = asset_server.load("textures/fire_slot.png"),
                     ElementType::Water => image.texture = asset_server.load("textures/water_slot.png"),
                     ElementType::Earth => image.texture = asset_server.load("textures/earth_slot.png"),
                     ElementType::Air => image.texture = asset_server.load("textures/air_slot.png"),
+                    _ => image.texture = asset_server.load("textures/empty_slot.png")
                 }
             }
-            else {
-                image.texture = asset_server.load("textures/empty_slot.png");
-            } 
+        }
+    }
+
+    for _ev in ev_bar_clear.read() {
+        for (mut image, _slot) in slot_query.iter_mut() {
+            image.texture = asset_server.load("textures/empty_slot.png");
         }
     }
 }

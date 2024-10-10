@@ -2,7 +2,13 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{exp_tank::SpawnExpTankEvent, health_tank::SpawnHealthTankEvent, GameLayer, GameState};
+use crate::{
+    chapter::ChapterManager,
+    exp_tank::SpawnExpTankEvent,
+    health_tank::SpawnHealthTankEvent,
+    GameLayer,
+    GameState
+};
 
 pub const ROOM_SIZE: i32 = 32;
 pub struct GameMapPlugin;
@@ -260,6 +266,7 @@ pub fn spawn_map(
     mut game_state: ResMut<NextState<GameState>>,
     mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
     mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     room.start();
     let room_height = room.room_height;
@@ -273,7 +280,7 @@ pub fn spawn_map(
                 TileType::Floor => {
                     commands
                         .spawn(SpriteBundle {
-                            texture: asset_server.load("textures/t_floor.png"),
+                            texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
                             transform: Transform::from_xyz(
                             tile_size * x as f32,
                             tile_size * y as f32,
@@ -281,8 +288,6 @@ pub fn spawn_map(
                         ),
                         ..default()
                         })
-                        //.insert(RigidBody::Fixed)
-                        //.insert(Collider::cuboid(16.0, 16.0))
                         .insert(Floor);
 
                     if rand::thread_rng().gen::<f32>() > chance_tank_spawn {
@@ -310,12 +315,12 @@ pub fn spawn_map(
                     let texture_path = {
                         if y > 0 {
                             match grid[x as usize][y as usize - 1] {
-                                TileType::Floor => "textures/t_wall_top.png",
-                                _ => "textures/t_wall.png",
+                                TileType::Floor => format!("textures/t_wall_top_{}.png", chapter_manager.get_current_chapter()),
+                                _ => format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter()),
                             }
                         }
                         else {
-                            "textures/t_wall.png"
+                            format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())
                         }
                     };
 
@@ -334,7 +339,7 @@ pub fn spawn_map(
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
                         .insert(Wall);
                 },
-                _ => {}
+                TileType::Empty => {}
             }
         }
     }

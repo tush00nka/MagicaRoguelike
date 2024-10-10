@@ -21,6 +21,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::exp_orb::ExpOrb>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
             ))
             .add_systems(OnExit(GameState::Hub), (
@@ -29,6 +30,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::wand::Wand>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
             ))//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
             .insert_resource(PortalPosition::default());
@@ -50,7 +52,11 @@ fn spawn_portal(
     for ev in ev_portal.read() {
         let portal = commands
             .spawn(SpriteBundle {
-                texture: asset_server.load("textures/black_hole.png"),
+                sprite: Sprite {
+                    color: Color::srgb(2.0, 2.0, 2.0),
+                    ..default()
+                },
+                texture: asset_server.load("textures/portal.png"),
                 transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
                 ..default()
             })

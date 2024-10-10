@@ -1,13 +1,17 @@
 use bevy::prelude::*;
 
-use crate::{experience::{ExpGained, PlayerExperience}, player::Player, GameState};
+use crate::{
+    experience::{ExpGained, PlayerExperience},
+    player::Player
+};
 
 pub struct ExpOrbPlugin;
 
 impl Plugin for ExpOrbPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (drop_particles, move_particles).run_if(in_state(GameState::InGame)))
-        .add_systems(Update, (drop_particles, move_particles).run_if(in_state(GameState::Hub)));
+        app
+            .add_event::<SpawnExpOrbEvent>()
+            .add_systems(Update, (spawn_particles, drop_particles, move_particles));
     }
 }
 
@@ -19,6 +23,32 @@ pub struct ExpOrb {
 #[derive(Component)]
 pub struct ExpOrbDrop {
     pub drop_destination: Vec3,
+}
+
+#[derive(Event)]
+pub struct SpawnExpOrbEvent {
+    pub pos: Vec3,
+    pub destination: Vec3,
+}
+
+fn spawn_particles(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut ev_spawn: EventReader<SpawnExpOrbEvent>,
+) {
+    for ev in ev_spawn.read() {
+        commands.spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::srgb(2.0, 2.0, 2.0),
+                ..default()
+            },
+            texture: asset_server.load("textures/exp_particle.png"),
+            transform: Transform::from_translation(ev.pos),
+            ..default()
+        })
+        .insert(ExpOrb { exp: 5 })
+        .insert(ExpOrbDrop { drop_destination: ev.destination });
+    }
 }
 
 fn drop_particles( // грубо говоря, анимация вылетания опыта из колбы

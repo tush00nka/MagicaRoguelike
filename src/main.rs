@@ -62,13 +62,23 @@ use invincibility::InvincibilityPlugin;
 mod animation;
 mod utils;
 
+mod chapter;
+use chapter::ChapterPlugin;
+
+mod item;
+use item::ItemPlugin;
+
 mod ui;
 use ui::{
     ElementsUIPlugin,
     ExperienceUIPlugin,
     HealthUIPlugin,
     MainMenuPlugin,
+    ItemUIPlugin,
 };
+
+mod items;
+use items::ItemEffectsPlugin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
@@ -98,7 +108,7 @@ fn main() {
     wpgu_settings.features.set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true,);
 
     App::new()
-        .insert_resource(ClearColor(Color::hsl(24.0, 0.68, 0.16)))
+        .insert_resource(ClearColor(Color::srgb(69./255., 35./255., 13./255.)))
         .add_plugins(DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(RenderPlugin {
@@ -124,5 +134,7 @@ fn main() {
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HubPlugin)
         .add_plugins(InvincibilityPlugin)
+        .add_plugins(ChapterPlugin)
+        .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .run();
 }

@@ -1,10 +1,14 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use avian2d::prelude::*;
 use rand::Rng;
 
-use crate::{projectile::{Projectile, ProjectileBundle}, shield_spell::SpawnShieldEvent, wand::Wand, GameState};
+use crate::{
+    projectile::SpawnProjectileEvent,
+    shield_spell::SpawnShieldEvent,
+    wand::Wand,
+    GameState
+};
 
 pub struct ElementsPlugin;
 
@@ -12,59 +16,71 @@ impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<ElementBarFilled>()
+            .add_event::<ElementBarClear>()
             .insert_resource(ElementBar::default())
             .add_systems(OnExit(GameState::MainMenu), init_bar)
-            .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::Hub)))
-            .add_systems(Update, (fill_bar, cast_spell).run_if(in_state(GameState::InGame)));
+            .add_systems(Update, (fill_bar, cast_spell));
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ElementType {
-    Fire = 1000, Water = 100, Earth = 10, Air = 1
-}
-
-impl ElementType {
-    fn value(&self) -> u32 {
-        match *self {
-            ElementType::Fire => 1000,
-            ElementType::Water => 100,
-            ElementType::Earth => 10,
-            ElementType::Air => 1
-        }
-    }
+    Fire,
+    Water,
+    Earth,
+    Air,
+    Steam,
 }
 
 #[derive(Resource)]
 pub struct ElementBar {
-    pub bar: Vec<ElementType>,
+    pub fire: u8,
+    pub water: u8,
+    pub earth: u8,
+    pub air: u8,
     pub max: u8,
 }
 
 impl ElementBar {
     fn clear(&mut self) {
-        self.bar = vec![];
+        self.fire = 0;
+        self.water = 0;
+        self.earth = 0;
+        self.air = 0;
+    }
+
+    pub fn len(&self) -> u8{
+        self.fire + self.water + self.earth + self.air
     }
 
     fn add(&mut self, element: ElementType) {
-        if (self.bar.len() as u8) < self.max {
-            self.bar.push(element);
-        }
-        else {
-            println!("[I] Element bar is full!!");
+        if self.len() < self.max {
+            match element {
+                ElementType::Fire => self.fire+=1,
+                ElementType::Water => self.water+=1,
+                ElementType::Earth => self.earth+=1,
+                ElementType::Air => self.air+=1,
+                ElementType::Steam => {}
+            }
         }
     }
 
     fn default() -> Self {
         ElementBar {
-            bar: vec![],
+            fire: 0,
+            water: 0,
+            earth: 0,
+            air: 0,
             max: 1,
         }
     }
 }
 
 #[derive(Event)]
-pub struct ElementBarFilled;
+pub struct ElementBarFilled(pub ElementType);
+
+#[derive(Event)]
+pub struct ElementBarClear;
 
 fn init_bar(
     mut commands: Commands,
@@ -77,234 +93,192 @@ fn fill_bar(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut ev_bar_filled: EventWriter<ElementBarFilled>,
 ) {
-
     keyboard.get_just_pressed().for_each(|key| {
+        let new_element: Option<ElementType>;
+
         match key {
-            KeyCode::Digit1 => { bar.add(ElementType::Fire) }
-            KeyCode::Digit2 => { bar.add(ElementType::Water) }
-            KeyCode::Digit3 => { bar.add(ElementType::Earth) }
-            KeyCode::Digit4 => { bar.add(ElementType::Air) }
-            _ => {}
+            KeyCode::Digit1 => { new_element = Some(ElementType::Fire) }
+            KeyCode::Digit2 => { new_element = Some(ElementType::Water) }
+            KeyCode::Digit3 => { new_element = Some(ElementType::Earth) }
+            KeyCode::Digit4 => { new_element = Some(ElementType::Air) }
+            _ => { new_element = None }
         }
 
-        ev_bar_filled.send(ElementBarFilled);
+        if new_element.is_some() && bar.len() < bar.max {
+            ev_bar_filled.send(ElementBarFilled(new_element.unwrap()));
+            bar.add(new_element.unwrap());
+        }
+
     });
 }
 
 fn cast_spell(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
     wand_query: Query<&Transform, With<Wand>>,
+
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
+    mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
 
     mut bar: ResMut<ElementBar>,
+    mut ev_bar_clear: EventWriter<ElementBarClear>,
+
     mouse: Res<ButtonInput<MouseButton>>,
-
-    mut ev_bar_filled: EventWriter<ElementBarFilled>,
 ) {
-    if mouse.just_pressed(MouseButton::Left) && !bar.bar.is_empty() {
+    if mouse.just_pressed(MouseButton::Left) && bar.len() > 0 {
         
-        ev_bar_filled.send(ElementBarFilled);
-
-        let recipe: u32 = bar.bar.iter().map(|e| e.value()).sum();
+        ev_bar_clear.send(ElementBarClear);
 
         let mut spell_desc: String = "".to_string();
+
         let mut dmg = 0;
-
-        dmg += (recipe / 1000) * 50 * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // добавляем урон от огня
-        dmg += ((recipe % 1000) / 2) * ((recipe % 10) + 1) * (((recipe % 100) / 10) + 1); // урон от воды
-        dmg += (recipe % 100) / 2 ; // урон от земли
-        dmg += (recipe % 10) * 10; // урон от воздуха 
-
-        let color = {
-            if recipe >= 1000 {
-                Color::hsl(20.0, 0.75, 0.5)
-            }
-            else if recipe % 1000 >= 100 {
-                Color::hsl(200.0, 0.75, 0.5)
-            } else if recipe % 100 >= 10 {
-                Color::hsl(20.0, 0.5, 0.5)
-            } else {
-                Color::hsl(200.0, 0.25, 0.75)
-
-            }
-        };
+        dmg += bar.fire as u32 * 20;
+        dmg += bar.water as u32 * 20;
+        dmg += bar.earth as u32 * 20;
+        dmg += bar.air as u32 * 20;
 
         let mut rng = rand::thread_rng();
 
-        let fire_elements = recipe / 1000;
-        let water_elements = (recipe % 1000) / 100;
-        let earth_elements = recipe % 100 / 10;
-        let air_elements = recipe % 10;
+        let mut element: ElementType;
+        let elements_to_comapre = vec![bar.fire, bar.water, bar.earth, bar.air];
 
-        let total_elements = fire_elements + water_elements + earth_elements + air_elements;
+        // need to rewrite to look better
+        if *elements_to_comapre.iter().max().unwrap() == bar.fire {
+            element = ElementType::Fire;
+        }
+        else if *elements_to_comapre.iter().max().unwrap() == bar.water {
+            element = ElementType::Water;
+        }
+        else if *elements_to_comapre.iter().max().unwrap() == bar.earth {
+            element = ElementType::Earth;
+        }
+        else {
+            element = ElementType::Air;
+        }
+
+        // sub-element, cannot directly cast
+        if bar.fire > 0 && bar.water > 0 {
+            element = ElementType::Steam;
+        }
+
+        let color = {
+            match element {
+                ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
+                ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
+                ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
+                ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
+                ElementType::Steam => Color::srgb(1.5, 2.0, 1.5),
+            }
+        };
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
-            match recipe {
+            if bar.water == 1 
+            && bar.earth > 1
+            && bar.fire <= 0
+            && bar.air <= 0 {
+                ev_spawn_shield.send(SpawnShieldEvent { duration: bar.earth as f32 * 2. });
+            }
 
-                120 | 130 | 140 | 150 | 160 | 170 | 180 => {
-                    ev_spawn_shield.send(SpawnShieldEvent { duration: earth_elements as f32 * 2. });
-                }
+            if bar.fire == bar.water
+            && bar.water == bar.earth
+            && bar.earth == bar.air 
+            && bar.air == bar.fire {
+                spell_desc += "black hole\n";
+            }
 
-                1111 | 2222 => {
-                    spell_desc += "black hole\n";
-                }
+            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {
+                spell_desc += "fire element\n";
+                
+                let offset = PI/12.0;
+                for _i in 0..bar.fire*3 {
+                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
-                _ => {
-                    if recipe >= 1000 {
-                        spell_desc += "fire element\n";
-                        if recipe % 100 < 10 && recipe % 10 <= 0 {
-                            let offset = PI/12.0;
-                            for _i in 0..fire_elements*3 {
-            
-                                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-            
-                                commands.spawn(ProjectileBundle {
-                                    sprite: SpriteBundle {
-                                        transform: Transform {
-                                            translation: wand_transform.translation,
-                                            rotation: Quat::from_rotation_z(angle),
-                                            ..default()
-                                        },
-                                        texture: asset_server.load("textures/small_fire.png"),
-                                        sprite: Sprite {
-                                            color,
-                                            ..default()
-                                        },
-                                        ..default()
-                                    },
-        
-                                    projectile: Projectile {
-                                        direction: Vec2::from_angle(angle),
-                                        speed: 200.0 + rng.gen_range(0.0..50.0),
-                                        damage: dmg / fire_elements,
-                                        is_friendly: true
-                                    },
-                                    collider: Collider::circle(8.0),
-                                    ..default()
-                                });
-                            }
-                        }
-                    }
-            
-                    if recipe % 1000 >= 100 {
-                        spell_desc += "water element\n";
-            
-                        if recipe % 100 < 10 && recipe % 10 <= 0 {
-                            let offset = PI/12.0;
-                            for _i in 0..water_elements*3 {
-            
-                                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-            
-                                commands.spawn(ProjectileBundle {
-                                    sprite: SpriteBundle {
-                                        transform: Transform {
-                                            translation: wand_transform.translation,
-                                            rotation: Quat::from_rotation_z(angle),
-                                            ..default()
-                                        },
-                                        texture: asset_server.load("textures/small_fire.png"),
-                                        sprite: Sprite {
-                                            color,
-                                            ..default()
-                                        },
-                                        ..default()
-                                    },
-        
-                                    projectile: Projectile {
-                                        direction: Vec2::from_angle(angle),
-                                        speed: 200.0 + rng.gen_range(0.0..50.0),
-                                        damage: dmg / water_elements,
-                                        is_friendly: true
-                                    },
-                                    collider: Collider::circle(8.0),
-                                    ..default()
-                                });
-                            }
-                        }
-                    }
-            
-                    if recipe % 100 >= 10 {
-                        spell_desc += "AoE, e.g. earthquake\n";
-            
-                        if recipe % 10 <= 0 {
-                            let offset = (2.0*PI)/(total_elements*3) as f32;
-                            for i in 0..total_elements*3 {
-            
-                                let angle = offset * i as f32;
-            
-                                commands.spawn(ProjectileBundle {
-                                    sprite: SpriteBundle {
-                                        transform: Transform {
-                                            translation: wand_transform.translation,
-                                            rotation: Quat::from_rotation_z(angle),
-                                            ..default()
-                                        },
-                                        texture: asset_server.load("textures/earthquake.png"),
-                                        sprite: Sprite {
-                                            color,
-                                            ..default()
-                                        },
-                                        ..default()
-                                    },
-        
-                                    projectile: Projectile {
-                                        direction: Vec2::from_angle(angle),
-                                        speed: 100.0,
-                                        damage: dmg,
-                                        is_friendly: true
-                                    },
-                                    collider: Collider::circle(12.0),
-                                    ..default()
-                                });
-                            }
-                        }
-                    }
-            
-                    if recipe % 10 > 0 {
-                        spell_desc += "throwable, e.g. fireball\n";
-            
-                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x);
-        
-                        commands.spawn(ProjectileBundle {
-                            sprite: SpriteBundle {
-                                transform: Transform {
-                                    translation: wand_transform.translation,
-                                    rotation: Quat::from_rotation_z(angle),
-                                    scale: Vec3::ONE * total_elements as f32* 0.5,
-                                    ..default()
-                                },
-                                texture: asset_server.load("textures/fireball.png"),
-                                sprite: Sprite {
-                                    color,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-        
-                            projectile: Projectile {
-                                direction: dir,
-                                speed: 150.0,
-                                damage: dmg,
-                                is_friendly: true
-                            },
-                            collider: Collider::circle(8.0),
-                            ..default()
-                        });
-                    }
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: wand_transform.translation,
+                        angle,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.fire as u32,
+                        element,
+                        is_friendly: true,
+                    });
                 }
+            }
+        
+            if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
+                spell_desc += "water element\n";
+
+                let offset = PI/12.0;
+                for _i in 0..bar.water*3 {
+
+                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: wand_transform.translation,
+                        angle,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.water as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            }
+        
+            if bar.earth > 0
+            && bar.air <= 0
+            && bar.water != 1 {
+                spell_desc += "AoE, e.g. earthquake\n";
+    
+                let offset = (2.0*PI)/(bar.len()*3) as f32;
+                for i in 0..bar.len()*3 {
+
+                    let angle = offset * i as f32;
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/earthquake.png".to_string(),
+                        color,
+                        translation: wand_transform.translation,
+                        angle,
+                        radius: 12.,
+                        speed: 100.0,
+                        damage: dmg,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            }
+        
+            if bar.air > 0 {
+                spell_desc += "throwable, e.g. fireball\n";
+    
+                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                let angle = dir.y.atan2(dir.x);
+
+                ev_spawn_projectile.send(SpawnProjectileEvent {
+                    texture_path: "textures/fireball.png".to_string(),
+                    color,
+                    translation: wand_transform.translation,
+                    angle,
+                    radius: 8.0,
+                    speed: 150.,
+                    damage: dmg,
+                    element,
+                    is_friendly: true,
+                });
             }
         }
 
         // println!("[{}] ({} DMG)", spell_desc, dmg);
+        // println!("{:?}", bar.bar);
 
         bar.clear();
-        // println!("{:?}", bar.bar);
     }
 }

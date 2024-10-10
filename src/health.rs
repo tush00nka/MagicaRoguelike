@@ -1,12 +1,14 @@
 use bevy::prelude::*;
-use crate::player::*;
+use crate::{
+    mob::MobDeathEvent,
+    player::PlayerDeathEvent
+};
 pub struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<PlayerHPChanged>()
-            .add_event::<DeathEvent>()
             .add_systems(Update, death);
     }
 }
@@ -34,22 +36,16 @@ impl Health {
 #[derive(Event)]
 pub struct PlayerHPChanged;
 
-#[derive(Event)]
-pub struct DeathEvent(pub Entity);
-
 fn death(
     mut commands: Commands,
-    mut ev_death: EventReader<DeathEvent>,
-    mut ev_player_death: EventWriter<PlayerDeathEvent>,
-    player_query: Query<Entity, With<Player>>,
+    mut ev_player_death: EventReader<PlayerDeathEvent>,
+    mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
-    let player_id = player_query.get_single().unwrap_or(Entity::PLACEHOLDER); 
+    for ev in ev_player_death.read(){
+         commands.entity(ev.0).despawn();
+    }
 
-    for ev in ev_death.read(){
-        let dead_id = ev.0;
-        if dead_id == player_id {
-            ev_player_death.send(PlayerDeathEvent);
-        }
-        commands.entity(ev.0).despawn();
+    for mob_ev in ev_mob_death.read() {
+        commands.entity(mob_ev.entity).despawn();
     }
 }

@@ -40,6 +40,10 @@ fn spawn_shield(
     for ev in ev_spawn_shield.read() {
         if let Ok((player_e, player_transform)) = player_query.get_single() {
             let shield_e = commands.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(2.0, 2.0, 2.0),
+                    ..default()
+                },
                 texture: asset_server.load("textures/shield.png"),
                 transform: Transform {
                     scale: Vec3::splat(0.1),
