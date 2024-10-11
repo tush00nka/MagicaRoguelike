@@ -131,5 +131,9 @@ fn hit_walls(
         if projectile_query.contains(contacts.entity2) && wall_query.contains(contacts.entity1) {
             commands.get_entity(contacts.entity2).unwrap().despawn();
         }
+
+        if projectile_query.contains(contacts.entity1) && wall_query.contains(contacts.entity2) {
+            commands.get_entity(contacts.entity1).unwrap().despawn();
+        }
     }
 }

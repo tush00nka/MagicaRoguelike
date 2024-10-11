@@ -127,7 +127,7 @@ fn debug_spawn_mobs(
                             timer = 500..999;
                         }
                         MobType::Teleport => {
-                            timer = 1500..2000;
+                            timer = 3000..5000;
                             amount_of_tiles = 4;
                             has_teleport = true;
                             can_shoot = true;
@@ -169,7 +169,7 @@ fn debug_spawn_mobs(
                         .insert(Pathfinder {
                             path: vec![],
                             update_path_timer: Timer::new(
-                                Duration::from_millis(rand::thread_rng().gen_range(timer)),
+                                Duration::from_millis(rand::thread_rng().gen_range(timer.clone())),
                                 TimerMode::Repeating,
                             ),
                             speed: 2500.,
@@ -189,7 +189,7 @@ fn debug_spawn_mobs(
                     }
                     if can_shoot{
                         commands.entity(mob).insert(ShootAbility{time_to_shoot: Timer::new(
-                            Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                            Duration::from_millis(rand::thread_rng().gen_range(timer)),
                             TimerMode::Repeating)});
                     }
                 }
