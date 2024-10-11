@@ -14,7 +14,7 @@ use crate::{
     level_completion::PortalEvent,
     pathfinding::Pathfinder,
     player::{Player, PlayerDeathEvent},
-    projectile::{Friendly, Projectile},
+    projectile::{Friendly, Projectile, SpawnProjectileEvent},
     GameLayer,
     GameState,
 };
@@ -25,12 +25,13 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(MobMap::default())
+            .add_event::<SpawnProjectileEvent>()
             .add_event::<MobDeathEvent>()
             .insert_resource(PortalPosition::default())
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, hit_player, mob_death, teleport_mobs).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, hit_player, mob_death, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -44,6 +45,10 @@ pub struct Teleport {
     pub amount_of_tiles: u8,
 }
 
+#[derive(Component)]
+pub struct ShootAbility{
+    pub time_to_shoot: Timer
+}
 #[derive(Component)]
 pub struct Mob {
     damage: i32,
@@ -112,6 +117,7 @@ fn debug_spawn_mobs(
                 if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14){ // make sure emenies don't spawn too close to player (todo: rewrite)
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
+                    let mut can_shoot: bool = false;
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
                     let timer: std::ops::Range<u64>;
@@ -124,6 +130,7 @@ fn debug_spawn_mobs(
                             timer = 1500..2000;
                             amount_of_tiles = 4;
                             has_teleport = true;
+                            can_shoot = true;
                             texture_path = "textures/mob_teleport_placeholder.png"
                         }
                     }
@@ -180,6 +187,11 @@ fn debug_spawn_mobs(
                     }else{
                         commands.entity(mob).insert(RigidBody::Dynamic);
                     }
+                    if can_shoot{
+                        commands.entity(mob).insert(ShootAbility{time_to_shoot: Timer::new(
+                            Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                            TimerMode::Repeating)});
+                    }
                 }
             }
         }
@@ -214,6 +226,40 @@ fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfin
 
             if transform.translation.truncate().distance(Vec2::new(pathfinder.path[0].0 as f32 * 32., pathfinder.path[0].1 as f32 * 32.)) <= 4. {
                 pathfinder.path.remove(0);
+            }
+        }
+    }
+}
+
+fn mob_shoot(
+    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
+    mut mob_query: Query<(&Transform, &mut ShootAbility)>,
+    mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
+    time: Res<Time>,
+){
+    for (transform, mut can_shoot) in mob_query.iter_mut(){
+        println!("CRY");
+        if let Ok(player) = player_query.get_single_mut() {
+            println!("CRY PLAYER");
+            can_shoot.time_to_shoot.tick(time.delta());
+            if can_shoot.time_to_shoot.just_finished() {
+                println!("Start to cast");
+                let dir = (player.translation.truncate().x - transform.translation.truncate()).normalize_or_zero();
+                let angle = dir.y.atan2(dir.x);
+                ev_shoot.send(
+                    SpawnProjectileEvent { 
+                        texture_path: "textures/fireball.png".to_string(), 
+                        color:  Color::srgb(2.5, 1.25, 1.0), 
+                        translation: transform.translation, 
+                        angle: angle, 
+                        radius: 8.0, 
+                        speed: 150., 
+                        damage: 20, 
+                        element: crate::elements::ElementType::Fire, 
+                        is_friendly: false
+                    }
+                );
+                println!("sent event");
             }
         }
     }
