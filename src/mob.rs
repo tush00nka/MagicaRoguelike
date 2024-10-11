@@ -7,17 +7,16 @@ use rand::Rng;
 use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
-    gamemap::{LevelGenerator, TileType, ROOM_SIZE, MobMap},
+    gamemap::{LevelGenerator, MobMap, TileType, ROOM_SIZE},
     health::{Health, PlayerHPChanged},
 
     invincibility::Invincibility,
     level_completion::PortalEvent,
     pathfinding::Pathfinder,
     player::{Player, PlayerDeathEvent},
-    projectile::Projectile,
+    projectile::{Friendly, Projectile},
     GameLayer,
     GameState,
-
 };
 
 pub struct MobPlugin;
@@ -222,7 +221,7 @@ fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfin
 
 fn hit_projectiles(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Projectile, &Transform)>,
+    projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
     mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
     mut ev_collision: EventReader<Collision>,
     mut ev_death: EventWriter<MobDeathEvent>,
