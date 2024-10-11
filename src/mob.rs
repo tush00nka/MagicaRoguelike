@@ -238,13 +238,11 @@ fn mob_shoot(
     time: Res<Time>,
 ){
     for (transform, mut can_shoot) in mob_query.iter_mut(){
-        println!("CRY");
         if let Ok(player) = player_query.get_single_mut() {
-            println!("CRY PLAYER");
             can_shoot.time_to_shoot.tick(time.delta());
             if can_shoot.time_to_shoot.just_finished() {
                 println!("Start to cast");
-                let dir = (player.translation.truncate().x - transform.translation.truncate()).normalize_or_zero();
+                let dir = (player.translation.truncate() - transform.translation.truncate()).normalize_or_zero();
                 let angle = dir.y.atan2(dir.x);
                 ev_shoot.send(
                     SpawnProjectileEvent { 
