@@ -8,14 +8,24 @@ use rand::Rng;
 use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
-    gamemap::{LevelGenerator, MobMap, TileType, ROOM_SIZE},
-    level_completion::PortalEvent,
-    pathfinding::Pathfinder,
+    gamemap::{
+        LevelGenerator,
+        MobMap,
+        TileType,
+        ROOM_SIZE
+    }, 
     health::Health,
-    player::Player,
-    projectile::{Friendly, Projectile, SpawnProjectileEvent},
+    invincibility::Invincibility, 
+    level_completion::{PortalEvent, PortalManager}, 
+    pathfinding::Pathfinder, 
+    player::{
+        Player, 
+        PlayerDeathEvent
+    }, 
+    projectile::Projectile, 
+    stun::Stun,
     GameLayer,
-    GameState,
+    GameState
 };
 
 pub struct MobPlugin;
@@ -26,8 +36,7 @@ impl Plugin for MobPlugin {
             .insert_resource(MobMap::default())
             .add_event::<SpawnProjectileEvent>()
             .add_event::<MobDeathEvent>()
-            .insert_resource(PortalPosition::default())
-            .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
+            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
                 FixedUpdate,
                 (move_mobs, hit_projectiles, mob_death, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
@@ -53,30 +62,6 @@ pub struct Mob {
     pub damage: i32,
 }
 
-#[derive(Resource)]
-pub struct PortalPosition {
-    position: Vec3,
-    pub check: bool, 
-}
-
-impl Default for PortalPosition {
-    fn default() -> PortalPosition {
-        PortalPosition {
-            position: Vec3 {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            },
-            check: false,
-        }
-    }
-}
-impl PortalPosition {
-    fn set_pos(&mut self, pos: Vec3) {
-        self.position = pos;
-    }
-}
-
 #[derive(Component)]
 pub struct MobLoot {
     pub orbs: u32,
@@ -100,7 +85,7 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 
-fn debug_spawn_mobs(
+pub fn spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
@@ -147,6 +132,7 @@ fn debug_spawn_mobs(
                             ..default()
                         })
                         .id();
+
                     commands
                         .entity(mob)
                         .insert(GravityScale(0.0))
@@ -163,7 +149,6 @@ fn debug_spawn_mobs(
                             ],
                         ))
                         .insert(LinearVelocity::ZERO)
-
                         .insert(Mob { 
                             damage: 20
                          })
@@ -181,11 +166,12 @@ fn debug_spawn_mobs(
                             max: 100,
                             current: 100,
                         });
+
                     if has_teleport {
                         commands.entity(mob).insert(Teleport { amount_of_tiles }).insert(RigidBody::Kinematic);
                         mob_map.map[i][j] = mob_id;
                         mob_id += 1;
-                    }else{
+                    } else {
                         commands.entity(mob).insert(RigidBody::Dynamic);
                     }
                     if can_shoot{
@@ -199,7 +185,7 @@ fn debug_spawn_mobs(
     }
 }
 
-fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Teleport>>) {
+fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), (Without<Stun>, With<Teleport>)>) {
     // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.path.len() > 0 {
@@ -213,7 +199,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Te
     }
 }
 
-fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder), Without<Teleport>>, time: Res<Time>) {
+fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfinder), (Without<Stun>, Without<Teleport>)>, time: Res<Time>) {
     for (mut linvel, transform, mut pathfinder) in mob_query.iter_mut() {
         if pathfinder.path.len() > 0 {
 
@@ -294,10 +280,14 @@ fn hit_projectiles(
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
+
                         health.damage(projectile.damage.try_into().unwrap());
+                        
+                        // кидаем стан на моба
+                        commands.entity(mob_e.unwrap()).insert(Stun::new(0.5));
 
                         commands.entity(proj_e.unwrap()).despawn();
-                        println!("Mob is despawned");
+
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
@@ -318,10 +308,10 @@ fn hit_projectiles(
 }
 
 fn mob_death(
-    mut portal_position: ResMut<PortalPosition>,
-    player_experience: Res<PlayerExperience>,
+    mut commands: Commands,
 
-    mob_query: Query<&Mob>,
+    mut portal_manager: ResMut<PortalManager>,
+    player_experience: Res<PlayerExperience>,
 
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
@@ -329,11 +319,11 @@ fn mob_death(
     mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
     for ev in ev_mob_death.read() {
-        portal_position.set_pos(ev.pos);
 
-        if mob_query.is_empty() && !portal_position.check{
-            portal_position.check = true;
-            ev_spawn_portal.send( PortalEvent{pos: portal_position.position});
+        portal_manager.set_pos(ev.pos);
+        portal_manager.pop_mob();
+        if portal_manager.no_mobs_on_level() {
+            ev_spawn_portal.send( PortalEvent{pos: portal_manager.get_pos()});
         }    
     
         let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
@@ -355,5 +345,7 @@ fn mob_death(
                 destination,
             });
         }
+
+        commands.entity(ev.entity).despawn();
     }
 }

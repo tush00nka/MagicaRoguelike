@@ -1,7 +1,8 @@
+use crate::mob::Mob;
 use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
-use crate::{mob::PortalPosition, GameState};
+use crate::GameState;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -13,6 +14,7 @@ impl Plugin for LevelCompletionPlugin {
         .add_systems(Update, (spawn_portal, rotate_portal,scale_portal))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
             .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
+            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mobs))
             .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,
                 despawn_all_with::<crate::health_tank::HealthTank>,
@@ -32,8 +34,47 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::shield_spell::Shield>,
                 despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
-            ))//need to delete and despawn: levelgen, exp particles, portal in hub, maybe something else, need to check
-            .insert_resource(PortalPosition::default());
+            ))
+            .insert_resource(PortalManager::default());
+    }
+}
+
+#[derive(Resource)]
+pub struct PortalManager {
+    position: Vec3,
+    pub mobs: u32, //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
+}
+impl Default for PortalManager {
+    fn default() -> PortalManager {
+        PortalManager {
+            position: Vec3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            },
+            mobs: 0
+        }
+    }
+}
+impl PortalManager {
+    pub fn get_pos(&self) -> Vec3 {
+        self.position
+    }
+
+    pub fn set_pos(&mut self, pos: Vec3) {
+        self.position = pos;
+    }
+
+    pub fn set_mobs(&mut self, value: u32) {
+        self.mobs = value;
+    }
+
+    pub fn pop_mob(&mut self) {
+        self.mobs -= 1;
+    }
+
+    pub fn no_mobs_on_level(&self) -> bool {
+        self.mobs <= 0
     }
 }
 
@@ -95,13 +136,19 @@ fn scale_portal(mut portal_query: Query<&mut Transform, With<Portal>>, timer: Re
     }
 }
 
+fn recalculate_mobs(
+    mut portal_manager: ResMut<PortalManager>,
+    mob_query: Query<&Mob>,
+) {
+    portal_manager.set_mobs(mob_query.iter().len() as u32);
+}
+
 fn collision_portal(
     mut collision_event_reader: EventReader<Collision>,
     player_query: Query<(&Transform, Entity), (With<Player>, Without<Portal>)>,
     portal_query: Query<(&Transform, Entity), (With<Portal>, Without<Player>)>,
     mut game_state: ResMut<NextState<GameState>>,
     current_state: Res<State<GameState>>,
-    mut amount_mobs: ResMut<PortalPosition>
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         if player_query.contains(contacts.entity2) && portal_query.contains(contacts.entity1)
@@ -113,7 +160,6 @@ fn collision_portal(
                 }
                 GameState::Hub =>{
                     game_state.set(GameState::Loading);
-                    amount_mobs.check = false;
                 }
                 _ => {}
             }

@@ -62,6 +62,9 @@ use game_over::GameOverPlugin;
 mod invincibility;
 use invincibility::InvincibilityPlugin;
 
+mod stun;
+use stun::StunPlugin;
+
 mod animation;
 mod utils;
 
@@ -137,7 +140,7 @@ fn main() {
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HitPlayerPlugin)
         .add_plugins(HubPlugin)
-        .add_plugins(InvincibilityPlugin)
+        .add_plugins((InvincibilityPlugin, StunPlugin))
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .run();

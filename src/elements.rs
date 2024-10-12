@@ -234,7 +234,7 @@ fn cast_spell(
         
             if bar.earth > 0
             && bar.air <= 0
-            && bar.water != 1 {
+            && (bar.water >= bar.earth || bar.water <= 0) {
                 spell_desc += "AoE, e.g. earthquake\n";
     
                 let offset = (2.0*PI)/(bar.len()*3) as f32;
