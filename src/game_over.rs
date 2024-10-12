@@ -1,12 +1,15 @@
 use bevy::prelude::*;
-use crate::{player::*, ui::*, utils::*, GameState};
+use crate::{
+    ui::*,
+    utils::*,
+    GameState
+};
 pub struct GameOverPlugin;
 
 impl Plugin for GameOverPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnEnter(GameState::GameOver), spawn_gameover_ui)
-            .add_systems(Update, player_death)
             .add_systems(Update, handle_buttons.run_if(in_state(GameState::GameOver)))
             .add_systems(OnEnter(GameState::MainMenu), despawn_gameover_ui)
             .add_systems(OnEnter(GameState::GameOver), (
@@ -33,16 +36,6 @@ impl Plugin for GameOverPlugin {
 
 #[derive(Component)]
 pub struct GameOverUI;
-
-fn player_death(
-    mut ev_player_death: EventReader<PlayerDeathEvent>,
-    mut game_state: ResMut<NextState<GameState>>,
-){
-    for _ev in ev_player_death.read(){
-        game_state.set(GameState::GameOver);
-    }
-}
-
 
 fn spawn_gameover_ui(
     mut commands: Commands,

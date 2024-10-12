@@ -195,6 +195,7 @@ pub fn spawn_mobs(
                         .insert(Health {
                             max: 100,
                             current: 100,
+                            extra_lives: 0,
                         });
 
                     if has_teleport {

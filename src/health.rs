@@ -1,18 +1,10 @@
 use bevy::prelude::*;
-use crate::player::PlayerDeathEvent;
-pub struct HealthPlugin;
-
-impl Plugin for HealthPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .add_systems(Update, player_death);
-    }
-}
 
 #[derive(Component)]
 pub struct Health {
     pub max: i32,
     pub current: i32,
+    pub extra_lives: u8,
 }
 
 impl Health {
@@ -27,18 +19,4 @@ impl Health {
     pub fn damage(&mut self, value: i32,) {
         self.current -= value;
     }
-}
-
-fn player_death(
-    mut commands: Commands,
-    mut ev_player_death: EventReader<PlayerDeathEvent>,
-    // mut ev_mob_death: EventReader<MobDeathEvent>,
-) {
-    for ev in ev_player_death.read(){
-         commands.entity(ev.0).despawn();
-    }
-
-    // for mob_ev in ev_mob_death.read() {
-    //     commands.entity(mob_ev.entity).despawn();
-    // }
 }

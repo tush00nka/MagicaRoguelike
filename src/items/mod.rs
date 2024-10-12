@@ -12,6 +12,9 @@ use heart::HeartPlugin;
 mod amulet;
 use amulet::AmuletPlugin;
 
+pub mod lizard_tail;
+use lizard_tail::LizardTailPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -20,6 +23,7 @@ impl Plugin for ItemEffectsPlugin {
             SpeedPotionPlugin,
             HeartPlugin,
             AmuletPlugin,
+            LizardTailPlugin,
         ));
     }
 }
