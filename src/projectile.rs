@@ -15,14 +15,19 @@ impl Plugin for ProjectilePlugin {
     }
 }
 
-#[allow(unused)]
+#[derive(Component)]
+pub struct Hostile;
+
+#[derive(Component)]
+pub struct Friendly; //tags for projs
+
+#[allow(dead_code)]
 #[derive(Component)]
 pub struct Projectile {
     pub direction: Vec2,
     pub speed: f32,
     pub damage: u32,
     pub element: ElementType,
-    pub is_friendly: bool
 }
 
 #[derive(Bundle)]
@@ -43,7 +48,6 @@ impl Default for ProjectileBundle {
                 speed: 100.0,
                 damage: 100,
                 element: ElementType::Air,
-                is_friendly: true,
             },
             collider: Collider::circle(8.0),
             collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall]),
@@ -71,7 +75,7 @@ fn spawn_projectile(
     mut ev_projectile_spawn: EventReader<SpawnProjectileEvent>,
 ) {
     for ev in ev_projectile_spawn.read() {
-        commands.spawn(ProjectileBundle {
+        let projectile = commands.spawn(ProjectileBundle {
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: ev.translation,
@@ -91,11 +95,19 @@ fn spawn_projectile(
                 speed: ev.speed,
                 damage: ev.damage,
                 element: ev.element,
-                is_friendly: ev.is_friendly
             },
             collider: Collider::circle(ev.radius),
             ..default()
-        });
+        }).id();
+        if ev.is_friendly{ //check which flag to add
+            commands
+                .entity(projectile)
+                .insert(Friendly);
+        }else{
+            commands
+                .entity(projectile)
+                .insert(Hostile);
+        }
     }
 }
 
@@ -118,6 +130,10 @@ fn hit_walls(
     for Collision(contacts) in collision_event_reader.read() {
         if projectile_query.contains(contacts.entity2) && wall_query.contains(contacts.entity1) {
             commands.get_entity(contacts.entity2).unwrap().despawn();
+        }
+
+        if projectile_query.contains(contacts.entity1) && wall_query.contains(contacts.entity2) {
+            commands.get_entity(contacts.entity1).unwrap().despawn();
         }
     }
 }

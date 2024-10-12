@@ -1,3 +1,4 @@
+//all things about mobs and their spawn/behaviour
 use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
@@ -5,6 +6,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
+    projectile::SpawnProjectileEvent,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{
@@ -13,15 +15,11 @@ use crate::{
         TileType,
         ROOM_SIZE
     }, 
-    health::Health,
-    invincibility::Invincibility, 
+    health::Health, 
     level_completion::{PortalEvent, PortalManager}, 
     pathfinding::Pathfinder, 
-    player::{
-        Player, 
-        PlayerDeathEvent
-    }, 
-    projectile::Projectile, 
+    player::Player, 
+    projectile::{Projectile, Friendly}, 
     stun::Stun,
     GameLayer,
     GameState
@@ -37,7 +35,7 @@ impl Plugin for MobPlugin {
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, hit_player, mob_death, teleport_mobs).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, mob_death, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -52,8 +50,12 @@ pub struct Teleport {
 }
 
 #[derive(Component)]
+pub struct ShootAbility{
+    pub time_to_shoot: Timer
+}
+#[derive(Component)]
 pub struct Mob {
-    damage: i32,
+    pub damage: i32,
 }
 
 #[derive(Component)]
@@ -63,9 +65,7 @@ pub struct MobLoot {
 // range for enum of mobs
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
-        // match rng.gen_range(0, 3) { // rand 0.5, 0.6, 0.7
         match rng.gen_range(0..=3) {
-            // rand 0.8
             0 => MobType::Mossling,
             1 => MobType::Teleport,
             _ => MobType::Mossling,
@@ -93,21 +93,26 @@ pub fn spawn_mobs(
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
+                //need to fix 0 mob levels
                 if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14){ // make sure emenies don't spawn too close to player (todo: rewrite)
+                    
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
+                    let mut can_shoot: bool = false;
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
                     let timer: std::ops::Range<u64>;
+                    
                     match mob_type {
                         MobType::Mossling => {
                             texture_path = "textures/mob_mossling.png";
                             timer = 500..999;
                         }
                         MobType::Teleport => {
-                            timer = 1500..2000;
+                            timer = 3000..5000;
                             amount_of_tiles = 4;
                             has_teleport = true;
+                            can_shoot = true;
                             texture_path = "textures/mob_teleport_placeholder.png"
                         }
                     }
@@ -146,7 +151,7 @@ pub fn spawn_mobs(
                         .insert(Pathfinder {
                             path: vec![],
                             update_path_timer: Timer::new(
-                                Duration::from_millis(rand::thread_rng().gen_range(timer)),
+                                Duration::from_millis(rand::thread_rng().gen_range(timer.clone())),
                                 TimerMode::Repeating,
                             ),
                             speed: 2500.,
@@ -164,6 +169,11 @@ pub fn spawn_mobs(
                         mob_id += 1;
                     } else {
                         commands.entity(mob).insert(RigidBody::Dynamic);
+                    }
+                    if can_shoot{
+                        commands.entity(mob).insert(ShootAbility{time_to_shoot: Timer::new(
+                            Duration::from_millis(rand::thread_rng().gen_range(timer)),
+                            TimerMode::Repeating)});
                     }
                 }
             }
@@ -205,9 +215,41 @@ fn move_mobs(mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut Pathfin
     }
 }
 
+fn mob_shoot(
+    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
+    mut mob_query: Query<(&Transform, &mut ShootAbility)>,
+    mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
+    time: Res<Time>,
+){
+    for (transform, mut can_shoot) in mob_query.iter_mut(){
+        if let Ok(player) = player_query.get_single_mut() {
+            can_shoot.time_to_shoot.tick(time.delta());
+            if can_shoot.time_to_shoot.just_finished() {
+                println!("Start to cast");
+                let dir = (player.translation.truncate() - transform.translation.truncate()).normalize_or_zero();
+                let angle = dir.y.atan2(dir.x);
+                ev_shoot.send(
+                    SpawnProjectileEvent { 
+                        texture_path: "textures/fireball.png".to_string(), 
+                        color:  Color::srgb(2.5, 1.25, 1.0), 
+                        translation: transform.translation, 
+                        angle: angle, 
+                        radius: 8.0, 
+                        speed: 150., 
+                        damage: 20, 
+                        element: crate::elements::ElementType::Fire, 
+                        is_friendly: false
+                    }
+                );
+                println!("sent event");
+            }
+        }
+    }
+}
+
 fn hit_projectiles(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Projectile, &Transform)>,
+    projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
     mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
     mut ev_collision: EventReader<Collision>,
     mut ev_death: EventWriter<MobDeathEvent>,
@@ -301,35 +343,5 @@ fn mob_death(
         }
 
         commands.entity(ev.entity).despawn();
-    }
-}
-
-fn hit_player(
-    mut commands: Commands,
-    mut collision_event_reader: EventReader<Collision>,
-    mob_query: Query<(Entity, &Mob), Without<Player>>,
-    mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_death: EventWriter<PlayerDeathEvent>,
-) {
-    for Collision(contacts) in collision_event_reader.read() {
-        let mut mob_e = Entity::PLACEHOLDER;
-
-        if mob_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
-            mob_e = contacts.entity1;
-        } else if mob_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            mob_e = contacts.entity2;
-        }
-
-        if let Ok((player_e, mut health, player)) = player_query.get_single_mut() {
-            for (mob_cadidate_e, mob) in mob_query.iter() {
-                if mob_cadidate_e == mob_e {
-                    health.damage(mob.damage);
-                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
-                    if health.current <= 0 {
-                        ev_death.send(PlayerDeathEvent(player_e));
-                    }
-                }
-            }
-        }
     }
 }
