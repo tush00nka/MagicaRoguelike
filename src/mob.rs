@@ -1,3 +1,4 @@
+//all things about mobs and their spawn/behaviour
 use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
@@ -55,8 +56,9 @@ pub struct Mob {
 #[derive(Resource)]
 pub struct PortalPosition {
     position: Vec3,
-    pub check: bool, //maybe change to i32, if there would be some bugs with despawn, portal may not spawn, i suppose?
+    pub check: bool, 
 }
+
 impl Default for PortalPosition {
     fn default() -> PortalPosition {
         PortalPosition {
@@ -82,9 +84,7 @@ pub struct MobLoot {
 // range for enum of mobs
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
-        // match rng.gen_range(0, 3) { // rand 0.5, 0.6, 0.7
         match rng.gen_range(0..=3) {
-            // rand 0.8
             0 => MobType::Mossling,
             1 => MobType::Teleport,
             _ => MobType::Mossling,
@@ -112,13 +112,16 @@ fn debug_spawn_mobs(
         for j in 1..grid[i].len() - 1 {
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
+                //need to fix 0 mob levels
                 if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14){ // make sure emenies don't spawn too close to player (todo: rewrite)
+                    
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
                     let mut can_shoot: bool = false;
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
                     let timer: std::ops::Range<u64>;
+                    
                     match mob_type {
                         MobType::Mossling => {
                             texture_path = "textures/mob_mossling.png";

@@ -1,26 +1,25 @@
+//all systems that can damage player should be there
+use crate::{
+    health::{Health, PlayerHPChanged},
+    invincibility::Invincibility,
+    mob::Mob,
+    player::{Player, PlayerDeathEvent},
+    projectile::{Hostile, Projectile},
+    GameState,
+};
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use crate::{
-    mob::Mob,
-    health::{Health, PlayerHPChanged},
-    player::{Player,PlayerDeathEvent},
-    invincibility::Invincibility,
-    GameState,
-    projectile::{Hostile,Projectile}
-};
 pub struct HitPlayerPlugin;
 
 impl Plugin for HitPlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-//            .add_event::<SpawnProjectileEvent>()
-            .add_systems(
-                FixedUpdate,
-                (hit_player, proj_hit_player).run_if(in_state(GameState::InGame)),
-            );
+        app.add_systems(
+            FixedUpdate,
+            (hit_player, proj_hit_player).run_if(in_state(GameState::InGame)),
+        );
     }
 }
-
+//damage by collision with mob
 fn hit_player(
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
@@ -43,7 +42,11 @@ fn hit_player(
                 if mob_cadidate_e == mob_e {
                     health.damage(mob.damage);
                     ev_hp.send(PlayerHPChanged);
-                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
+          
+                    commands
+                        .entity(player_e)
+                        .insert(Invincibility::new(player.invincibility_time));
+                        //inv frames
                     if health.current <= 0 {
                         ev_death.send(PlayerDeathEvent(player_e));
                     }
@@ -53,6 +56,7 @@ fn hit_player(
     }
 }
 
+//damage by projectiles
 fn proj_hit_player(
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
@@ -66,7 +70,9 @@ fn proj_hit_player(
 
         if projectile_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
             projectile_e = contacts.entity1;
-        } else if projectile_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
+        } else if projectile_query.contains(contacts.entity2)
+            && player_query.contains(contacts.entity1)
+        {
             projectile_e = contacts.entity2;
         }
 
@@ -75,7 +81,11 @@ fn proj_hit_player(
                 if proj_cand_e == projectile_e {
                     health.damage(proj.damage as i32);
                     ev_hp.send(PlayerHPChanged);
-                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
+          
+                    commands
+                        .entity(player_e)
+                        .insert(Invincibility::new(player.invincibility_time));
+          
                     if health.current <= 0 {
                         ev_death.send(PlayerDeathEvent(player_e));
                     }
