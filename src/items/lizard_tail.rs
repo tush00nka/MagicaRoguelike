@@ -83,7 +83,7 @@ fn popup_scale(
             popup_transform.scale = popup_transform.scale.lerp(Vec3::ONE, 3. * time.delta_seconds());
 
             let current_alpha = sprite.color.alpha();
-            sprite.color.set_alpha(current_alpha.lerp(0.0, 3. * time.delta_seconds()));
+            sprite.color.set_alpha(current_alpha.lerp(0.0, 2. * time.delta_seconds()));
         }
     }
 }
