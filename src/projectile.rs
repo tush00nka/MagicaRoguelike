@@ -99,6 +99,7 @@ fn spawn_projectile(
             collider: Collider::circle(ev.radius),
             ..default()
         }).id();
+        
         if ev.is_friendly{ //check which flag to add
             commands
                 .entity(projectile)
