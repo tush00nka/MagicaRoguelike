@@ -1,6 +1,6 @@
 //all systems that can damage player should be there
 use crate::{
-    health::{Health, PlayerHPChanged},
+    health::Health,
     invincibility::Invincibility,
     mob::Mob,
     player::{Player, PlayerDeathEvent},
@@ -25,7 +25,6 @@ fn hit_player(
     mut collision_event_reader: EventReader<Collision>,
     mob_query: Query<(Entity, &Mob), Without<Player>>,
     mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
@@ -41,8 +40,6 @@ fn hit_player(
             for (mob_cadidate_e, mob) in mob_query.iter() {
                 if mob_cadidate_e == mob_e {
                     health.damage(mob.damage);
-                    ev_hp.send(PlayerHPChanged);
-          
                     commands
                         .entity(player_e)
                         .insert(Invincibility::new(player.invincibility_time));
@@ -62,7 +59,6 @@ fn proj_hit_player(
     mut collision_event_reader: EventReader<Collision>,
     projectile_query: Query<(Entity, &Projectile), With<Hostile>>,
     mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
@@ -80,7 +76,6 @@ fn proj_hit_player(
             for (proj_cand_e, proj) in projectile_query.iter() {
                 if proj_cand_e == projectile_e {
                     health.damage(proj.damage as i32);
-                    ev_hp.send(PlayerHPChanged);
           
                     commands
                         .entity(player_e)

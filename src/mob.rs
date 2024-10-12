@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
+    projectile::SpawnProjectileEvent,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{
@@ -14,15 +15,11 @@ use crate::{
         TileType,
         ROOM_SIZE
     }, 
-    health::Health,
-    invincibility::Invincibility, 
+    health::Health, 
     level_completion::{PortalEvent, PortalManager}, 
     pathfinding::Pathfinder, 
-    player::{
-        Player, 
-        PlayerDeathEvent
-    }, 
-    projectile::Projectile, 
+    player::Player, 
+    projectile::{Projectile, Friendly}, 
     stun::Stun,
     GameLayer,
     GameState
@@ -34,7 +31,6 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(MobMap::default())
-            .add_event::<SpawnProjectileEvent>()
             .add_event::<MobDeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
