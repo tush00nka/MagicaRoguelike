@@ -8,13 +8,11 @@ use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{LevelGenerator, MobMap, TileType, ROOM_SIZE},
-    health::{Health, PlayerHPChanged},
-
-    invincibility::Invincibility,
     level_completion::PortalEvent,
     pathfinding::Pathfinder,
-    player::{Player, PlayerDeathEvent},
-    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
+    health::Health,
+    player::Player,
+    projectile::{Friendly, Projectile, SpawnProjectileEvent},
     GameLayer,
     GameState,
 };
@@ -31,7 +29,7 @@ impl Plugin for MobPlugin {
             .add_systems(OnEnter(GameState::InGame), debug_spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, hit_player, mob_death, teleport_mobs, mob_shoot, proj_hit_player).run_if(in_state(GameState::InGame)),
+                (move_mobs, hit_projectiles, mob_death, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -51,7 +49,7 @@ pub struct ShootAbility{
 }
 #[derive(Component)]
 pub struct Mob {
-    damage: i32,
+    pub damage: i32,
 }
 
 #[derive(Resource)]
@@ -197,6 +195,7 @@ fn debug_spawn_mobs(
         }
     }
 }
+
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Pathfinder), With<Teleport>>) {
     // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
@@ -352,71 +351,6 @@ fn mob_death(
                 pos: ev.pos,
                 destination,
             });
-        }
-    }
-}
-
-fn hit_player(
-    mut commands: Commands,
-    mut collision_event_reader: EventReader<Collision>,
-    mob_query: Query<(Entity, &Mob), Without<Player>>,
-    mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
-    mut ev_death: EventWriter<PlayerDeathEvent>,
-) {
-    for Collision(contacts) in collision_event_reader.read() {
-        let mut mob_e = Entity::PLACEHOLDER;
-
-        if mob_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
-            mob_e = contacts.entity1;
-        } else if mob_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            mob_e = contacts.entity2;
-        }
-
-        if let Ok((player_e, mut health, player)) = player_query.get_single_mut() {
-            for (mob_cadidate_e, mob) in mob_query.iter() {
-                if mob_cadidate_e == mob_e {
-                    health.damage(mob.damage);
-                    ev_hp.send(PlayerHPChanged);
-                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
-                    if health.current <= 0 {
-                        ev_death.send(PlayerDeathEvent(player_e));
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn proj_hit_player(
-    mut commands: Commands,
-    mut collision_event_reader: EventReader<Collision>,
-    projectile_query: Query<(Entity, &Projectile), With<Hostile>>,
-    mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
-    mut ev_hp: EventWriter<PlayerHPChanged>,
-    mut ev_death: EventWriter<PlayerDeathEvent>,
-) {
-    for Collision(contacts) in collision_event_reader.read() {
-        let mut projectile_e = Entity::PLACEHOLDER;
-
-        if projectile_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
-            projectile_e = contacts.entity1;
-        } else if projectile_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            projectile_e = contacts.entity2;
-        }
-
-        if let Ok((player_e, mut health, player)) = player_query.get_single_mut() {
-            for (proj_cand_e, proj) in projectile_query.iter() {
-                if proj_cand_e == projectile_e {
-                    health.damage(proj.damage as i32);
-                    ev_hp.send(PlayerHPChanged);
-                    commands.entity(player_e).insert(Invincibility::new(player.invincibility_time));
-                    if health.current <= 0 {
-                        ev_death.send(PlayerDeathEvent(player_e));
-                    }
-                    commands.get_entity(proj_cand_e).unwrap().despawn();
-                }
-            }
         }
     }
 }

@@ -13,6 +13,9 @@ use camera::CameraPlugin;
 mod gamemap;
 use gamemap::GameMapPlugin;
 
+mod hit_player;
+use hit_player::HitPlayerPlugin;
+
 mod mouse_position;
 use mouse_position::MousePositionPlugin;
 
@@ -132,6 +135,7 @@ fn main() {
         .add_plugins(MobPlugin)
         .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)
+        .add_plugins(HitPlayerPlugin)
         .add_plugins(HubPlugin)
         .add_plugins(InvincibilityPlugin)
         .add_plugins(ChapterPlugin)
