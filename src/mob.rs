@@ -117,7 +117,7 @@ pub fn spawn_mobs(
 
                     match mob_type {
                         MobType::Mossling => {
-                            texture_path = "textures/mob_mossling_walk.png";
+                            texture_path = "textures/mobs/mossling.png";
                             timer = 500..999;
 
                             frame_count = 4;
@@ -128,7 +128,7 @@ pub fn spawn_mobs(
                             amount_of_tiles = 4;
                             has_teleport = true;
                             can_shoot = true;
-                            texture_path = "textures/fire_mage.png";
+                            texture_path = "textures/mobs/fire_mage.png";
 
                             frame_count = 2;
                             fps = 3;
