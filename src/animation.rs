@@ -23,3 +23,4 @@ impl AnimationConfig {
         Timer::new(Duration::from_secs_f32(1.0 / (fps as f32)), TimerMode::Repeating)
     }
 }
+

@@ -6,20 +6,27 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    projectile::SpawnProjectileEvent,
+    animation::AnimationConfig,
     exp_orb::SpawnExpOrbEvent,
-    experience::PlayerExperience,
+    experience::PlayerExperience, 
     gamemap::{
         LevelGenerator,
         MobMap,
         TileType,
         ROOM_SIZE
-    }, 
-    health::Health, 
-    level_completion::{PortalEvent, PortalManager}, 
-    pathfinding::Pathfinder, 
-    player::Player, 
-    projectile::{Projectile, Friendly}, 
+    },
+    health::Health,
+    level_completion::{
+        PortalEvent,
+        PortalManager
+    },
+    pathfinding::Pathfinder,
+    player::Player,
+    projectile::{
+        Friendly,
+        Projectile,
+        SpawnProjectileEvent
+    },
     stun::Stun,
     GameLayer,
     GameState
@@ -35,8 +42,9 @@ impl Plugin for MobPlugin {
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
                 FixedUpdate,
-                (move_mobs, hit_projectiles, mob_death, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
-            );
+                (move_mobs, hit_projectiles, teleport_mobs, mob_shoot).run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(Update, (animate_mobs, mob_death).run_if(in_state(GameState::InGame)));
     }
 }
 pub enum MobType {
@@ -84,8 +92,9 @@ pub struct MobDeathEvent {
 pub fn spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     room: Res<LevelGenerator>,
-    mut mob_map: ResMut<MobMap>
+    mut mob_map: ResMut<MobMap>,
 ) {
     let mut mob_id = 1;
     let grid = room.grid.clone();
@@ -102,24 +111,40 @@ pub fn spawn_mobs(
                     let mut has_teleport: bool = false;
                     let mut amount_of_tiles: u8 = 0;
                     let timer: std::ops::Range<u64>;
-                    
+
+                    let frame_count: u32;
+                    let fps: u8;
+
                     match mob_type {
                         MobType::Mossling => {
-                            texture_path = "textures/mob_mossling.png";
+                            texture_path = "textures/mob_mossling_walk.png";
                             timer = 500..999;
+
+                            frame_count = 4;
+                            fps = 12;
                         }
                         MobType::Teleport => {
                             timer = 3000..5000;
                             amount_of_tiles = 4;
                             has_teleport = true;
                             can_shoot = true;
-                            texture_path = "textures/mob_teleport_placeholder.png"
+                            texture_path = "textures/fire_mage.png";
+
+                            frame_count = 2;
+                            fps = 3;
                         }
                     }
                   
+                    let texture = asset_server.load(texture_path);
+
+                    let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
+                    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+                
+                    let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
+
                     let mob = commands
                         .spawn(SpriteBundle {
-                            texture: asset_server.load(texture_path),
+                            texture,
                             transform: Transform::from_xyz(
                                 (i as i32 * ROOM_SIZE) as f32,
                                 (j as i32 * ROOM_SIZE) as f32,
@@ -128,6 +153,15 @@ pub fn spawn_mobs(
                             ..default()
                         })
                         .id();
+
+                    commands.entity(mob)
+                        .insert(
+                            TextureAtlas {
+                                layout: texture_atlas_layout.clone(),
+                                index: animation_config.first_sprite_index,
+                            }
+                        )
+                        .insert(animation_config);
 
                     commands
                         .entity(mob)
@@ -343,5 +377,28 @@ fn mob_death(
         }
 
         commands.entity(ev.entity).despawn();
+    }
+}
+
+fn animate_mobs(
+    time: Res<Time>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>)>,
+) {
+    for (mut config, mut atlas) in &mut query {
+        // we track how long the current sprite has been displayed for
+        config.frame_timer.tick(time.delta());
+
+        // If it has been displayed for the user-defined amount of time (fps)...
+        if config.frame_timer.just_finished() {
+            if atlas.index == config.last_sprite_index {
+                // ...and it IS the last frame, then we move back to the first frame and stop.
+                atlas.index = config.first_sprite_index;
+            } else {
+                // ...and it is NOT the last frame, then we move to the next frame...
+                atlas.index += 1;
+                // ...and reset the frame timer to start counting all over again
+                config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
+            }
+        }
     }
 }
