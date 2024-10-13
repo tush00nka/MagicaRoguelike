@@ -20,7 +20,7 @@ impl Plugin for HitPlayerPlugin {
     }
 }
 //damage by collision with mob
-fn hit_player(
+fn hit_player(  //todo: change that we could add resistance mechanic
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
     mob_query: Query<(Entity, &Mob), Without<Player>>,
@@ -54,7 +54,7 @@ fn hit_player(
 }
 
 //damage by projectiles
-fn proj_hit_player(
+fn proj_hit_player( //todo: change that we could add resistance mechanic
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
     projectile_query: Query<(Entity, &Projectile), With<Hostile>>,
