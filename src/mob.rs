@@ -45,7 +45,8 @@ impl Plugin for MobPlugin {
 //Components and bundles
 //If you want to add something (create new mob, or add new component), first of all, add bundle and components there (and check, maybe it exists already)
 #[derive(Component)]
-pub enum MobType {//add your mobtype here
+pub enum MobType {
+    //add your mobtype here
     Mossling,
     FireMage,
     WaterMage,
@@ -53,23 +54,31 @@ pub enum MobType {//add your mobtype here
 
 #[derive(Component, Clone)]
 #[allow(dead_code)]
-pub enum ProjectileType {// can use to create mobs with different types of projectiles
+pub enum ProjectileType {
+    // can use to create mobs with different types of projectiles
     Circle,  //spawn some projectiles around
     Missile, // like fireball
     Gatling, // a lot of small ones
 }
 
 #[derive(Bundle)]
-pub struct PhysicalBundle { // physical bundle with all physical stats
+pub struct PhysicalBundle {
+    // physical bundle with all physical stats
     collider: Collider,
     axes: LockedAxes,
     gravity: GravityScale,
     collision_layers: CollisionLayers,
     linear_velocity: LinearVelocity,
 }
-
+#[derive(Component)]//todo: change res percent to vector too, that there can be different values
+pub struct ElementResistance {//resistance component, applies any amount of elementres to entity 
+    elements: Vec<ElementType>,
+    resistance_percent: i16,
+}
 #[derive(Bundle)]
-pub struct MobBundle {  //contains mob stats 
+pub struct MobBundle {
+    //contains mob stats
+    resistance: ElementResistance,
     mob_type: MobType,
     mob: Mob,
     loot: MobLoot,
@@ -83,13 +92,15 @@ pub struct MeleeMobBundle {
 }
 
 #[derive(Bundle)]
-pub struct MageBundle { //bundle only for mages
+pub struct MageBundle {
+    //bundle only for mages
     teleport_ability: Teleport,
     shoot_ability: ShootAbility,
 }
 
 #[derive(Component)]
-pub struct Teleport { //todo: change to just tuple? maybe not? 
+pub struct Teleport {
+    //todo: change to just tuple? maybe not?
     pub amount_of_tiles: u8,
     pub place_to_teleport: Vec<(u16, u16)>,
     pub time_to_teleport: Timer,
@@ -102,12 +113,14 @@ pub struct ShootAbility {
     proj_type: ProjectileType,
 }
 #[derive(Component)]
-pub struct Mob { //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
+pub struct Mob {
+    //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
 }
 
 #[derive(Component)]
-pub struct MobLoot {//todo: maybe add something like chance to spawn tank with exp/hp?
+pub struct MobLoot {
+    //todo: maybe add something like chance to spawn tank with exp/hp?
     pub orbs: u32,
 }
 //implemenations
@@ -164,6 +177,10 @@ impl MageBundle {
 impl MobBundle {
     fn mossling() -> Self {
         Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth],
+                resistance_percent: 15,
+            },
             mob_type: MobType::Mossling,
             mob: Mob { damage: 20 },
             loot: MobLoot { orbs: 3 },
@@ -177,6 +194,10 @@ impl MobBundle {
 
     fn fire_mage() -> Self {
         Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Fire],
+                resistance_percent: 80,
+            },
             mob_type: MobType::FireMage,
             mob: Mob { damage: 20 },
             loot: MobLoot { orbs: 3 },
@@ -190,6 +211,10 @@ impl MobBundle {
 
     fn water_mage() -> Self {
         Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Water],
+                resistance_percent: 80,
+            },
             mob_type: MobType::WaterMage,
             mob: Mob { damage: 20 },
             loot: MobLoot { orbs: 3 },
@@ -202,7 +227,8 @@ impl MobBundle {
     }
 }
 
-impl Default for PhysicalBundle {//don't change if you're not sure
+impl Default for PhysicalBundle {
+    //don't change if you're not sure
     fn default() -> Self {
         Self {
             collider: Collider::circle(6.),
@@ -229,7 +255,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
         match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
             1 => MobType::FireMage,
-    //        2 => MobType::WaterMage,
+            //        2 => MobType::WaterMage,
             _ => MobType::Mossling,
         }
     }
@@ -272,7 +298,7 @@ pub fn spawn_mobs(
                             texture_path = "textures/mobs/fire_mage.png";
                             frame_count = 2;
                             fps = 3;
-                        },
+                        }
                         MobType::WaterMage => {
                             frame_count = 2;
                             fps = 3;
@@ -281,8 +307,9 @@ pub fn spawn_mobs(
                     }
                     //get texture and layout
                     let texture = asset_server.load(texture_path);
-                    
-                    let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
+
+                    let layout =
+                        TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
                     let texture_atlas_layout = texture_atlas_layouts.add(layout);
                     //setup animation cfg
                     let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
@@ -300,15 +327,14 @@ pub fn spawn_mobs(
                         .id();
 
                     commands.entity(mob).insert(PhysicalBundle::default());
-                
-                    commands.entity(mob)//todo: change it that we could test mobs without animations
-                    .insert(
-                        TextureAtlas {
+
+                    commands
+                        .entity(mob) //todo: change it that we could test mobs without animations
+                        .insert(TextureAtlas {
                             layout: texture_atlas_layout.clone(),
                             index: animation_config.first_sprite_index,
-                        }
-                    )
-                    .insert(animation_config);
+                        })
+                        .insert(animation_config);
 
                     match mob_type {
                         MobType::Mossling => {
@@ -322,7 +348,7 @@ pub fn spawn_mobs(
                                 .entity(mob)
                                 .insert(MobBundle::fire_mage())
                                 .insert(MageBundle::fire_mage());
-                            
+
                             mob_map
                                 .map
                                 .get_mut(&(i as u16, j as u16))
@@ -348,9 +374,7 @@ pub fn spawn_mobs(
     }
 }
 
-fn teleport_mobs(
-    mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>,
-) {
+fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.place_to_teleport.len() > 0 {
             transform.translation = Vec3::new(
@@ -404,15 +428,17 @@ fn mob_shoot(
             if can_shoot.time_to_shoot.just_finished() {
                 let dir = (player.translation.truncate() - transform.translation.truncate())
                     .normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);//math
+                let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
 
-                match can_shoot.proj_type{  //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
+                match can_shoot.proj_type {
+                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
                     ProjectileType::Circle => texture_path = "textures/earthquake.png".to_string(),
-                    ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),  
+                    ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),
                     ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
                 }
-                let color = {   //todo: put it into function in element.rs (same code)
+                let color = {
+                    //todo: put it into function in element.rs (same code)
                     match can_shoot.element {
                         ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
                         ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
@@ -424,7 +450,7 @@ fn mob_shoot(
 
                 ev_shoot.send(SpawnProjectileEvent {
                     texture_path: texture_path,
-                    color: color,                //todo: change this fragment, that we could spawn different types of projectiles.
+                    color: color, //todo: change this fragment, that we could spawn different types of projectiles.
                     translation: transform.translation,
                     angle: angle,
                     radius: 8.0,
@@ -438,10 +464,11 @@ fn mob_shoot(
     }
 }
 
-fn hit_projectiles( //todo: change that we could use resistance mechanics
+fn hit_projectiles(
+    //todo: change that we could use resistance mechanics
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot), With<Mob>>,
+    mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot, &ElementResistance), With<Mob>>,
     mut ev_collision: EventReader<Collision>,
     mut ev_death: EventWriter<MobDeathEvent>,
 ) {
@@ -462,12 +489,18 @@ fn hit_projectiles( //todo: change that we could use resistance mechanics
             mob_e = None;
         }
 
-        for (candidate_e, mut health, transform, loot) in mob_query.iter_mut() {
+        for (candidate_e, mut health, transform, loot,resistance) in mob_query.iter_mut() {
             if mob_e.is_some() && mob_e.unwrap() == candidate_e {
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
-                        health.damage(projectile.damage.try_into().unwrap());
+                        let mut damage_with_res:i32 = projectile.damage.try_into().unwrap();
+                        if resistance.elements.contains(&projectile.element){
+                            damage_with_res = (damage_with_res as f32 * (1. - resistance.resistance_percent as f32 / 100.)) as i32;
+                            print!("damage with res is - {}", damage_with_res);
+                        }
+
+                        health.damage(damage_with_res);
 
                         // кидаем стан на моба
                         commands.entity(mob_e.unwrap()).insert(Stun::new(0.5));
