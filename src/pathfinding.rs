@@ -158,14 +158,14 @@ impl CostNode {
 
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
-    mut pathfinder_query: Query<(&mut Pathfinder, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
+    mut pathfinder_query: Query<(&mut Teleport, &Transform), Without<Player>>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
     mut mob_map: ResMut<Map>
 ) {
-    for (mut mob, teleport_ability, transform) in pathfinder_query.iter_mut() {
-        mob.update_path_timer.tick(time.delta());
-        if mob.update_path_timer.just_finished() {
+    for (mut mob, transform) in pathfinder_query.iter_mut() {
+        mob.time_to_teleport.tick(time.delta());
+        if mob.time_to_teleport.just_finished() {
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
                 
@@ -178,32 +178,32 @@ fn pathfinding_with_tp(
                 let mut padding_i_upper: u16 = 0;
                 let mut padding_j_upper: u16 = 0;
                 
-                if teleport_ability.amount_of_tiles as u16 > k.0 {
-                    padding_i = teleport_ability.amount_of_tiles as u16 - k.0;
+                if mob.amount_of_tiles as u16 > k.0 {
+                    padding_i = mob.amount_of_tiles as u16 - k.0;
                 }
-                if teleport_ability.amount_of_tiles as u16 > k.1 {
-                    padding_j = teleport_ability.amount_of_tiles as u16 - k.1;
+                if mob.amount_of_tiles as u16 > k.1 {
+                    padding_j = mob.amount_of_tiles as u16 - k.1;
                 }
 
-                if teleport_ability.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
+                if mob.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
                     padding_i_upper =
-                        teleport_ability.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
+                        mob.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
                 }
-                if teleport_ability.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
+                if mob.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
                     padding_j_upper =
-                        teleport_ability.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
+                        mob.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
                 }
 
-                for i in k.0 + padding_i - teleport_ability.amount_of_tiles as u16
-                    ..k.0 + teleport_ability.amount_of_tiles as u16 + 1 - padding_i_upper
+                for i in k.0 + padding_i - mob.amount_of_tiles as u16
+                    ..k.0 + mob.amount_of_tiles as u16 + 1 - padding_i_upper
                 {
-                    for j in k.1 + padding_j - teleport_ability.amount_of_tiles as u16
-                        ..k.1 + teleport_ability.amount_of_tiles as u16 + 1 - padding_j_upper
+                    for j in k.1 + padding_j - mob.amount_of_tiles as u16
+                        ..k.1 + mob.amount_of_tiles as u16 + 1 - padding_j_upper
                     {
-                        if (i == k.0 + padding_i - teleport_ability.amount_of_tiles as u16
-                            || i == k.0 + teleport_ability.amount_of_tiles as u16 - padding_i_upper
-                            || j == k.1 + padding_j - teleport_ability.amount_of_tiles as u16
-                            || j == k.1 + teleport_ability.amount_of_tiles as u16 - padding_j_upper)
+                        if (i == k.0 + padding_i - mob.amount_of_tiles as u16
+                            || i == k.0 + mob.amount_of_tiles as u16 - padding_i_upper
+                            || j == k.1 + padding_j - mob.amount_of_tiles as u16
+                            || j == k.1 + mob.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
 
@@ -291,8 +291,8 @@ fn pathfinding_with_tp(
                                 }
                             }
                             if current_pos == k {
-                                mob.path = Vec::new();
-                                mob.path.push((i, j));
+                                mob.place_to_teleport = Vec::new();
+                                mob.place_to_teleport.push((i, j));
                                 check = true;
 
                                 mob_map.map.get_mut(&(i,j)).unwrap().mob_count += 1;
