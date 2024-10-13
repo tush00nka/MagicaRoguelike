@@ -7,14 +7,10 @@ use dynamics::rigid_body;
 use rand::Rng;
 
 use crate::{
+    elements::ElementType,
     exp_orb::SpawnExpOrbEvent,
-    experience::PlayerExperience, 
-    gamemap::{
-        LevelGenerator,
-        Map,
-        TileType,
-        ROOM_SIZE
-    },
+    experience::PlayerExperience,
+    gamemap::{LevelGenerator, Map, TileType, ROOM_SIZE},
     health::Health,
     level_completion::{PortalEvent, PortalManager},
     pathfinding::Pathfinder,
@@ -29,8 +25,7 @@ pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .insert_resource(Map::default())
+        app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
@@ -46,9 +41,18 @@ impl Plugin for MobPlugin {
             );
     }
 }
+#[derive(Component)]
 pub enum MobType {
     Mossling,
-    Teleport,
+    FireMage,
+    WaterMage,
+}
+
+#[derive(Component)]
+pub enum ProjectileType {
+    Circle,  //круговая как кастануть 3 земли
+    Missile, // как фаербол
+    Gatling, // много мелких
 }
 
 #[derive(Bundle)]
@@ -60,40 +64,99 @@ pub struct PhysicBundle {
     linear_velocity: LinearVelocity,
 }
 
+impl Default for PhysicBundle {
+    fn default() -> Self {
+        Self {
+            collider: Collider::circle(6.),
+            axes: LockedAxes::ROTATION_LOCKED,
+            gravity: GravityScale(0.0),
+            collision_layers: CollisionLayers::new(
+                GameLayer::Enemy,
+                [
+                    GameLayer::Wall,
+                    GameLayer::Projectile,
+                    GameLayer::Shield,
+                    GameLayer::Enemy,
+                    GameLayer::Player,
+                ],
+            ),
+            linear_velocity: LinearVelocity::ZERO,
+        }
+    }
+}
 #[derive(Bundle)]
 pub struct MobBundle {
-    texture_path: String,
     mob_type: MobType,
     mob: Mob,
     loot: MobLoot,
     body_type: RigidBody,
     health: Health,
 }
-
 #[derive(Bundle)]
-pub struct FireMageBundle {
+pub struct MeleeMobBundle {
+    // can add smth else, like has phasing or smth idk
+    path_finder: Pathfinder,
+}
+
+impl MeleeMobBundle {
+    fn mossling() -> Self {
+        Self {
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 2500.,
+            },
+        }
+    }
+}
+#[derive(Bundle)]
+pub struct MageBundle {
     teleport_ability: Teleport,
     shoot_ability: ShootAbility,
 }
-impl Default for FireMageBundle {
-    fn default(timer: Range<u64>) -> Self {//need to have 1 same
+
+impl MageBundle {
+    fn fire_mage() -> Self {
+        //need to have 1 same
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
         Self {
             teleport_ability: Teleport {
                 amount_of_tiles: 4,
                 place_to_teleport: vec![],
-                time_to_teleport: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(timer.clone())),
-                    TimerMode::Repeating,
-                ),
+                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
             },
-            shoot_ability: ShootAbility { time_to_shoot: () },
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Fire,
+                proj_type: ProjectileType::Missile,
+            },
+        }
+    }
+    fn water_mage() -> Self {
+        //maybe ice idk?
+        //need to have 1 same
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
+        Self {
+            teleport_ability: Teleport {
+                amount_of_tiles: 4,
+                place_to_teleport: vec![],
+                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+            },
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Water,
+                proj_type: ProjectileType::Missile,
+            },
         }
     }
 }
+
 impl MobBundle {
-    fn mossling(i: usize, j: usize) -> Self {
+    fn mossling() -> Self {
         Self {
-            texture_path: "textures/mob_mossling.png".to_string(),
             mob_type: MobType::Mossling,
             mob: Mob { damage: 20 },
             loot: MobLoot { orbs: 3 },
@@ -104,10 +167,21 @@ impl MobBundle {
             },
         }
     }
-    fn fire_mage(i: usize, j: usize) -> Self {
+    fn fire_mage() -> Self {
         Self {
-            texture_path: "textures/fire_mage.png".to_string(),
-            mob_type: MobType::Mossling,
+            mob_type: MobType::FireMage,
+            mob: Mob { damage: 20 },
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Kinematic,
+            health: Health {
+                max: 80,
+                current: 80,
+            },
+        }
+    }
+    fn water_mage() -> Self {
+        Self {
+            mob_type: MobType::WaterMage,
             mob: Mob { damage: 20 },
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
@@ -129,6 +203,8 @@ pub struct Teleport {
 #[derive(Component)]
 pub struct ShootAbility {
     pub time_to_shoot: Timer,
+    element: ElementType,
+    proj_type: ProjectileType,
 }
 #[derive(Component)]
 pub struct Mob {
@@ -142,9 +218,10 @@ pub struct MobLoot {
 // range for enum of mobs
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
-        match rng.gen_range(0..=3) {
+        match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
-            1 => MobType::Teleport,
+            1 => MobType::FireMage,
+            2 => MobType::WaterMage,
             _ => MobType::Mossling,
         }
     }
@@ -158,7 +235,87 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 
-pub fn pick_mob_to_spawn(
+pub fn spawn_mobs(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    room: Res<LevelGenerator>,
+    mut mob_map: ResMut<Map>,
+) {
+    let grid = room.grid.clone();
+    for i in 1..grid.len() - 1 {
+        for j in 1..grid[i].len() - 1 {
+            if grid[i][j] == TileType::Floor {
+                let mut rng = rand::thread_rng();
+                //need to fix 0 mob levels
+                if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14) {
+                    let mob_type: MobType = rand::random();
+                    let texture_path: &str;
+
+                    match mob_type {
+                        MobType::Mossling => {
+                            texture_path = "textures/mobs/mossling.png";
+                        }
+                        MobType::FireMage => {
+                            texture_path = "textures/mobs/fire_mage.png"
+                        },
+                        MobType::WaterMage => {
+                            texture_path = "textures/player_placeholder.png";
+                        }
+                    }
+
+                    let mob = commands
+                        .spawn(SpriteBundle {
+                            texture: asset_server.load(texture_path),
+                            transform: Transform::from_xyz(
+                                (i as i32 * ROOM_SIZE) as f32,
+                                (j as i32 * ROOM_SIZE) as f32,
+                                1.0,
+                            ),
+                            ..default()
+                        })
+                        .id();
+
+                    commands.entity(mob).insert(PhysicBundle::default());
+
+                    match mob_type {
+                        MobType::Mossling => {
+                            commands
+                                .entity(mob)
+                                .insert(MobBundle::mossling())
+                                .insert(MeleeMobBundle::mossling());
+                        }
+                        MobType::FireMage => {
+                            commands
+                                .entity(mob)
+                                .insert(MobBundle::fire_mage())
+                                .insert(MageBundle::fire_mage());
+                            
+                            mob_map
+                                .map
+                                .get_mut(&(i as u16, j as u16))
+                                .unwrap()
+                                .mob_count += 1;
+                        }
+                        MobType::WaterMage => {
+                            commands
+                                .entity(mob)
+                                .insert(MobBundle::water_mage())
+                                .insert(MageBundle::water_mage());
+
+                            mob_map
+                                .map
+                                .get_mut(&(i as u16, j as u16))
+                                .unwrap()
+                                .mob_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn spawn_mob( // delete
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     room: Res<LevelGenerator>,
@@ -238,8 +395,15 @@ pub fn pick_mob_to_spawn(
                         });
 
                     if has_teleport {
-                        commands.entity(mob).insert(Teleport { amount_of_tiles }).insert(RigidBody::Kinematic);
-                        mob_map.map.get_mut(&(i as u16,j as u16)).unwrap().mob_count += 1;
+                        commands
+                            .entity(mob)
+                            .insert(Teleport { amount_of_tiles })
+                            .insert(RigidBody::Kinematic);
+                        mob_map
+                            .map
+                            .get_mut(&(i as u16, j as u16))
+                            .unwrap()
+                            .mob_count += 1;
                     } else {
                         commands.entity(mob).insert(RigidBody::Dynamic);
                     }
