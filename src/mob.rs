@@ -72,7 +72,7 @@ pub struct PhysicalBundle {
 }
 #[derive(Component)]
 pub struct ElementResistance {
-    element: ElementType,
+    elements: Vec<ElementType>,
     resistance_percent: i16,
 }
 #[derive(Bundle)]
@@ -178,7 +178,7 @@ impl MobBundle {
     fn mossling() -> Self {
         Self {
             resistance: ElementResistance {
-                element: ElementType::Earth,
+                elements: vec![ElementType::Earth],
                 resistance_percent: 15,
             },
             mob_type: MobType::Mossling,
@@ -195,7 +195,7 @@ impl MobBundle {
     fn fire_mage() -> Self {
         Self {
             resistance: ElementResistance {
-                element: ElementType::Fire,
+                elements: vec![ElementType::Fire],
                 resistance_percent: 50,
             },
             mob_type: MobType::FireMage,
@@ -212,7 +212,7 @@ impl MobBundle {
     fn water_mage() -> Self {
         Self {
             resistance: ElementResistance {
-                element: ElementType::Water,
+                elements: vec![ElementType::Water],
                 resistance_percent: 50,
             },
             mob_type: MobType::WaterMage,
@@ -495,10 +495,10 @@ fn hit_projectiles(
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
                         let mut damage_with_res:i32 = projectile.damage.try_into().unwrap();
-                        if projectile.element == resistance.element{
+                        if resistance.elements.contains(&projectile.element){
                             damage_with_res = (damage_with_res as f32 * (resistance.resistance_percent / 100) as f32) as i32;
                         }
-                        
+
                         health.damage(damage_with_res);
 
                         // кидаем стан на моба
