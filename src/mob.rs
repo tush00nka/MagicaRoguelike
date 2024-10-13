@@ -70,8 +70,8 @@ pub struct PhysicalBundle {
     collision_layers: CollisionLayers,
     linear_velocity: LinearVelocity,
 }
-#[derive(Component)]
-pub struct ElementResistance {
+#[derive(Component)]//todo: change res percent to vector too, that there can be different values
+pub struct ElementResistance {//resistance component, applies any amount of elementres to entity 
     elements: Vec<ElementType>,
     resistance_percent: i16,
 }
@@ -196,7 +196,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Fire],
-                resistance_percent: 50,
+                resistance_percent: 80,
             },
             mob_type: MobType::FireMage,
             mob: Mob { damage: 20 },
@@ -213,7 +213,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Water],
-                resistance_percent: 50,
+                resistance_percent: 80,
             },
             mob_type: MobType::WaterMage,
             mob: Mob { damage: 20 },
@@ -496,7 +496,8 @@ fn hit_projectiles(
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
                         let mut damage_with_res:i32 = projectile.damage.try_into().unwrap();
                         if resistance.elements.contains(&projectile.element){
-                            damage_with_res = (damage_with_res as f32 * (resistance.resistance_percent / 100) as f32) as i32;
+                            damage_with_res = (damage_with_res as f32 * (1. - resistance.resistance_percent as f32 / 100.)) as i32;
+                            print!("damage with res is - {}", damage_with_res);
                         }
 
                         health.damage(damage_with_res);
