@@ -2,7 +2,7 @@ use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
 use crate::{
-    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, MobMap},
+    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, Map},
     mob::Teleport,
     player::Player,
     GameState::{InGame, Loading},
@@ -13,7 +13,7 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
-        app.insert_resource(MobMap::default());
+        app.insert_resource(Map::default());
         app.add_systems(OnExit(Loading), create_new_graph.after(spawn_map))
             .add_systems(Update, pathfinding_with_tp.run_if(in_state(InGame)))
             .add_systems(Update, a_pathfinding.run_if(in_state(InGame)));
@@ -160,9 +160,8 @@ fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
     mut pathfinder_query: Query<(&mut Pathfinder, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
     mut graph_search: ResMut<Graph>,
-    level_map: Res<LevelGenerator>,
     time: Res<Time>,
-    mut mob_map: ResMut <MobMap>
+    mut mob_map: ResMut<Map>
 ) {
     for (mut mob, teleport_ability, transform) in pathfinder_query.iter_mut() {
         mob.update_path_timer.tick(time.delta());
@@ -207,13 +206,15 @@ fn pathfinding_with_tp(
                             || j == k.1 + teleport_ability.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
-                            if level_map.grid[i as usize][j as usize] == TileType::Empty
-                                || level_map.grid[i as usize][j as usize] == TileType::Wall
-                            {
-                                continue;
+
+                            if mob_map.map.contains_key(&(i, j)) != true // skip iter if tile doesnt exist
+                            { 
+                                continue; 
                             }
 
-                            if mob_map.map[i as usize][j as usize] != 0{
+                            if mob_map.map.get(&(i, j)).unwrap().tiletype != TileType::Floor // skip iter if tile isnt floor
+                            || mob_map.map.get(&(i, j)).unwrap().mob_count != 0 // skip iter if there are mobs
+                            {
                                 continue;
                             }
 
@@ -294,8 +295,8 @@ fn pathfinding_with_tp(
                                 mob.path.push((i, j));
                                 check = true;
 
-                                mob_map.map[i as usize][j as usize] = mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize];
-                                mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize] = 0;
+                                mob_map.map.get_mut(&(i,j)).unwrap().mob_count += 1;
+                                mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;
                             }
                         }
                     }
