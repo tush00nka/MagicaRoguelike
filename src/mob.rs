@@ -42,8 +42,10 @@ impl Plugin for MobPlugin {
             );
     }
 }
+//Components and bundles
+//If you want to add something (create new mob, or add new component), first of all, add bundle and components there (and check, maybe it exists already)
 #[derive(Component)]
-pub enum MobType {
+pub enum MobType {//add your mobtype here
     Mossling,
     FireMage,
     WaterMage,
@@ -51,14 +53,14 @@ pub enum MobType {
 
 #[derive(Component, Clone)]
 #[allow(dead_code)]
-pub enum ProjectileType {
-    Circle,  //круговая как кастануть 3 земли
-    Missile, // как фаербол
-    Gatling, // много мелких
+pub enum ProjectileType {// can use to create mobs with different types of projectiles
+    Circle,  //spawn some projectiles around
+    Missile, // like fireball
+    Gatling, // a lot of small ones
 }
 
 #[derive(Bundle)]
-pub struct PhysicBundle {
+pub struct PhysicalBundle { // physical bundle with all physical stats
     collider: Collider,
     axes: LockedAxes,
     gravity: GravityScale,
@@ -66,28 +68,8 @@ pub struct PhysicBundle {
     linear_velocity: LinearVelocity,
 }
 
-impl Default for PhysicBundle {
-    fn default() -> Self {
-        Self {
-            collider: Collider::circle(6.),
-            axes: LockedAxes::ROTATION_LOCKED,
-            gravity: GravityScale(0.0),
-            collision_layers: CollisionLayers::new(
-                GameLayer::Enemy,
-                [
-                    GameLayer::Wall,
-                    GameLayer::Projectile,
-                    GameLayer::Shield,
-                    GameLayer::Enemy,
-                    GameLayer::Player,
-                ],
-            ),
-            linear_velocity: LinearVelocity::ZERO,
-        }
-    }
-}
 #[derive(Bundle)]
-pub struct MobBundle {
+pub struct MobBundle {  //contains mob stats 
     mob_type: MobType,
     mob: Mob,
     loot: MobLoot,
@@ -100,6 +82,36 @@ pub struct MeleeMobBundle {
     path_finder: Pathfinder,
 }
 
+#[derive(Bundle)]
+pub struct MageBundle { //bundle only for mages
+    teleport_ability: Teleport,
+    shoot_ability: ShootAbility,
+}
+
+#[derive(Component)]
+pub struct Teleport { //todo: change to just tuple? maybe not? 
+    pub amount_of_tiles: u8,
+    pub place_to_teleport: Vec<(u16, u16)>,
+    pub time_to_teleport: Timer,
+}
+
+#[derive(Component)]
+pub struct ShootAbility {
+    pub time_to_shoot: Timer,
+    element: ElementType,
+    proj_type: ProjectileType,
+}
+#[derive(Component)]
+pub struct Mob { //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
+    pub damage: i32,
+}
+
+#[derive(Component)]
+pub struct MobLoot {//todo: maybe add something like chance to spawn tank with exp/hp?
+    pub orbs: u32,
+}
+//implemenations
+//change it, only if you're know what you're doing
 impl MeleeMobBundle {
     fn mossling() -> Self {
         Self {
@@ -113,11 +125,6 @@ impl MeleeMobBundle {
             },
         }
     }
-}
-#[derive(Bundle)]
-pub struct MageBundle {
-    teleport_ability: Teleport,
-    shoot_ability: ShootAbility,
 }
 
 impl MageBundle {
@@ -138,7 +145,6 @@ impl MageBundle {
     }
     fn water_mage() -> Self {
         //maybe ice idk?
-        //need to have 1 same
         let timer: u64 = rand::thread_rng().gen_range(3000..5000);
         Self {
             teleport_ability: Teleport {
@@ -168,6 +174,7 @@ impl MobBundle {
             },
         }
     }
+
     fn fire_mage() -> Self {
         Self {
             mob_type: MobType::FireMage,
@@ -180,6 +187,7 @@ impl MobBundle {
             },
         }
     }
+
     fn water_mage() -> Self {
         Self {
             mob_type: MobType::WaterMage,
@@ -194,29 +202,28 @@ impl MobBundle {
     }
 }
 
-#[derive(Component)]
-pub struct Teleport {
-    pub amount_of_tiles: u8,
-    pub place_to_teleport: Vec<(u16, u16)>,
-    pub time_to_teleport: Timer,
+impl Default for PhysicalBundle {//don't change if you're not sure
+    fn default() -> Self {
+        Self {
+            collider: Collider::circle(6.),
+            axes: LockedAxes::ROTATION_LOCKED,
+            gravity: GravityScale(0.0),
+            collision_layers: CollisionLayers::new(
+                GameLayer::Enemy,
+                [
+                    GameLayer::Wall,
+                    GameLayer::Projectile,
+                    GameLayer::Shield,
+                    GameLayer::Enemy,
+                    GameLayer::Player,
+                ],
+            ),
+            linear_velocity: LinearVelocity::ZERO,
+        }
+    }
 }
 
-#[derive(Component)]
-pub struct ShootAbility {
-    pub time_to_shoot: Timer,
-    element: ElementType,
-    proj_type: ProjectileType,
-}
-#[derive(Component)]
-pub struct Mob {
-    pub damage: i32,
-}
-
-#[derive(Component)]
-pub struct MobLoot {
-    pub orbs: u32,
-}
-// range for enum of mobs
+// range for enum of mobs todo: change to better spawn?
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
         match rng.gen_range(0..=4) {
@@ -254,7 +261,7 @@ pub fn spawn_mobs(
                     let texture_path: &str;
                     let frame_count: u32;
                     let fps: u8;
-
+                    //pick mob with random, assign some variables
                     match mob_type {
                         MobType::Mossling => {
                             frame_count = 4;
@@ -272,13 +279,14 @@ pub fn spawn_mobs(
                             texture_path = "textures/player_placeholder.png";
                         }
                     }
+                    //get texture and layout
                     let texture = asset_server.load(texture_path);
-
+                    
                     let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
                     let texture_atlas_layout = texture_atlas_layouts.add(layout);
-                
+                    //setup animation cfg
                     let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
-
+                    //spawn mob with texture
                     let mob = commands
                         .spawn(SpriteBundle {
                             texture: texture,
@@ -291,9 +299,9 @@ pub fn spawn_mobs(
                         })
                         .id();
 
-                    commands.entity(mob).insert(PhysicBundle::default());
+                    commands.entity(mob).insert(PhysicalBundle::default());
                 
-                    commands.entity(mob)
+                    commands.entity(mob)//todo: change it that we could test mobs without animations
                     .insert(
                         TextureAtlas {
                             layout: texture_atlas_layout.clone(),
@@ -343,7 +351,6 @@ pub fn spawn_mobs(
 fn teleport_mobs(
     mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>,
 ) {
-    // maybe add time dependency to teleport time? idk
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.place_to_teleport.len() > 0 {
             transform.translation = Vec3::new(
@@ -397,15 +404,15 @@ fn mob_shoot(
             if can_shoot.time_to_shoot.just_finished() {
                 let dir = (player.translation.truncate() - transform.translation.truncate())
                     .normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
+                let angle = dir.y.atan2(dir.x);//math
                 let texture_path: String;
 
-                match can_shoot.proj_type{  //todo: change this fragment.
+                match can_shoot.proj_type{  //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
                     ProjectileType::Circle => texture_path = "textures/earthquake.png".to_string(),
                     ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),  
                     ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
                 }
-                let color = {   //todo: put it into function in element.rs
+                let color = {   //todo: put it into function in element.rs (same code)
                     match can_shoot.element {
                         ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
                         ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
