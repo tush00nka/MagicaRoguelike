@@ -17,8 +17,9 @@ pub struct GameMapPlugin;
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LevelGenerator::default());
-        app.insert_resource(MobMap::default());
-        app.add_systems(OnEnter(GameState::Loading), (spawn_map, map_init));
+        app.insert_resource(Map::default());
+        app.add_systems(OnEnter(GameState::Loading), spawn_map);
+        app.add_systems(OnExit(GameState::InGame), init_map);
     }
 }
 
@@ -27,28 +28,6 @@ pub enum TileType {
     Wall,
     Floor,
     Empty
-}
-
-#[derive(Resource)]
-pub struct MobMap{
-    pub map: Vec<Vec<u16>>
-}
-
-impl Default for MobMap{
-    fn default() -> Self {
-        MobMap{
-            map:Vec::new()
-        }
-    }
-}
-
-fn map_init(mut map_mobs: ResMut<MobMap>){
-    for i in 0..ROOM_SIZE{
-        map_mobs.map.push(Vec::new());
-        for _ in 0..ROOM_SIZE{
-            map_mobs.map[i as usize].push(0);
-        }
-    }
 }
 
 #[derive(Component, Clone, Copy)]
@@ -83,6 +62,10 @@ impl Default for Map{
             map: HashMap::new()
         }
     }
+}
+
+fn init_map(mut commands: Commands){
+    commands.insert_resource(Map::default());
 }
 
 #[derive(Resource)]

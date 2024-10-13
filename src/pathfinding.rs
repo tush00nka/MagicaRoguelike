@@ -2,7 +2,7 @@ use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
 use crate::{
-    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, Map, Tile},
+    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, Map},
     mob::Teleport,
     player::Player,
     GameState::{InGame, Loading},
@@ -161,7 +161,7 @@ fn pathfinding_with_tp(
     mut pathfinder_query: Query<(&mut Pathfinder, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
-    mut mob_map: ResMut <Map>
+    mut mob_map: ResMut<Map>
 ) {
     for (mut mob, teleport_ability, transform) in pathfinder_query.iter_mut() {
         mob.update_path_timer.tick(time.delta());
