@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
+use std::collections::HashMap;
 
 use crate::{
     chapter::ChapterManager,
@@ -16,8 +17,9 @@ pub struct GameMapPlugin;
 impl Plugin for GameMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LevelGenerator::default());
-        app.insert_resource(MobMap::default());
-        app.add_systems(OnEnter(GameState::Loading), (spawn_map, map_init));
+        app.insert_resource(Map::default());
+        app.add_systems(OnEnter(GameState::Loading), spawn_map);
+        app.add_systems(OnExit(GameState::InGame), init_map);
     }
 }
 
@@ -26,28 +28,6 @@ pub enum TileType {
     Wall,
     Floor,
     Empty
-}
-
-#[derive(Resource)]
-pub struct MobMap{
-    pub map: Vec<Vec<u16>>
-}
-
-impl Default for MobMap{
-    fn default() -> Self {
-        MobMap{
-            map:Vec::new()
-        }
-    }
-}
-
-fn map_init(mut map_mobs: ResMut<MobMap>){
-    for i in 0..ROOM_SIZE{
-        map_mobs.map.push(Vec::new());
-        for _ in 0..ROOM_SIZE{
-            map_mobs.map[i as usize].push(0);
-        }
-    }
 }
 
 #[derive(Component, Clone, Copy)]
@@ -60,6 +40,34 @@ pub struct Walker {
     dir: (f32, f32),
     pos: (f32, f32),
 }
+
+#[derive(PartialEq)]
+pub struct Tile{
+    pub tiletype: TileType,
+    pub mob_count: u16,
+}
+
+impl Tile{
+    fn new(tiletype: TileType, mob_count: u16) -> Self {Tile{tiletype, mob_count}}
+}
+
+#[derive(Resource)]
+pub struct Map {
+    pub map: HashMap<(u16, u16),Tile>,
+}
+
+impl Default for Map{
+    fn default() -> Self {
+        Map{
+            map: HashMap::new()
+        }
+    }
+}
+
+fn init_map(mut commands: Commands){
+    commands.insert_resource(Map::default());
+}
+
 #[derive(Resource)]
 pub struct LevelGenerator {
     pub grid: Vec<Vec<TileType>>,
@@ -90,20 +98,7 @@ impl Default for LevelGenerator {
 }
 
 impl LevelGenerator {
-/*    pub fn new() -> Self {
-        LevelGenerator {
-            grid: vec![],
-            room_height: 0,
-            room_width: 0,
-            walkers: vec![],
-            chance_walker_change_dir: 0.5,
-            chance_walker_spawn: 0.05,
-            chance_walker_destroy: 0.05,
-            max_walkers: 10,
-            percent_to_fill: 0.1,
-        }
-    }
- */
+
     fn start(&mut self) {
         self.setup();
         self.create_floors();
@@ -264,6 +259,7 @@ pub fn spawn_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut map: ResMut<Map>,
     mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
     mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
     chapter_manager: Res<ChapterManager>,
@@ -278,6 +274,7 @@ pub fn spawn_map(
         for y in 0..room_height {
             match grid[x as usize][y as usize] {
                 TileType::Floor => {
+                    map.map.insert((x as u16, y as u16), Tile::new(TileType::Floor, 0));
                     commands
                         .spawn(SpriteBundle {
                             texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
@@ -311,6 +308,7 @@ pub fn spawn_map(
                     }
                 },
                 TileType::Wall => {
+                    map.map.insert((x as u16, y as u16), Tile::new(TileType::Wall, 0));
 
                     let texture_path = {
                         if y > 0 {

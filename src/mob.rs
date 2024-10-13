@@ -11,7 +11,7 @@ use crate::{
     experience::PlayerExperience, 
     gamemap::{
         LevelGenerator,
-        MobMap,
+        Map,
         TileType,
         ROOM_SIZE
     },
@@ -37,7 +37,7 @@ pub struct MobPlugin;
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(MobMap::default())
+            .insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(
@@ -94,9 +94,8 @@ pub fn spawn_mobs(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     room: Res<LevelGenerator>,
-    mut mob_map: ResMut<MobMap>,
+    mut mob_map: ResMut<Map>,
 ) {
-    let mut mob_id = 1;
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
         for j in 1..grid[i].len() - 1 {
@@ -199,8 +198,7 @@ pub fn spawn_mobs(
 
                     if has_teleport {
                         commands.entity(mob).insert(Teleport { amount_of_tiles }).insert(RigidBody::Kinematic);
-                        mob_map.map[i][j] = mob_id;
-                        mob_id += 1;
+                        mob_map.map.get_mut(&(i as u16,j as u16)).unwrap().mob_count += 1;
                     } else {
                         commands.entity(mob).insert(RigidBody::Dynamic);
                     }
