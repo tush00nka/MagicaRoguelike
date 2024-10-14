@@ -28,17 +28,18 @@ impl Plugin for MobPlugin {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
+            .add_systems(Update, (
+                damage_mobs,
+                mob_death,
+                animate_mobs,
+                mob_shoot,
+                hit_projectiles,
+                teleport_mobs,
+            ).run_if(in_state(GameState::InGame)))
             .add_systems(
-                FixedUpdate,
-                (
+                FixedUpdate, (
                     move_mobs,
-                    hit_projectiles,
-                    mob_death,
-                    animate_mobs,
-                    teleport_mobs,
-                    mob_shoot,
-                )
-                    .run_if(in_state(GameState::InGame)),
+                ).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -116,6 +117,7 @@ pub struct ShootAbility {
 pub struct Mob {
     //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
+    pub hit_queue: Vec<(i32, Vec3)>,
 }
 
 #[derive(Component)]
@@ -125,7 +127,16 @@ pub struct MobLoot {
     pub orbs: u32,
 }
 //implemenations
-//change it, only if you're know what you're doing
+//change it, only if you know what you're doing
+impl Mob {
+    fn new(damage: i32) -> Self {
+        Self {
+            damage,
+            hit_queue: vec![]
+        }
+    }
+}
+
 impl MeleeMobBundle {
     fn mossling() -> Self {
         Self {
@@ -183,7 +194,7 @@ impl MobBundle {
                 resistance_percent: 15,
             },
             mob_type: MobType::Mossling,
-            mob: Mob { damage: 20 },
+            mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
             health: Health {
@@ -201,7 +212,7 @@ impl MobBundle {
                 resistance_percent: 80,
             },
             mob_type: MobType::FireMage,
-            mob: Mob { damage: 20 },
+            mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
             health: Health {
@@ -219,7 +230,7 @@ impl MobBundle {
                 resistance_percent: 80,
             },
             mob_type: MobType::WaterMage,
-            mob: Mob { damage: 20 },
+            mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
             health: Health {
@@ -453,10 +464,10 @@ fn mob_shoot(
                 };
 
                 ev_shoot.send(SpawnProjectileEvent {
-                    texture_path: texture_path,
-                    color: color, //todo: change this fragment, that we could spawn different types of projectiles.
+                    texture_path,
+                    color, //todo: change this fragment, that we could spawn different types of projectiles.
                     translation: transform.translation,
-                    angle: angle,
+                    angle,
                     radius: 8.0,
                     speed: 150.,
                     damage: 20,
@@ -472,60 +483,84 @@ fn hit_projectiles(
     //todo: change that we could use resistance mechanics
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(Entity, &mut Health, &Transform, &MobLoot, &ElementResistance), With<Mob>>,
+    mut mob_query: Query<(Entity, &mut Mob, &Transform, &ElementResistance)>,
     mut ev_collision: EventReader<Collision>,
-    mut ev_death: EventWriter<MobDeathEvent>,
 ) {
     for Collision(contacts) in ev_collision.read() {
-        let proj_e: Option<Entity>;
-        let mob_e: Option<Entity>;
+        let mut proj_e = Entity::PLACEHOLDER;
+        let mut mob_e = Entity::PLACEHOLDER;
 
-        if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
-            proj_e = Some(contacts.entity2);
-            mob_e = Some(contacts.entity1);
-        } else if projectile_query.contains(contacts.entity1)
-            && mob_query.contains(contacts.entity2)
-        {
-            proj_e = Some(contacts.entity1);
-            mob_e = Some(contacts.entity2);
-        } else {
-            proj_e = None;
-            mob_e = None;
+        if projectile_query.contains(contacts.entity2)
+        && mob_query.contains(contacts.entity1) {
+
+            proj_e = contacts.entity2;
+            mob_e = contacts.entity1;
+        } 
+        else if projectile_query.contains(contacts.entity1)
+        && mob_query.contains(contacts.entity2) {
+
+            proj_e = contacts.entity1;
+            mob_e = contacts.entity2;
         }
 
-        for (candidate_e, mut health, transform, loot,resistance) in mob_query.iter_mut() {
-            if mob_e.is_some() && mob_e.unwrap() == candidate_e {
+        for (candidate_e, mut mob, transform, resistance) in mob_query.iter_mut() {
+            if mob_e == candidate_e {
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
-                    if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
+                    if proj_e == proj_candidate_e {
+
+                        // считаем урон с учётом сопротивления к элементам
                         let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
                         if resistance.elements.contains(&projectile.element){
                             damage_with_res = (damage_with_res as f32 * (1. - resistance.resistance_percent as f32 / 100.)) as i32;
-                            print!("damage with res is - {}", damage_with_res);
+                            // print!("damage with res is - {}", damage_with_res);
                         }
 
-                        commands.entity(proj_e.unwrap()).despawn();
-
-                        health.damage(damage_with_res);
-
-                        // кидаем стан на моба
-                        commands.entity(mob_e.unwrap()).insert(Stun::new(0.5));
-
+                        // направление выстрела
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
-                        if health.current <= 0 {
-                            health.current += 10000;
-                            ev_death.send(MobDeathEvent {
-                                entity: mob_e.unwrap(),
-                                orbs: loot.orbs,
-                                pos: transform.translation,
-                                dir: shot_dir,
-                            });
-                        }
+                        // пушим попадание в очередь
+                        mob.hit_queue.push((damage_with_res, shot_dir));
 
+                        // деспавним снаряд
+                        commands.entity(proj_e).despawn();
                     }
                 }
+            }
+        }
+    }
+}
+
+fn damage_mobs(
+    mut commands: Commands,
+    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot)>,
+    mut ev_death: EventWriter<MobDeathEvent>,
+) {
+    for (entity, mut health, mut mob, transform, loot) in mob_query.iter_mut() {
+        if !mob.hit_queue.is_empty() {
+
+            // получаем попадание по мобу из очереди
+            let hit = mob.hit_queue.remove(0);
+
+            // наносим урон
+            health.damage(hit.0);
+
+            // шлём ивент смерти
+            if health.current <= 0 {
+                // чистим очередь, чтобы не обосраться
+                mob.hit_queue.clear();
+
+                ev_death.send(MobDeathEvent {
+                    entity,
+                    orbs: loot.orbs,
+                    pos: transform.translation,
+                    dir: hit.1,
+                });
+            }
+            else {
+                // кидаем стан на моба
+                commands.entity(entity).insert(Stun::new(0.5));
             }
         }
     }
