@@ -13,6 +13,7 @@ use crate::{
     gamemap::{
         LevelGenerator,
         Map,
+        spawn_map,
         TileType,
         ROOM_SIZE
     },
@@ -39,7 +40,7 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnExit(GameState::Loading), spawn_mobs)
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(spawn_map))
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
@@ -302,6 +303,7 @@ pub fn spawn_mobs(
     room: Res<LevelGenerator>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut game_state: ResMut<NextState<GameState>>,
 ) {
     let grid = room.grid.clone();
     for i in 1..grid.len() - 1 {
@@ -309,7 +311,7 @@ pub fn spawn_mobs(
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
                 //need to fix 0 mob levels
-                if rng.gen::<f32>() > 0.8 && (i > 18 || i < 14) && (j > 18 || j < 14) {
+                if rng.gen::<f32>() > 0.5 && (i > 18 || i < 14) && (j > 18 || j < 14) {
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
                     let frame_count: u32;
@@ -399,6 +401,8 @@ pub fn spawn_mobs(
             }
         }
     }
+
+    game_state.set(GameState::InGame);
 }
 
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {

@@ -258,7 +258,6 @@ pub fn spawn_map(
     mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut game_state: ResMut<NextState<GameState>>,
     mut map: ResMut<Map>,
     mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
     mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
@@ -342,5 +341,4 @@ pub fn spawn_map(
         }
     }
 
-    game_state.set(GameState::InGame);
 }
