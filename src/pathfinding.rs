@@ -2,7 +2,7 @@ use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
 use crate::{
-    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, MobMap},
+    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, Map},
     mob::Teleport,
     player::Player,
     GameState::{InGame, Loading},
@@ -13,7 +13,7 @@ pub struct PathfindingPlugin;
 impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
-        app.insert_resource(MobMap::default());
+        app.insert_resource(Map::default());
         app.add_systems(OnExit(Loading), create_new_graph.after(spawn_map))
             .add_systems(Update, pathfinding_with_tp.run_if(in_state(InGame)))
             .add_systems(Update, a_pathfinding.run_if(in_state(InGame)));
@@ -158,15 +158,14 @@ impl CostNode {
 
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
-    mut pathfinder_query: Query<(&mut Pathfinder, &Teleport, &Transform), (Without<Player>, With<Teleport>)>,
+    mut pathfinder_query: Query<(&mut Teleport, &Transform), Without<Player>>,
     mut graph_search: ResMut<Graph>,
-    level_map: Res<LevelGenerator>,
     time: Res<Time>,
-    mut mob_map: ResMut <MobMap>
+    mut mob_map: ResMut<Map>
 ) {
-    for (mut mob, teleport_ability, transform) in pathfinder_query.iter_mut() {
-        mob.update_path_timer.tick(time.delta());
-        if mob.update_path_timer.just_finished() {
+    for (mut mob, transform) in pathfinder_query.iter_mut() {
+        mob.time_to_teleport.tick(time.delta());
+        if mob.time_to_teleport.just_finished() {
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
                 
@@ -179,41 +178,43 @@ fn pathfinding_with_tp(
                 let mut padding_i_upper: u16 = 0;
                 let mut padding_j_upper: u16 = 0;
                 
-                if teleport_ability.amount_of_tiles as u16 > k.0 {
-                    padding_i = teleport_ability.amount_of_tiles as u16 - k.0;
+                if mob.amount_of_tiles as u16 > k.0 {
+                    padding_i = mob.amount_of_tiles as u16 - k.0;
                 }
-                if teleport_ability.amount_of_tiles as u16 > k.1 {
-                    padding_j = teleport_ability.amount_of_tiles as u16 - k.1;
+                if mob.amount_of_tiles as u16 > k.1 {
+                    padding_j = mob.amount_of_tiles as u16 - k.1;
                 }
 
-                if teleport_ability.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
+                if mob.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
                     padding_i_upper =
-                        teleport_ability.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
+                        mob.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
                 }
-                if teleport_ability.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
+                if mob.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
                     padding_j_upper =
-                        teleport_ability.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
+                        mob.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
                 }
 
-                for i in k.0 + padding_i - teleport_ability.amount_of_tiles as u16
-                    ..k.0 + teleport_ability.amount_of_tiles as u16 + 1 - padding_i_upper
+                for i in k.0 + padding_i - mob.amount_of_tiles as u16
+                    ..k.0 + mob.amount_of_tiles as u16 + 1 - padding_i_upper
                 {
-                    for j in k.1 + padding_j - teleport_ability.amount_of_tiles as u16
-                        ..k.1 + teleport_ability.amount_of_tiles as u16 + 1 - padding_j_upper
+                    for j in k.1 + padding_j - mob.amount_of_tiles as u16
+                        ..k.1 + mob.amount_of_tiles as u16 + 1 - padding_j_upper
                     {
-                        if (i == k.0 + padding_i - teleport_ability.amount_of_tiles as u16
-                            || i == k.0 + teleport_ability.amount_of_tiles as u16 - padding_i_upper
-                            || j == k.1 + padding_j - teleport_ability.amount_of_tiles as u16
-                            || j == k.1 + teleport_ability.amount_of_tiles as u16 - padding_j_upper)
+                        if (i == k.0 + padding_i - mob.amount_of_tiles as u16
+                            || i == k.0 + mob.amount_of_tiles as u16 - padding_i_upper
+                            || j == k.1 + padding_j - mob.amount_of_tiles as u16
+                            || j == k.1 + mob.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
-                            if level_map.grid[i as usize][j as usize] == TileType::Empty
-                                || level_map.grid[i as usize][j as usize] == TileType::Wall
-                            {
-                                continue;
+
+                            if mob_map.map.contains_key(&(i, j)) != true // skip iter if tile doesnt exist
+                            { 
+                                continue; 
                             }
 
-                            if mob_map.map[i as usize][j as usize] != 0{
+                            if mob_map.map.get(&(i, j)).unwrap().tiletype != TileType::Floor // skip iter if tile isnt floor
+                            || mob_map.map.get(&(i, j)).unwrap().mob_count != 0 // skip iter if there are mobs
+                            {
                                 continue;
                             }
 
@@ -290,12 +291,12 @@ fn pathfinding_with_tp(
                                 }
                             }
                             if current_pos == k {
-                                mob.path = Vec::new();
-                                mob.path.push((i, j));
+                                mob.place_to_teleport = Vec::new();
+                                mob.place_to_teleport.push((i, j));
                                 check = true;
 
-                                mob_map.map[i as usize][j as usize] = mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize];
-                                mob_map.map[mob_pos.0 as usize][mob_pos.1 as usize] = 0;
+                                mob_map.map.get_mut(&(i,j)).unwrap().mob_count += 1;
+                                mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;
                             }
                         }
                     }
