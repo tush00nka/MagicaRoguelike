@@ -121,6 +121,7 @@ pub struct Mob {
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
+    // we can add an item for this
     pub orbs: u32,
 }
 //implemenations
@@ -316,7 +317,7 @@ pub fn spawn_mobs(
                     //spawn mob with texture
                     let mob = commands
                         .spawn(SpriteBundle {
-                            texture: texture,
+                            texture,
                             transform: Transform::from_xyz(
                                 (i as i32 * ROOM_SIZE) as f32,
                                 (j as i32 * ROOM_SIZE) as f32,
