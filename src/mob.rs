@@ -278,7 +278,6 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
 
 #[derive(Event)]
 pub struct MobDeathEvent {
-    pub entity: Entity,
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
@@ -297,7 +296,7 @@ pub fn spawn_mobs(
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
                 //need to fix 0 mob levels
-                if rng.gen::<f32>() > 0.9 && (i > 18 || i < 14) && (j > 18 || j < 14) {
+                if rng.gen::<f32>() > 0.5 && (i > 18 || i < 14) && (j > 18 || j < 14) {
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
                     let frame_count: u32;
@@ -545,28 +544,26 @@ fn damage_mobs(
             // наносим урон
             health.damage(hit.0);
 
-            // кидаем стан на моба
-            if let Some(mut entity_commands) = commands.get_entity(entity) {
-                // кидаем стан
-                entity_commands.insert(Stun::new(0.5));
+            // кидаем стан
+            commands.entity(entity).insert(Stun::new(0.5));
 
-                // шлём ивент смерти
-                if health.current <= 0 {
-                    ev_death.send(MobDeathEvent {
-                        entity,
-                        orbs: loot.orbs,
-                        pos: transform.translation,
-                        dir: hit.1,
-                    });
-                }
-            } 
+            // шлём ивент смерти
+            if health.current <= 0 {
+                // деспавним сразу
+                commands.entity(entity).despawn();
+                
+                // события "поле смерти"
+                ev_death.send(MobDeathEvent {
+                    orbs: loot.orbs,
+                    pos: transform.translation,
+                    dir: hit.1,
+                });
+            }
         }
     }
 }
 
 fn mob_death(
-    mut commands: Commands,
-
     mut portal_manager: ResMut<PortalManager>,
     player_experience: Res<PlayerExperience>,
 
@@ -576,34 +573,29 @@ fn mob_death(
     mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
     for ev in ev_mob_death.read() {
-        if commands.get_entity(ev.entity).is_some() {
+        portal_manager.set_pos(ev.pos);
+        portal_manager.pop_mob();
 
-            portal_manager.set_pos(ev.pos);
-            portal_manager.pop_mob();
+        if portal_manager.no_mobs_on_level() {
+            ev_spawn_portal.send(PortalEvent {
+                pos: portal_manager.get_pos(),
+            });
+        }
 
-            if portal_manager.no_mobs_on_level() {
-                ev_spawn_portal.send(PortalEvent {
-                    pos: portal_manager.get_pos(),
-                });
-            }
+        let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
+        let half_count = (orb_count as f32 / 2.).round() as i32;
 
-            let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
-            let half_count = (orb_count as f32 / 2.).round() as i32;
-    
-            let offset = PI / 12.;
-            for i in (-orb_count / 2)..half_count {
-                // считаем точки, куда будем выбрасывать частицы опыта
-                let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
-                let direction = Vec2::from_angle(angle) * 32.0;
-                let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
-    
-                ev_spawn_orb.send(SpawnExpOrbEvent {
-                    pos: ev.pos,
-                    destination,
-                });
-            }
+        let offset = PI / 12.;
+        for i in (-orb_count / 2)..half_count {
+            // считаем точки, куда будем выбрасывать частицы опыта
+            let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
+            let direction = Vec2::from_angle(angle) * 32.0;
+            let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
 
-            commands.entity(ev.entity).despawn();
+            ev_spawn_orb.send(SpawnExpOrbEvent {
+                pos: ev.pos,
+                destination,
+            });
         }
     }
 }

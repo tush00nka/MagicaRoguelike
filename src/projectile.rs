@@ -3,7 +3,12 @@ use core::f32;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{elements::ElementType, gamemap::Wall, GameLayer};
+use crate::{
+    elements::ElementType,
+    gamemap::Wall,
+    shield_spell::Shield,
+    GameLayer
+};
 
 pub struct ProjectilePlugin;
 
@@ -11,7 +16,7 @@ impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnProjectileEvent>()
-            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls));
+            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield));
     }
 }
 
@@ -127,14 +132,30 @@ fn move_projectile(
     }
 }
 
+fn hit_shield(
+    mut commands: Commands,
+    mut ev_collision: EventReader<Collision>,
+    projectile_query: Query<Entity, (With<Projectile>, With<Hostile>)>,
+    shield_query: Query<Entity, With<Shield>>,
+) {
+    for Collision(contacts) in ev_collision.read() {
+        if projectile_query.contains(contacts.entity2) && shield_query.contains(contacts.entity1) {
+            commands.get_entity(contacts.entity2).unwrap().despawn();
+        }
+
+        if projectile_query.contains(contacts.entity1) && shield_query.contains(contacts.entity2) {
+            commands.get_entity(contacts.entity1).unwrap().despawn();
+        }
+    }
+}
+
 fn hit_walls(
     mut commands: Commands,
-    mut collision_event_reader: EventReader<Collision>,
+    mut ev_collision: EventReader<Collision>,
     projectile_query: Query<Entity, With<Projectile>>,
     wall_query: Query<Entity, With<Wall>>,
-
 ) {
-    for Collision(contacts) in collision_event_reader.read() {
+    for Collision(contacts) in ev_collision.read() {
         if projectile_query.contains(contacts.entity2) && wall_query.contains(contacts.entity1) {
             commands.get_entity(contacts.entity2).unwrap().despawn();
         }
