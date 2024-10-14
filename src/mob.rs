@@ -117,7 +117,7 @@ pub struct ShootAbility {
 pub struct Mob {
     //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
-    pub hit_queue: Vec<(i32, Vec3)>,
+    pub hit_queue: Vec<(i32, Vec3)>
 }
 
 #[derive(Component)]
@@ -520,7 +520,7 @@ fn hit_projectiles(
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
-                        // пушим попадание в очередь
+                        // пушим в очередь попадание
                         mob.hit_queue.push((damage_with_res, shot_dir));
 
                         // деспавним снаряд
@@ -540,28 +540,26 @@ fn damage_mobs(
     for (entity, mut health, mut mob, transform, loot) in mob_query.iter_mut() {
         if !mob.hit_queue.is_empty() {
 
-            // получаем попадание по мобу из очереди
             let hit = mob.hit_queue.remove(0);
 
             // наносим урон
             health.damage(hit.0);
 
-            // шлём ивент смерти
-            if health.current <= 0 {
-                // чистим очередь, чтобы не обосраться
-                mob.hit_queue.clear();
+            // кидаем стан на моба
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                // кидаем стан
+                entity_commands.insert(Stun::new(0.5));
 
-                ev_death.send(MobDeathEvent {
-                    entity,
-                    orbs: loot.orbs,
-                    pos: transform.translation,
-                    dir: hit.1,
-                });
-            }
-            else {
-                // кидаем стан на моба
-                commands.entity(entity).insert(Stun::new(0.5));
-            }
+                // шлём ивент смерти
+                if health.current <= 0 {
+                    ev_death.send(MobDeathEvent {
+                        entity,
+                        orbs: loot.orbs,
+                        pos: transform.translation,
+                        dir: hit.1,
+                    });
+                }
+            } 
         }
     }
 }
@@ -578,31 +576,35 @@ fn mob_death(
     mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
     for ev in ev_mob_death.read() {
-        portal_manager.set_pos(ev.pos);
-        portal_manager.pop_mob();
-        if portal_manager.no_mobs_on_level() {
-            ev_spawn_portal.send(PortalEvent {
-                pos: portal_manager.get_pos(),
-            });
+        if commands.get_entity(ev.entity).is_some() {
+
+            portal_manager.set_pos(ev.pos);
+            portal_manager.pop_mob();
+
+            if portal_manager.no_mobs_on_level() {
+                ev_spawn_portal.send(PortalEvent {
+                    pos: portal_manager.get_pos(),
+                });
+            }
+
+            let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
+            let half_count = (orb_count as f32 / 2.).round() as i32;
+    
+            let offset = PI / 12.;
+            for i in (-orb_count / 2)..half_count {
+                // считаем точки, куда будем выбрасывать частицы опыта
+                let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
+                let direction = Vec2::from_angle(angle) * 32.0;
+                let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
+    
+                ev_spawn_orb.send(SpawnExpOrbEvent {
+                    pos: ev.pos,
+                    destination,
+                });
+            }
+
+            commands.entity(ev.entity).despawn();
         }
-
-        let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
-        let half_count = (orb_count as f32 / 2.).round() as i32;
-
-        let offset = PI / 12.;
-        for i in (-orb_count / 2)..half_count {
-            // считаем точки, куда будем выбрасывать частицы опыта
-            let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
-            let direction = Vec2::from_angle(angle) * 32.0;
-            let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
-
-            ev_spawn_orb.send(SpawnExpOrbEvent {
-                pos: ev.pos,
-                destination,
-            });
-        }
-
-        commands.entity(ev.entity).despawn();
     }
 }
 

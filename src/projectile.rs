@@ -75,7 +75,7 @@ fn spawn_projectile(
     mut ev_projectile_spawn: EventReader<SpawnProjectileEvent>,
 ) {
     for ev in ev_projectile_spawn.read() {
-        let projectile = commands.spawn(ProjectileBundle {
+        let mut projectile = commands.spawn(ProjectileBundle {
             sprite: SpriteBundle {
                 transform: Transform {
                     translation: ev.translation,
@@ -98,16 +98,22 @@ fn spawn_projectile(
             },
             collider: Collider::circle(ev.radius),
             ..default()
-        }).id();
+        });
         
         if ev.is_friendly{ //check which flag to add
-            commands
-                .entity(projectile)
-                .insert(Friendly);
+            projectile.insert(Friendly);
         }else{
-            commands
-                .entity(projectile)
-                .insert(Hostile);
+            projectile
+                .insert(Hostile)
+                .insert(CollisionLayers::new(
+                    GameLayer::Projectile,
+                    [
+                        GameLayer::Enemy,
+                        GameLayer::Player,
+                        GameLayer::Wall,
+                        GameLayer::Shield
+                    ]
+                ));
         }
     }
 }
