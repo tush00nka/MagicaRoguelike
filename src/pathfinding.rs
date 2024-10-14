@@ -220,9 +220,9 @@ fn pathfinding_with_tp(
                             //maybe change i and j????
                             let d = ((player.translation.x-i as f32 * 32.).powf(2.)+(player.translation.y-j as f32 * 32.)).sqrt();
                             let mut k = 0;
-                            let coef = d/100.;
+                            let coef = d/200.;
                         
-                            while k<100{
+                            while k<=200{
                                 let r = (coef * k as f32)/d;
 
                                 let x_temp = r * player.translation.x + (1. - r) * (i as f32 * 32.);
@@ -230,13 +230,12 @@ fn pathfinding_with_tp(
 
                                 let temp_pos = ((x_temp.floor() / 32.) as u16, (y_temp.floor() /32.) as u16);
                                 if !mob_map.map.contains_key(&temp_pos) || mob_map.map.get(&temp_pos).unwrap().tiletype == TileType::Wall  {
-                                    println!("Met Wall");
                                     break;
                                 }
                                 k += 1;
                             }
 
-                            if k >= 95{
+                            if k >= 190{
                                 mob.place_to_teleport = Vec::new();
                                 mob.place_to_teleport.push((i, j));
                                 check = true;
