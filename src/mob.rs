@@ -189,6 +189,7 @@ impl MobBundle {
             health: Health {
                 max: 100,
                 current: 100,
+                extra_lives: 0
             },
         }
     }
@@ -206,6 +207,7 @@ impl MobBundle {
             health: Health {
                 max: 80,
                 current: 80,
+                extra_lives: 0
             },
         }
     }
@@ -223,6 +225,7 @@ impl MobBundle {
             health: Health {
                 max: 80,
                 current: 80,
+                extra_lives: 0
             },
         }
     }
@@ -495,18 +498,18 @@ fn hit_projectiles(
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
                     if proj_e.is_some() && proj_e.unwrap() == proj_candidate_e {
-                        let mut damage_with_res:i32 = projectile.damage.try_into().unwrap();
+                        let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
                         if resistance.elements.contains(&projectile.element){
                             damage_with_res = (damage_with_res as f32 * (1. - resistance.resistance_percent as f32 / 100.)) as i32;
                             print!("damage with res is - {}", damage_with_res);
                         }
 
+                        commands.entity(proj_e.unwrap()).despawn();
+
                         health.damage(damage_with_res);
 
                         // кидаем стан на моба
                         commands.entity(mob_e.unwrap()).insert(Stun::new(0.5));
-
-                        commands.entity(proj_e.unwrap()).despawn();
 
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
@@ -520,6 +523,7 @@ fn hit_projectiles(
                                 dir: shot_dir,
                             });
                         }
+
                     }
                 }
             }
