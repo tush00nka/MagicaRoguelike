@@ -80,6 +80,7 @@ use ui::{
     HealthUIPlugin,
     MainMenuPlugin,
     ItemUIPlugin,
+    LoadingScreenUIPlugin,
 };
 
 mod items;
@@ -153,5 +154,6 @@ fn main() {
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .add_plugins(PausePlugin)
+        .add_plugins(LoadingScreenUIPlugin)
         .run();
 }

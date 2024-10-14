@@ -12,3 +12,6 @@ pub use main_menu::*;
 
 mod item_ui;
 pub use item_ui::*;
+
+mod Loading_screen_ui;
+pub use Loading_screen_ui::*;

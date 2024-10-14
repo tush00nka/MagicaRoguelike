@@ -39,7 +39,7 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
+            .add_systems(OnExit(GameState::Loading), spawn_mobs)
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
