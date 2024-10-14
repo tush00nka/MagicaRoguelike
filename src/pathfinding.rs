@@ -90,22 +90,24 @@ fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
     return slf.adj_list[&(i, j)][0].clone();
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
 }
-fn unsafe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
-    match slf.adj_list.get(&(
-        (vec.x.floor() / ROOM_SIZE as f32) as u16,
-        (vec.y.floor() / ROOM_SIZE as f32) as u16,
-    )) {
-        None => {
-            return (u16::MAX, u16::MAX);
-        }
-        _ => {
-            return (
-                (vec.x.floor() / ROOM_SIZE as f32) as u16,
-                (vec.y.floor() / ROOM_SIZE as f32) as u16,
-            );
-        }
-    }
-}
+
+// fn unsafe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
+//     match slf.adj_list.get(&(
+//         (vec.x.floor() / ROOM_SIZE as f32) as u16,
+//         (vec.y.floor() / ROOM_SIZE as f32) as u16,
+//     )) {
+//         None => {
+//             return (u16::MAX, u16::MAX);
+//         }
+//         _ => {
+//             return (
+//                 (vec.x.floor() / ROOM_SIZE as f32) as u16,
+//                 (vec.y.floor() / ROOM_SIZE as f32) as u16,
+//             );
+//         }
+//     }
+// }
+
 //безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
 fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
     let mut best = Vec2::new(0., 0.);
