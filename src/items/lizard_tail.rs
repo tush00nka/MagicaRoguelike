@@ -6,7 +6,7 @@ use crate::{
         ItemPickedUpEvent,
         ItemType
     },
-    player::Player
+    player::Player, TimeState
 };
 
 pub struct LizardTailPlugin;
@@ -15,7 +15,8 @@ impl Plugin for LizardTailPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<DeathAvoidPopupEvent>()
-            .add_systems(Update, (apply_effect, spawn_death_popup, popup_follow_player, popup_scale, popup_despawn));
+            .add_systems(Update, (apply_effect, spawn_death_popup, popup_follow_player, popup_scale, popup_despawn)
+                .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

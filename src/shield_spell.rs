@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{player::Player, GameLayer};
+use crate::{player::Player, GameLayer, TimeState};
 
 pub struct ShieldSpellPlugin;
 
@@ -11,7 +11,8 @@ impl Plugin for ShieldSpellPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_event::<SpawnShieldEvent>()
-        .add_systems(Update, (spawn_shield, animate_shield, despawn_shield));
+        .add_systems(Update, (spawn_shield, animate_shield, despawn_shield)
+            .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

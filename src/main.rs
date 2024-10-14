@@ -85,6 +85,9 @@ use ui::{
 mod items;
 use items::ItemEffectsPlugin;
 
+mod pause;
+use pause::PausePlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -99,7 +102,7 @@ pub enum GameState {
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum TimeState {
     #[default]
-    Playing,
+    Unpaused,
     Paused,
 }
 
@@ -149,5 +152,6 @@ fn main() {
         .add_plugins((InvincibilityPlugin, StunPlugin))
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
+        .add_plugins(PausePlugin)
         .run();
 }

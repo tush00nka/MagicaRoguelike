@@ -5,7 +5,7 @@ use crate::{
     mob::Mob,
     player::{Player, PlayerDeathEvent},
     projectile::{Hostile, Projectile},
-    GameState,
+    GameState, TimeState,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -13,10 +13,9 @@ pub struct HitPlayerPlugin;
 
 impl Plugin for HitPlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (hit_player, proj_hit_player).run_if(in_state(GameState::InGame)),
-        );
+        app.add_systems(FixedUpdate, (hit_player, proj_hit_player)
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(TimeState::Unpaused)));
     }
 }
 //damage by collision with mob
