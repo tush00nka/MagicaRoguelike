@@ -270,7 +270,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
         match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
             1 => MobType::FireMage,
-            //        2 => MobType::WaterMage,
+            2 => MobType::WaterMage,
             _ => MobType::Mossling,
         }
     }
@@ -316,7 +316,7 @@ pub fn spawn_mobs(
                         MobType::WaterMage => {
                             frame_count = 2;
                             fps = 3;
-                            texture_path = "textures/player_placeholder.png";
+                            texture_path = "textures/mobs/water_mage.png";
                         }
                     }
                     //get texture and layout
@@ -451,16 +451,8 @@ fn mob_shoot(
                     ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),
                     ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
                 }
-                let color = {
-                    //todo: put it into function in element.rs (same code)
-                    match can_shoot.element {
-                        ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
-                        ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
-                        ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
-                        ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
-                        ElementType::Steam => Color::srgb(1.5, 2.0, 1.5),
-                    }
-                };
+                
+                let color = can_shoot.element.color();
 
                 ev_shoot.send(SpawnProjectileEvent {
                     texture_path,

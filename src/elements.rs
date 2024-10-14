@@ -32,6 +32,20 @@ pub enum ElementType {
     Steam,
 }
 
+impl ElementType {
+    pub fn color(&self) -> Color {
+        let c = match self {
+            ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
+            ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
+            ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
+            ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
+            ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
+        };
+
+        c
+    }
+}
+
 #[derive(Resource)]
 pub struct ElementBar {
     pub fire: u8,
@@ -161,15 +175,7 @@ fn cast_spell(
             element = ElementType::Steam;
         }
 
-        let color = {
-            match element {
-                ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
-                ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
-                ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
-                ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
-                ElementType::Steam => Color::srgb(1.5, 2.0, 1.5),
-            }
-        };
+        let color = element.color();
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
