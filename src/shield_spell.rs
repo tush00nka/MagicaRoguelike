@@ -60,7 +60,7 @@ fn spawn_shield(
             .insert(RigidBody::Dynamic)
             .insert(GravityScale(0.0))
             .insert(Collider::circle(16.0))
-            .insert(CollisionLayers::new(GameLayer::Shield, GameLayer::Enemy)).id();
+            .insert(CollisionLayers::new(GameLayer::Shield, [GameLayer::Enemy, GameLayer::Projectile])).id();
 
             commands.spawn(FixedJoint::new(player_e, shield_e));
         }
