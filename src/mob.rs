@@ -296,7 +296,7 @@ pub fn spawn_mobs(
             if grid[i][j] == TileType::Floor {
                 let mut rng = rand::thread_rng();
                 //need to fix 0 mob levels
-                if rng.gen::<f32>() > 0.5 && (i > 18 || i < 14) && (j > 18 || j < 14) {
+                if rng.gen::<f32>() > 0.8 && (i > 18 || i < 14) && (j > 18 || j < 14) {
                     let mob_type: MobType = rand::random();
                     let texture_path: &str;
                     let frame_count: u32;
