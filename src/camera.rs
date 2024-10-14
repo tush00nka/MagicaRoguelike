@@ -12,6 +12,9 @@ impl Plugin for CameraPlugin {
         app.add_systems(Update, sync_player_camera
             .run_if(in_state(GameState::InGame))
             .run_if(in_state(TimeState::Unpaused)));
+        app.add_systems(Update, sync_player_camera
+            .run_if(in_state(GameState::Hub))
+            .run_if(in_state(TimeState::Unpaused)));
     }
 }
 
