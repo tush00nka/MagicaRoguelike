@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::invincibility::Invincibility;
+use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::mouse_position::MouseCoords;
 use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
@@ -17,7 +18,7 @@ impl Plugin for PlayerPlugin {
             .add_event::<PlayerDeathEvent>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
-            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage))
+            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death))
             .add_systems(FixedUpdate, move_player);
     }
 }
@@ -67,7 +68,7 @@ fn spawn_player(
             speed: 8000.0,
             invincibility_time: 1.0,
         })
-        .insert(Health{max: 100, current: 100});
+        .insert(Health{max: 100, current: 100, extra_lives: 0});
 }
 
 fn move_player(
@@ -143,6 +144,32 @@ fn flip_towards_mouse(
         }
         else {
             sprite.flip_x = false;
+        }
+    }
+}
+
+fn player_death(
+    mut commands: Commands,
+    mut ev_player_death: EventReader<PlayerDeathEvent>,
+    mut ev_death_popup: EventWriter<DeathAvoidPopupEvent>,
+    mut player_query: Query<&mut Health, With<Player>>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
+    for ev in ev_player_death.read(){
+        if let Ok(mut health) = player_query.get_single_mut() {
+            if health.extra_lives > 0 {
+                health.extra_lives -= 1;
+                
+                let heal_amount = health.max;
+                health.heal(heal_amount);
+
+                ev_death_popup.send(DeathAvoidPopupEvent);
+
+                return;
+            }
+
+            commands.entity(ev.0).despawn();
+            game_state.set(GameState::GameOver);
         }
     }
 }
