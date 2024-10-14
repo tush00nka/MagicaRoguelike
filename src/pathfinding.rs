@@ -169,7 +169,7 @@ fn pathfinding_with_tp(
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
                 
-                let k = safe_get_pos(player.translation.truncate(), &mut graph_search);
+                let k: (u16, u16) = safe_get_pos(player.translation.truncate(), &mut graph_search);
                 let mob_pos = ((transform.translation.x.floor() / 32.).floor() as u16, (transform.translation.y.floor() / 32.).floor() as u16); 
 
                 let mut padding_i: u16 = 0;
@@ -207,7 +207,7 @@ fn pathfinding_with_tp(
                             && !check
                         {
 
-                            if mob_map.map.contains_key(&(i, j)) != true // skip iter if tile doesnt exist
+                            if !mob_map.map.contains_key(&(i, j)) // skip iter if tile doesnt exist
                             { 
                                 continue; 
                             }
@@ -217,86 +217,32 @@ fn pathfinding_with_tp(
                             {
                                 continue;
                             }
+                            //maybe change i and j????
+                            let d = ((player.translation.x-i as f32 * 32.).powf(2.)+(player.translation.y-j as f32 * 32.)).sqrt();
+                            let mut k = 0;
+                            let coef = d/100.;
+                        
+                            while k<100{
+                                let r = (coef * k as f32)/d;
 
-                            let mut current_pos = (i, j);
-                            while current_pos != k {
-                                let mut diagonal_move: bool = false;
-                                let mut vec_tiles: Vec<(u16, u16)> = Vec::new();
-                                if current_pos.0 > k.0 {
-                                    vec_tiles.push((current_pos.0 - 1, current_pos.1));
-                                    if current_pos.1 > k.1 {
-                                        vec_tiles.push((current_pos.0, current_pos.1 - 1));
-                                        vec_tiles.push((current_pos.0 - 1, current_pos.1 - 1));
-                                    } else {
-                                        vec_tiles.push((current_pos.0, current_pos.1 + 1));
-                                        vec_tiles.push((current_pos.0 - 1, current_pos.1 + 1));
-                                    }
-                                } else {
-                                    vec_tiles.push((current_pos.0 + 1, current_pos.1));
-                                    if current_pos.1 > k.1 {
-                                        vec_tiles.push((current_pos.0, current_pos.1 - 1));
-                                        vec_tiles.push((current_pos.0 + 1, current_pos.1 - 1));
-                                    } else {
-                                        vec_tiles.push((current_pos.0, current_pos.1 + 1));
-                                        vec_tiles.push((current_pos.0 + 1, current_pos.1 + 1));
-                                    }
-                                }
-                                let mut best_dist: f64 = f64::MAX;
-                                for temp in 0..vec_tiles.len() {
-                                    let dist: f64 = ((k.0 as f64 * ROOM_SIZE as f64
-                                        - vec_tiles[temp].0 as f64 * ROOM_SIZE as f64)
-                                        .powf(2.)
-                                        as f64
-                                        + (k.1 as f64 * ROOM_SIZE as f64
-                                            - vec_tiles[temp].1 as f64 * ROOM_SIZE as f64)
-                                            .powf(2.))
-                                    .sqrt(); // нужно чекать треугольник стен, если хоть где-то стена, заканчиваем
+                                let x_temp = r * player.translation.x + (1. - r) * (i as f32 * 32.);
+                                let y_temp = r * player.translation.y + (1. - r) * (j as f32 * 32.);
 
-                                    if dist < best_dist {
-                                        best_dist = dist;
-                                        current_pos = (vec_tiles[temp].0, vec_tiles[temp].1);
-                                        if temp == 2 {
-                                            diagonal_move = true;
-                                        }
-                                    }
-                                }
-                                if diagonal_move {
-                                    if unsafe_get_pos(
-                                        Vec2::new(
-                                            (vec_tiles[0].0 as u32 * ROOM_SIZE as u32) as f32,
-                                            (vec_tiles[0].1 as u32 * ROOM_SIZE as u32) as f32,
-                                        ),
-                                        &graph_search,
-                                    ) == (u16::MAX, u16::MAX)
-                                        || unsafe_get_pos(
-                                            Vec2::new(
-                                                (vec_tiles[2].0 as u32 * ROOM_SIZE as u32) as f32,
-                                                (vec_tiles[2].1 as u32 * ROOM_SIZE as u32) as f32,
-                                            ),
-                                            &graph_search,
-                                        ) == (u16::MAX, u16::MAX)
-                                    {
-                                        break;
-                                    }
-                                }
-                                if unsafe_get_pos(
-                                    Vec2::new(
-                                        (current_pos.0 as u32 * ROOM_SIZE as u32) as f32,
-                                        (current_pos.1 as u32 * ROOM_SIZE as u32) as f32,
-                                    ),
-                                    &mut graph_search,
-                                ) == (u16::MAX, u16::MAX)
-                                {
+                                let temp_pos = ((x_temp.floor() / 32.) as u16, (y_temp.floor() /32.) as u16);
+                                if !mob_map.map.contains_key(&temp_pos) || mob_map.map.get(&temp_pos).unwrap().tiletype == TileType::Wall  {
+                                    println!("Met Wall");
                                     break;
                                 }
+                                k += 1;
                             }
-                            if current_pos == k {
+
+                            if k >= 95{
                                 mob.place_to_teleport = Vec::new();
                                 mob.place_to_teleport.push((i, j));
                                 check = true;
 
                                 mob_map.map.get_mut(&(i,j)).unwrap().mob_count += 1;
-                                mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;
+                                mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;  
                             }
                         }
                     }
