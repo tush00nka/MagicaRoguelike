@@ -7,7 +7,7 @@ use crate::{
     projectile::SpawnProjectileEvent,
     shield_spell::SpawnShieldEvent,
     wand::Wand,
-    GameState
+    GameState, TimeState
 };
 
 pub struct ElementsPlugin;
@@ -19,7 +19,8 @@ impl Plugin for ElementsPlugin {
             .add_event::<ElementBarClear>()
             .insert_resource(ElementBar::default())
             .add_systems(OnExit(GameState::MainMenu), init_bar)
-            .add_systems(Update, (fill_bar, cast_spell));
+            .add_systems(Update, (fill_bar, cast_spell)
+                .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

@@ -2,10 +2,10 @@ use std::collections::{HashMap, LinkedList};
 
 //A* Pathfinding for enemies
 use crate::{
-    gamemap::{spawn_map, LevelGenerator, TileType, ROOM_SIZE, Map},
+    gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
     mob::Teleport,
     player::Player,
-    GameState::{InGame, Loading},
+    GameState, TimeState,
 };
 use bevy::prelude::*;
 pub struct PathfindingPlugin;
@@ -14,9 +14,13 @@ impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
         app.insert_resource(Map::default());
-        app.add_systems(OnExit(Loading), create_new_graph.after(spawn_map))
-            .add_systems(Update, pathfinding_with_tp.run_if(in_state(InGame)))
-            .add_systems(Update, a_pathfinding.run_if(in_state(InGame)));
+        app.add_systems(OnExit(GameState::Loading), create_new_graph.after(spawn_map))
+            .add_systems(Update, pathfinding_with_tp
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(TimeState::Unpaused)))
+            .add_systems(Update, a_pathfinding
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

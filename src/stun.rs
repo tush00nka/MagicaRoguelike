@@ -1,11 +1,14 @@
 use avian2d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
+use crate::TimeState;
+
 pub struct StunPlugin;
 
 impl Plugin for StunPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_stun);
+        app.add_systems(Update, handle_stun
+            .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

@@ -3,6 +3,7 @@ use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
 use crate::GameState;
+use crate::TimeState;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -11,9 +12,14 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-        .add_systems(Update, (spawn_portal, rotate_portal,scale_portal))
-            .add_systems(Update, collision_portal.run_if(in_state(GameState::InGame)))
-            .add_systems(Update, collision_portal.run_if(in_state(GameState::Hub)))
+            .add_systems(Update, (spawn_portal, rotate_portal,scale_portal)
+                .run_if(in_state(TimeState::Unpaused)))
+            .add_systems(Update, collision_portal
+                .run_if(in_state(TimeState::Unpaused))
+                .run_if(in_state(GameState::InGame)))
+            .add_systems(Update, collision_portal
+                .run_if(in_state(TimeState::Unpaused))
+                .run_if(in_state(GameState::Hub)))
             .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mobs))
             .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,

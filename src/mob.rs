@@ -10,15 +10,27 @@ use crate::{
     elements::ElementType,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
-    gamemap::{LevelGenerator, Map, TileType, ROOM_SIZE},
+    gamemap::{
+        LevelGenerator,
+        Map,
+        TileType,
+        ROOM_SIZE
+    },
     health::Health,
-    level_completion::{PortalEvent, PortalManager},
+    level_completion::{
+        PortalEvent,
+        PortalManager
+    },
     pathfinding::Pathfinder,
     player::Player,
-    projectile::SpawnProjectileEvent,
-    projectile::{Friendly, Projectile},
+    projectile::{
+        Friendly,
+        Projectile,
+        SpawnProjectileEvent
+    },
     stun::Stun,
-    GameLayer, GameState,
+    GameLayer,
+    GameState, TimeState
 };
 
 pub struct MobPlugin;
@@ -35,12 +47,13 @@ impl Plugin for MobPlugin {
                 mob_shoot,
                 hit_projectiles,
                 teleport_mobs,
-            ).run_if(in_state(GameState::InGame)))
-            .add_systems(
-                FixedUpdate, (
-                    move_mobs,
-                ).run_if(in_state(GameState::InGame)),
-            );
+            )
+                .run_if(in_state(TimeState::Unpaused))
+                .run_if(in_state(GameState::InGame)))
+            .add_systems(FixedUpdate, move_mobs
+                .run_if(in_state(TimeState::Unpaused))
+                .run_if(in_state(GameState::InGame)))
+            .add_systems(OnEnter(TimeState::Paused), crate::utils::clear_velocity_for::<Mob>);
     }
 }
 //Components and bundles
@@ -451,7 +464,7 @@ fn mob_shoot(
                     ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),
                     ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
                 }
-                
+
                 let color = can_shoot.element.color();
 
                 ev_shoot.send(SpawnProjectileEvent {

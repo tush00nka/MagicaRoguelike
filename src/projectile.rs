@@ -7,7 +7,7 @@ use crate::{
     elements::ElementType,
     gamemap::Wall,
     shield_spell::Shield,
-    GameLayer
+    GameLayer, TimeState
 };
 
 pub struct ProjectilePlugin;
@@ -16,7 +16,8 @@ impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnProjectileEvent>()
-            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield));
+            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield)
+                .run_if(in_state(TimeState::Unpaused)));
     }
 }
 

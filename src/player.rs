@@ -4,7 +4,7 @@ use avian2d::prelude::*;
 use crate::invincibility::Invincibility;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::mouse_position::MouseCoords;
-use crate::GameLayer;
+use crate::{GameLayer, TimeState};
 use crate::{gamemap::ROOM_SIZE, GameState};
 use crate::health::*;
 
@@ -18,8 +18,11 @@ impl Plugin for PlayerPlugin {
             .add_event::<PlayerDeathEvent>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
-            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death))
-            .add_systems(FixedUpdate, move_player);
+            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death)
+                .run_if(in_state(TimeState::Unpaused)))
+            .add_systems(FixedUpdate, move_player
+                .run_if(in_state(TimeState::Unpaused)))
+            .add_systems(OnEnter(TimeState::Paused), crate::utils::clear_velocity_for::<Player>);
     }
 }
 
