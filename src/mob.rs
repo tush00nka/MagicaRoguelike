@@ -538,8 +538,11 @@ fn hit_projectiles(
 
 fn damage_mobs(
     mut commands: Commands,
-    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot)>,
     mut ev_death: EventWriter<MobDeathEvent>,
+    mut mob_query: Query<
+        (Entity, &mut Health, &mut Mob, &Transform, &MobLoot),
+        Changed<Mob>
+        >,
 ) {
     for (entity, mut health, mut mob, transform, loot) in mob_query.iter_mut() {
         if !mob.hit_queue.is_empty() {
