@@ -1,5 +1,5 @@
 //all things about mobs and their spawn/behaviour
-use std::{f32::consts::PI, os::windows::thread, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -39,8 +39,8 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnExit(GameState::Loading), spawn_mobs_location)
-            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs_location.after(create_new_graph))
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(spawn_mobs_location))
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
