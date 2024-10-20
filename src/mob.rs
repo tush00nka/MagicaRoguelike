@@ -39,7 +39,8 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnEnter(GameState::InGame), (spawn_mobs_location,spawn_mobs))
+            .add_systems(OnExit(GameState::Loading), spawn_mobs_location)
+            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
@@ -304,10 +305,11 @@ fn spawn_mobs_location(
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16 .. 5 + 5 * chap_num as u16);
     let mut chance: f32;
+
     while mobs_amount > 0 {
         for x in 1..ROOM_SIZE - 1 {
             for y in 1..ROOM_SIZE - 1 {
-                chance = ((x - 16).abs() + (y - 16).abs()) as f32; // |delta x| + |delta y| - distance from player
+                chance = ((x - 16).abs() + (y - 16).abs()) as f32 - 1.0; // |delta x| + |delta y| - distance from player
 
                 if rng.gen::<f32>() < (chance / ROOM_SIZE as f32) 
                 && mobs_amount != 0 
