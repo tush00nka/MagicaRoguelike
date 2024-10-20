@@ -84,6 +84,9 @@ use ui::{
     LoadingScreenUIPlugin,
 };
 
+mod loot;
+use loot::LootPlugin;
+
 mod items;
 use items::ItemEffectsPlugin;
 
@@ -154,6 +157,7 @@ fn main() {
         .add_plugins((InvincibilityPlugin, StunPlugin))
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
+        .add_plugins(LootPlugin)
         .add_plugins((PausePlugin, PauseUIPlguin))
         .add_plugins(LoadingScreenUIPlugin)
         .run();
