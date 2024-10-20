@@ -44,11 +44,11 @@ pub struct Walker {
 #[derive(PartialEq)]
 pub struct Tile{
     pub tiletype: TileType,
-    pub mob_count: u16,
+    pub mob_count: i16,
 }
 
 impl Tile{
-    fn new(tiletype: TileType, mob_count: u16) -> Self {Tile{tiletype, mob_count}}
+    fn new(tiletype: TileType, mob_count: i16) -> Self {Tile{tiletype, mob_count}}
 }
 
 #[derive(Resource)]

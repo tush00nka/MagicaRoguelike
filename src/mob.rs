@@ -2,7 +2,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
-use bevy::prelude::*;
+use bevy::{ecs::observer::TriggerTargets, prelude::*};
 use rand::{thread_rng, Rng};
 
 use crate::{
@@ -355,13 +355,13 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
                 if rng.gen::<f32>() < (chance / ROOM_SIZE as f32)
                     && mobs_amount != 0
                     && mob_map.map.get(&(x as u16, y as u16)).unwrap().tiletype == TileType::Floor
-                    && mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count != u16::MAX
+                    && mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count != i16::MAX
                 {
                     mob_map
                         .map
                         .get_mut(&(x as u16, y as u16))
                         .unwrap()
-                        .mob_count = u16::MAX;
+                        .mob_count = i16::MAX;
                     mobs_amount -= 1;
                 }
             }
@@ -378,7 +378,7 @@ pub fn spawn_mobs(
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
-            if mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count == u16::MAX {
+            if mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count == i16::MAX {
                 mob_map
                     .map
                     .get_mut(&(x as u16, y as u16))
@@ -692,10 +692,16 @@ fn mob_death(
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
+    
+    mut mob_map: ResMut<Map>,
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         portal_manager.pop_mob();
+
+        
+        let mob_pos = ((ev.pos.x.floor() / 32.).floor() as u16, (ev.pos.y.floor() / 32.).floor() as u16); 
+        mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;  
 
         if portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {
