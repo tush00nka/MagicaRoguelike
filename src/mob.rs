@@ -98,7 +98,7 @@ pub struct PhysicalBundle {
 pub struct ElementResistance {
     //resistance component, applies any amount of elementres to entity
     elements: Vec<ElementType>,
-    resistance_percent: i16,
+    resistance_percent: Vec<i16>, // earth wind fire water
 }
 #[derive(Bundle)]
 pub struct MobBundle {
@@ -232,7 +232,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Earth],
-                resistance_percent: 15,
+                resistance_percent: vec![0,0,15,0,0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
@@ -249,7 +249,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: 60,
+                resistance_percent: vec![0,60,60,0,0],
             },
             mob_type: MobType::JungleTurret,
             mob: Mob::new(20),
@@ -266,7 +266,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Fire],
-                resistance_percent: 80,
+                resistance_percent: vec![80,0,0,0,0],
             },
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
@@ -284,7 +284,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Water],
-                resistance_percent: 80,
+                resistance_percent: vec![0,80,0,0,0],
             },
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
@@ -643,7 +643,7 @@ fn hit_projectiles(
                         let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
                         if resistance.elements.contains(&projectile.element) {
                             damage_with_res = (damage_with_res as f32
-                                * (1. - resistance.resistance_percent as f32 / 100.))
+                                * (1. - resistance.resistance_percent[projectile.element as usize] as f32 / 100.))
                                 as i32;
                             // print!("damage with res is - {}", damage_with_res);
                         }
