@@ -12,3 +12,6 @@ pub use main_menu::*;
 
 mod item_ui;
 pub use item_ui::*;
+
+mod pause_ui;
+pub use pause_ui::*;

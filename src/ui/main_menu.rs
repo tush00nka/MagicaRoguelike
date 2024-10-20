@@ -41,6 +41,34 @@ fn spawn_ui(
 ) {
     commands.spawn(NodeBundle {
         style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Percent(25.0),
+            justify_self: JustifySelf::Start,
+            align_self: AlignSelf::Start,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            ..default()            
+        },
+        ..default()
+    })
+    .insert(MainMenuUI)
+    .with_children(|parent| {
+        parent.spawn(ImageBundle {
+            image: UiImage::new(asset_server.load("textures/main_menu_title.png")),
+            style: Style {
+                width: Val::Px(320.0),
+                height: Val::Px(96.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::top(Val::Px(4.0)),
+                ..default()
+            },
+            ..default()
+        });
+    });
+
+    commands.spawn(NodeBundle {
+        style: Style {
             width: Val::Px(40.0),
             height: Val::Percent(50.0),
             justify_self: JustifySelf::Center,
