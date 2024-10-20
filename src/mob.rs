@@ -1,17 +1,17 @@
 //all things about mobs and their spawn/behaviour
-use std::{f32::consts::PI, time::Duration};
+use std::{f32::consts::PI, os::windows::thread, time::Duration};
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 
 use crate::{
     animation::AnimationConfig,
+    chapter::ChapterManager,
     elements::ElementType,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{
-        LevelGenerator,
         Map,
         TileType,
         ROOM_SIZE
@@ -39,6 +39,7 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
+            .add_systems(OnExit(GameState::Loading), spawn_mobs_location)
             .add_systems(OnEnter(GameState::InGame), spawn_mobs)
             .add_systems(Update, (
                 damage_mobs,
@@ -296,104 +297,128 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 
+fn spawn_mobs_location(
+    mut mob_map: ResMut<Map>,
+    chapter_manager: Res<ChapterManager>,
+){
+    let chap_num = chapter_manager.get_current_chapter();
+    let mut rng = thread_rng();
+    let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16 .. 5 + 5 * chap_num as u16);
+    let mut chance: f32;
+
+    while mobs_amount > 0 {
+        for x in 1..ROOM_SIZE - 1 {
+            for y in 1..ROOM_SIZE - 1 {
+                chance = ((x - 16).abs() + (y - 16).abs()) as f32 - 1.0; // |delta x| + |delta y| - distance from player
+
+                if rng.gen::<f32>() < (chance / ROOM_SIZE as f32) 
+                && mobs_amount != 0 
+                && mob_map.map.get(&(x as u16,y as u16)).unwrap().tiletype == TileType::Floor
+                && mob_map.map.get(&(x as u16,y as u16)).unwrap().mob_count != u16::MAX
+                {
+                    mob_map.map.get_mut(&(x as u16, y as u16)).unwrap().mob_count = u16::MAX;
+                    mobs_amount -= 1;
+                }
+            }
+        }
+    }
+}
+
 pub fn spawn_mobs(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    room: Res<LevelGenerator>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let grid = room.grid.clone();
-    for i in 1..grid.len() - 1 {
-        for j in 1..grid[i].len() - 1 {
-            if grid[i][j] == TileType::Floor {
-                let mut rng = rand::thread_rng();
-                //need to fix 0 mob levels
-                if rng.gen::<f32>() > 0.8 && (i > 18 || i < 14) && (j > 18 || j < 14) {
-                    let mob_type: MobType = rand::random();
-                    let texture_path: &str;
-                    let frame_count: u32;
-                    let fps: u8;
-                    //pick mob with random, assign some variables
-                    match mob_type {
-                        MobType::Mossling => {
-                            frame_count = 4;
-                            fps = 12;
-                            texture_path = "textures/mobs/mossling.png";
-                        }
-                        MobType::FireMage => {
-                            texture_path = "textures/mobs/fire_mage.png";
-                            frame_count = 2;
-                            fps = 3;
-                        }
-                        MobType::WaterMage => {
-                            frame_count = 2;
-                            fps = 3;
-                            texture_path = "textures/mobs/water_mage.png";
-                        }
+    for x in 1..ROOM_SIZE - 1 {
+        for y in 1..ROOM_SIZE - 1 {
+            if mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count == u16::MAX {
+
+                mob_map.map.get_mut(&(x as u16, y as u16)).unwrap().mob_count = 0;
+
+                let mob_type: MobType = rand::random();
+                let texture_path: &str;
+                let frame_count: u32;
+                let fps: u8;
+                //pick mob with random, assign some variables
+                match mob_type {
+                    MobType::Mossling => {
+                        frame_count = 4;
+                        fps = 12;
+                        texture_path = "textures/mobs/mossling.png";
                     }
-                    //get texture and layout
-                    let texture = asset_server.load(texture_path);
+                    MobType::FireMage => {
+                        texture_path = "textures/mobs/fire_mage.png";
+                        frame_count = 2;
+                        fps = 3;
+                    }
+                    MobType::WaterMage => {
+                        frame_count = 2;
+                        fps = 3;
+                        texture_path = "textures/mobs/water_mage.png";
+                    }
+                }
+                //get texture and layout
+                let texture = asset_server.load(texture_path);
 
-                    let layout =
-                        TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
-                    let texture_atlas_layout = texture_atlas_layouts.add(layout);
-                    //setup animation cfg
-                    let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
-                    //spawn mob with texture
-                    let mob = commands
-                        .spawn(SpriteBundle {
-                            texture,
-                            transform: Transform::from_xyz(
-                                (i as i32 * ROOM_SIZE) as f32,
-                                (j as i32 * ROOM_SIZE) as f32,
-                                1.0,
-                            ),
-                            ..default()
-                        })
-                        .id();
+                let layout =
+                    TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
+                let texture_atlas_layout = texture_atlas_layouts.add(layout);
+                //setup animation cfg
+                let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
+                //spawn mob with texture
+                let mob = commands
+                    .spawn(SpriteBundle {
+                        texture,
+                        transform: Transform::from_xyz(
+                            (x as i32 * ROOM_SIZE) as f32,
+                            (y as i32 * ROOM_SIZE) as f32,
+                            1.0,
+                        ),
+                        ..default()
+                    })
+                    .id();
 
-                    commands.entity(mob).insert(PhysicalBundle::default());
+                commands.entity(mob).insert(PhysicalBundle::default());
 
-                    commands
-                        .entity(mob) //todo: change it that we could test mobs without animations
-                        .insert(TextureAtlas {
-                            layout: texture_atlas_layout.clone(),
-                            index: animation_config.first_sprite_index,
-                        })
-                        .insert(animation_config);
+                commands
+                    .entity(mob) //todo: change it that we could test mobs without animations
+                    .insert(TextureAtlas {
+                        layout: texture_atlas_layout.clone(),
+                        index: animation_config.first_sprite_index,
+                    })
+                    .insert(animation_config);
 
-                    match mob_type {
-                        MobType::Mossling => {
-                            commands
-                                .entity(mob)
-                                .insert(MobBundle::mossling())
-                                .insert(MeleeMobBundle::mossling());
-                        }
-                        MobType::FireMage => {
-                            commands
-                                .entity(mob)
-                                .insert(MobBundle::fire_mage())
-                                .insert(MageBundle::fire_mage());
+                match mob_type {
+                    MobType::Mossling => {
+                        commands
+                            .entity(mob)
+                            .insert(MobBundle::mossling())
+                            .insert(MeleeMobBundle::mossling());
+                    }
+                    MobType::FireMage => {
+                        commands
+                            .entity(mob)
+                            .insert(MobBundle::fire_mage())
+                            .insert(MageBundle::fire_mage());
 
-                            mob_map
-                                .map
-                                .get_mut(&(i as u16, j as u16))
-                                .unwrap()
-                                .mob_count += 1;
-                        }
-                        MobType::WaterMage => {
-                            commands
-                                .entity(mob)
-                                .insert(MobBundle::water_mage())
-                                .insert(MageBundle::water_mage());
+                        mob_map
+                            .map
+                            .get_mut(&(x as u16, y as u16))
+                            .unwrap()
+                            .mob_count += 1;
+                    }
+                    MobType::WaterMage => {
+                        commands
+                            .entity(mob)
+                            .insert(MobBundle::water_mage())
+                            .insert(MageBundle::water_mage());
 
-                            mob_map
-                                .map
-                                .get_mut(&(i as u16, j as u16))
-                                .unwrap()
-                                .mob_count += 1;
-                        }
+                        mob_map
+                            .map
+                            .get_mut(&(x as u16, y as u16))
+                            .unwrap()
+                            .mob_count += 1;
                     }
                 }
             }

@@ -337,7 +337,9 @@ pub fn spawn_map(
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
                         .insert(Wall);
                 },
-                TileType::Empty => {}
+                TileType::Empty => {
+                    map.map.insert((x as u16, y as u16), Tile::new(TileType::Empty, 0));
+                }
             }
         }
     }
