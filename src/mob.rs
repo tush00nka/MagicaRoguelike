@@ -2,7 +2,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
-use bevy::{ecs::observer::TriggerTargets, prelude::*};
+use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
 use crate::{
@@ -248,7 +248,7 @@ impl MobBundle {
     fn turret() -> Self {
         Self {
             resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
+                elements: vec![ElementType::Earth, ElementType::Water],
                 resistance_percent: 60,
             },
             mob_type: MobType::JungleTurret,
@@ -577,12 +577,22 @@ fn mob_shoot(
                     .normalize_or_zero();
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
+                let damage: u32;
 
                 match can_shoot.proj_type {
                     //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                    ProjectileType::Circle => texture_path = "textures/earthquake.png".to_string(),
-                    ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),
-                    ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
+                    ProjectileType::Circle => {
+                        texture_path = "textures/earthquake.png".to_string();
+                        damage = 20;
+                    }
+                    ProjectileType::Missile => {
+                        texture_path = "textures/fireball.png".to_string();
+                        damage = 25;
+                    }
+                    ProjectileType::Gatling => {
+                        texture_path = "textures/small_fire.png".to_string();
+                        damage = 10;
+                    }
                 }
 
                 let color = can_shoot.element.color();
@@ -594,7 +604,7 @@ fn mob_shoot(
                     angle,
                     radius: 8.0,
                     speed: 150.,
-                    damage: 20,
+                    damage: damage,
                     element: can_shoot.element,
                     is_friendly: false,
                 });
@@ -692,16 +702,22 @@ fn mob_death(
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
-    
+
     mut mob_map: ResMut<Map>,
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         portal_manager.pop_mob();
 
-        
-        let mob_pos = ((ev.pos.x.floor() / 32.).floor() as u16, (ev.pos.y.floor() / 32.).floor() as u16); 
-        mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;  
+        let mob_pos = (
+            (ev.pos.x.floor() / 32.).floor() as u16,
+            (ev.pos.y.floor() / 32.).floor() as u16,
+        );
+        mob_map
+            .map
+            .get_mut(&(mob_pos.0, mob_pos.1))
+            .unwrap()
+            .mob_count -= 1;
 
         if portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {
@@ -751,16 +767,25 @@ fn animate_mobs(
 }
 
 fn rotate_mobs(
-    player_query: Query<&Transform, (With<Player>, Without<RotationEntity>)>,  
-    mut rotation_query: Query<(&GlobalTransform, &mut Transform), (With<RotationEntity>, Without<Player>, Without<Stun>)>,
+    player_query: Query<&Transform, (With<Player>, Without<RotationEntity>)>,
+    mut rotation_query: Query<
+        (&GlobalTransform, &mut Transform),
+        (With<RotationEntity>, Without<Player>, Without<Stun>),
+    >,
     time: Res<Time>,
 ) {
-    for (global_rotation,mut rotation_en) in &mut rotation_query {
+    for (global_rotation, mut rotation_en) in &mut rotation_query {
         if let Ok(player_transform) = player_query.get_single() {
-            let (_,_,translation) = global_rotation.to_scale_rotation_translation();
-            let diff = Vec3::new(player_transform.translation.x, player_transform.translation.y, translation.z) - translation;
+            let (_, _, translation) = global_rotation.to_scale_rotation_translation();
+            let diff = Vec3::new(
+                player_transform.translation.x,
+                player_transform.translation.y,
+                translation.z,
+            ) - translation;
             let angle = diff.y.atan2(diff.x);
-            rotation_en.rotation = rotation_en.rotation.lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
+            rotation_en.rotation = rotation_en
+                .rotation
+                .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
         }
     }
 }
