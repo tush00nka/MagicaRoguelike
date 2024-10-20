@@ -13,7 +13,6 @@ use crate::{
     gamemap::{
         LevelGenerator,
         Map,
-        spawn_map,
         TileType,
         ROOM_SIZE
     },
@@ -22,7 +21,7 @@ use crate::{
         PortalEvent,
         PortalManager
     },
-    pathfinding::Pathfinder,
+    pathfinding::{Pathfinder,create_new_graph},
     player::Player,
     projectile::{
         Friendly,
@@ -40,7 +39,7 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(spawn_map))
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(create_new_graph))
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
