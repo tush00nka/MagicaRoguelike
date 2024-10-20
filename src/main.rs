@@ -81,6 +81,7 @@ use ui::{
     MainMenuPlugin,
     ItemUIPlugin,
     PauseUIPlguin,
+    LoadingScreenUIPlugin,
 };
 
 mod items;
@@ -154,5 +155,6 @@ fn main() {
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .add_plugins((PausePlugin, PauseUIPlguin))
+        .add_plugins(LoadingScreenUIPlugin)
         .run();
 }

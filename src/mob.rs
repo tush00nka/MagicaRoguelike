@@ -21,7 +21,7 @@ use crate::{
         PortalEvent,
         PortalManager
     },
-    pathfinding::Pathfinder,
+    pathfinding::{Pathfinder,create_new_graph},
     player::Player,
     projectile::{
         Friendly,
@@ -329,6 +329,7 @@ pub fn spawn_mobs(
     asset_server: Res<AssetServer>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut game_state: ResMut<NextState<GameState>>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
@@ -424,6 +425,8 @@ pub fn spawn_mobs(
             }
         }
     }
+
+    game_state.set(GameState::InGame);
 }
 
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {
