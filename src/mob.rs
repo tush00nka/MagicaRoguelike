@@ -11,26 +11,14 @@ use crate::{
     elements::ElementType,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
-    gamemap::{
-        Map,
-        TileType,
-        ROOM_SIZE
-    },
+    gamemap::{Map, TileType, ROOM_SIZE},
     health::Health,
-    level_completion::{
-        PortalEvent,
-        PortalManager
-    },
-    pathfinding::{Pathfinder,create_new_graph},
+    level_completion::{PortalEvent, PortalManager},
+    pathfinding::{create_new_graph, Pathfinder},
     player::Player,
-    projectile::{
-        Friendly,
-        Projectile,
-        SpawnProjectileEvent
-    },
+    projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
-    GameLayer,
-    GameState, TimeState
+    GameLayer, GameState, TimeState,
 };
 
 pub struct MobPlugin;
@@ -39,22 +27,38 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnEnter(GameState::Loading), spawn_mobs_location.after(create_new_graph))
-            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(spawn_mobs_location))
-            .add_systems(Update, (
-                damage_mobs,
-                mob_death,
-                animate_mobs,
-                mob_shoot,
-                hit_projectiles,
-                teleport_mobs,
+            .add_systems(
+                OnEnter(GameState::Loading),
+                spawn_mobs_location.after(create_new_graph),
             )
-                .run_if(in_state(TimeState::Unpaused))
-                .run_if(in_state(GameState::InGame)))
-            .add_systems(FixedUpdate, move_mobs
-                .run_if(in_state(TimeState::Unpaused))
-                .run_if(in_state(GameState::InGame)))
-            .add_systems(OnEnter(TimeState::Paused), crate::utils::clear_velocity_for::<Mob>);
+            .add_systems(
+                OnEnter(GameState::Loading),
+                spawn_mobs.after(spawn_mobs_location),
+            )
+            .add_systems(
+                Update,
+                (
+                    damage_mobs,
+                    mob_death,
+                    animate_mobs,
+                    rotate_mobs,
+                    mob_shoot,
+                    hit_projectiles,
+                    teleport_mobs,
+                )
+                    .run_if(in_state(TimeState::Unpaused))
+                    .run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                FixedUpdate,
+                move_mobs
+                    .run_if(in_state(TimeState::Unpaused))
+                    .run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                OnEnter(TimeState::Paused),
+                crate::utils::clear_velocity_for::<Mob>,
+            );
     }
 }
 //Components and bundles
@@ -65,6 +69,7 @@ pub enum MobType {
     Mossling,
     FireMage,
     WaterMage,
+    JungleTurret,
 }
 
 #[derive(Component, Clone)]
@@ -76,6 +81,10 @@ pub enum ProjectileType {
     Gatling, // a lot of small ones
 }
 
+//Entity for
+#[derive(Component)]
+pub struct RotationEntity;
+
 #[derive(Bundle)]
 pub struct PhysicalBundle {
     // physical bundle with all physical stats
@@ -85,10 +94,11 @@ pub struct PhysicalBundle {
     collision_layers: CollisionLayers,
     linear_velocity: LinearVelocity,
 }
-#[derive(Component)]//todo: change res percent to vector too, that there can be different values
-pub struct ElementResistance {//resistance component, applies any amount of elementres to entity 
+#[derive(Component)] //todo: change res percent to vector too, that there can be different values
+pub struct ElementResistance {
+    //resistance component, applies any amount of elementres to entity
     elements: Vec<ElementType>,
-    resistance_percent: i16,
+    resistance_percent: Vec<i16>, // earth wind fire water
 }
 #[derive(Bundle)]
 pub struct MobBundle {
@@ -104,6 +114,11 @@ pub struct MobBundle {
 pub struct MeleeMobBundle {
     // can add smth else, like has phasing or smth idk
     path_finder: Pathfinder,
+}
+
+#[derive(Bundle)]
+pub struct TurretBundle {
+    shoot_ability: ShootAbility,
 }
 
 #[derive(Bundle)]
@@ -131,7 +146,7 @@ pub struct ShootAbility {
 pub struct Mob {
     //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
-    pub hit_queue: Vec<(i32, Vec3)>
+    pub hit_queue: Vec<(i32, Vec3)>,
 }
 
 #[derive(Component)]
@@ -146,11 +161,10 @@ impl Mob {
     fn new(damage: i32) -> Self {
         Self {
             damage,
-            hit_queue: vec![]
+            hit_queue: vec![],
         }
     }
 }
-
 impl MeleeMobBundle {
     fn mossling() -> Self {
         Self {
@@ -161,6 +175,19 @@ impl MeleeMobBundle {
                     TimerMode::Repeating,
                 ),
                 speed: 2500.,
+            },
+        }
+    }
+}
+
+impl TurretBundle {
+    fn jungle_turret() -> Self {
+        let timer: u64 = rand::thread_rng().gen_range(500..999);
+        Self {
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Earth,
+                proj_type: ProjectileType::Gatling,
             },
         }
     }
@@ -205,7 +232,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Earth],
-                resistance_percent: 15,
+                resistance_percent: vec![0,0,15,0,0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
@@ -214,16 +241,32 @@ impl MobBundle {
             health: Health {
                 max: 100,
                 current: 100,
-                extra_lives: 0
+                extra_lives: 0,
             },
         }
     }
-
+    fn turret() -> Self {
+        Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth, ElementType::Water],
+                resistance_percent: vec![0,60,60,0,0],
+            },
+            mob_type: MobType::JungleTurret,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Kinematic,
+            health: Health {
+                max: 200,
+                current: 200,
+                extra_lives: 0,
+            },
+        }
+    }
     fn fire_mage() -> Self {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Fire],
-                resistance_percent: 80,
+                resistance_percent: vec![80,0,0,0,0],
             },
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
@@ -232,7 +275,7 @@ impl MobBundle {
             health: Health {
                 max: 80,
                 current: 80,
-                extra_lives: 0
+                extra_lives: 0,
             },
         }
     }
@@ -241,7 +284,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Water],
-                resistance_percent: 80,
+                resistance_percent: vec![0,80,0,0,0],
             },
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
@@ -250,7 +293,7 @@ impl MobBundle {
             health: Health {
                 max: 80,
                 current: 80,
-                extra_lives: 0
+                extra_lives: 0,
             },
         }
     }
@@ -285,6 +328,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
             0 => MobType::Mossling,
             1 => MobType::FireMage,
             2 => MobType::WaterMage,
+            3 => MobType::JungleTurret,
             _ => MobType::Mossling,
         }
     }
@@ -297,13 +341,10 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 
-fn spawn_mobs_location(
-    mut mob_map: ResMut<Map>,
-    chapter_manager: Res<ChapterManager>,
-){
+fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>) {
     let chap_num = chapter_manager.get_current_chapter();
     let mut rng = thread_rng();
-    let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16 .. 5 + 5 * chap_num as u16);
+    let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);
     let mut chance: f32;
 
     while mobs_amount > 0 {
@@ -311,12 +352,16 @@ fn spawn_mobs_location(
             for y in 1..ROOM_SIZE - 1 {
                 chance = ((x - 16).abs() + (y - 16).abs()) as f32 - 1.0; // |delta x| + |delta y| - distance from player
 
-                if rng.gen::<f32>() < (chance / ROOM_SIZE as f32) 
-                && mobs_amount != 0 
-                && mob_map.map.get(&(x as u16,y as u16)).unwrap().tiletype == TileType::Floor
-                && mob_map.map.get(&(x as u16,y as u16)).unwrap().mob_count != u16::MAX
+                if rng.gen::<f32>() < (chance / ROOM_SIZE as f32)
+                    && mobs_amount != 0
+                    && mob_map.map.get(&(x as u16, y as u16)).unwrap().tiletype == TileType::Floor
+                    && mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count != i16::MAX
                 {
-                    mob_map.map.get_mut(&(x as u16, y as u16)).unwrap().mob_count = u16::MAX;
+                    mob_map
+                        .map
+                        .get_mut(&(x as u16, y as u16))
+                        .unwrap()
+                        .mob_count = i16::MAX;
                     mobs_amount -= 1;
                 }
             }
@@ -333,30 +378,53 @@ pub fn spawn_mobs(
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
-            if mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count == u16::MAX {
-
-                mob_map.map.get_mut(&(x as u16, y as u16)).unwrap().mob_count = 0;
+            if mob_map.map.get(&(x as u16, y as u16)).unwrap().mob_count == i16::MAX {
+                mob_map
+                    .map
+                    .get_mut(&(x as u16, y as u16))
+                    .unwrap()
+                    .mob_count = 0;
 
                 let mob_type: MobType = rand::random();
                 let texture_path: &str;
                 let frame_count: u32;
                 let fps: u8;
+                let rotation_entity: bool;
+                let rotation_path: &str;
+                let has_animation: bool;
                 //pick mob with random, assign some variables
                 match mob_type {
                     MobType::Mossling => {
                         frame_count = 4;
                         fps = 12;
                         texture_path = "textures/mobs/mossling.png";
+                        rotation_path = "";
+                        rotation_entity = false;
+                        has_animation = true;
                     }
                     MobType::FireMage => {
                         texture_path = "textures/mobs/fire_mage.png";
+                        rotation_path = "";
                         frame_count = 2;
                         fps = 3;
+                        rotation_entity = false;
+                        has_animation = true;
                     }
                     MobType::WaterMage => {
                         frame_count = 2;
                         fps = 3;
                         texture_path = "textures/mobs/water_mage.png";
+                        rotation_path = "";
+                        rotation_entity = false;
+                        has_animation = true;
+                    }
+                    MobType::JungleTurret => {
+                        frame_count = 1;
+                        fps = 1;
+                        texture_path = "textures/mobs/plant_body.png";
+                        rotation_path = "textures/mobs/plant_head.png";
+                        rotation_entity = true;
+                        has_animation = false;
                     }
                 }
                 //get texture and layout
@@ -382,14 +450,15 @@ pub fn spawn_mobs(
 
                 commands.entity(mob).insert(PhysicalBundle::default());
 
-                commands
-                    .entity(mob) //todo: change it that we could test mobs without animations
-                    .insert(TextureAtlas {
-                        layout: texture_atlas_layout.clone(),
-                        index: animation_config.first_sprite_index,
-                    })
-                    .insert(animation_config);
-
+                if has_animation {
+                    commands
+                        .entity(mob) //todo: change it that we could test mobs without animations
+                        .insert(TextureAtlas {
+                            layout: texture_atlas_layout.clone(),
+                            index: animation_config.first_sprite_index,
+                        })
+                        .insert(animation_config);
+                }
                 match mob_type {
                     MobType::Mossling => {
                         commands
@@ -421,6 +490,29 @@ pub fn spawn_mobs(
                             .unwrap()
                             .mob_count += 1;
                     }
+                    MobType::JungleTurret => {
+                        commands
+                            .entity(mob)
+                            .insert(MobBundle::turret())
+                            .insert(TurretBundle::jungle_turret());
+
+                        mob_map
+                            .map
+                            .get_mut(&(x as u16, y as u16))
+                            .unwrap()
+                            .mob_count += 1;
+                    }
+                }
+                if rotation_entity {
+                    commands.entity(mob).with_children(|parent| {
+                        parent
+                            .spawn(SpriteBundle {
+                                texture: asset_server.load(rotation_path),
+                                transform: Transform::from_xyz(0., 0., 1.0),
+                                ..default()
+                            })
+                            .insert(RotationEntity);
+                    });
                 }
             }
         }
@@ -473,7 +565,7 @@ fn move_mobs(
 
 fn mob_shoot(
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(&Transform, &mut ShootAbility)>,
+    mut mob_query: Query<(&Transform, &mut ShootAbility), Without<Stun>>,
     mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
     time: Res<Time>,
 ) {
@@ -485,12 +577,22 @@ fn mob_shoot(
                     .normalize_or_zero();
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
+                let damage: u32;
 
                 match can_shoot.proj_type {
                     //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                    ProjectileType::Circle => texture_path = "textures/earthquake.png".to_string(),
-                    ProjectileType::Missile => texture_path = "textures/fireball.png".to_string(),
-                    ProjectileType::Gatling => texture_path = "textures/small_fire.png".to_string(),
+                    ProjectileType::Circle => {
+                        texture_path = "textures/earthquake.png".to_string();
+                        damage = 20;
+                    }
+                    ProjectileType::Missile => {
+                        texture_path = "textures/fireball.png".to_string();
+                        damage = 25;
+                    }
+                    ProjectileType::Gatling => {
+                        texture_path = "textures/small_fire.png".to_string();
+                        damage = 10;
+                    }
                 }
 
                 let color = can_shoot.element.color();
@@ -502,7 +604,7 @@ fn mob_shoot(
                     angle,
                     radius: 8.0,
                     speed: 150.,
-                    damage: 20,
+                    damage: damage,
                     element: can_shoot.element,
                     is_friendly: false,
                 });
@@ -522,15 +624,12 @@ fn hit_projectiles(
         let mut proj_e = Entity::PLACEHOLDER;
         let mut mob_e = Entity::PLACEHOLDER;
 
-        if projectile_query.contains(contacts.entity2)
-        && mob_query.contains(contacts.entity1) {
-
+        if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
             proj_e = contacts.entity2;
             mob_e = contacts.entity1;
-        } 
-        else if projectile_query.contains(contacts.entity1)
-        && mob_query.contains(contacts.entity2) {
-
+        } else if projectile_query.contains(contacts.entity1)
+            && mob_query.contains(contacts.entity2)
+        {
             proj_e = contacts.entity1;
             mob_e = contacts.entity2;
         }
@@ -540,11 +639,12 @@ fn hit_projectiles(
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
                     if proj_e == proj_candidate_e {
-
                         // считаем урон с учётом сопротивления к элементам
                         let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
-                        if resistance.elements.contains(&projectile.element){
-                            damage_with_res = (damage_with_res as f32 * (1. - resistance.resistance_percent as f32 / 100.)) as i32;
+                        if resistance.elements.contains(&projectile.element) {
+                            damage_with_res = (damage_with_res as f32
+                                * (1. - resistance.resistance_percent[projectile.element as usize] as f32 / 100.))
+                                as i32;
                             // print!("damage with res is - {}", damage_with_res);
                         }
 
@@ -567,14 +667,10 @@ fn hit_projectiles(
 fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
-    mut mob_query: Query<
-        (Entity, &mut Health, &mut Mob, &Transform, &MobLoot),
-        Changed<Mob>
-        >,
+    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot), Changed<Mob>>,
 ) {
     for (entity, mut health, mut mob, transform, loot) in mob_query.iter_mut() {
         if !mob.hit_queue.is_empty() {
-
             let hit = mob.hit_queue.remove(0);
 
             // наносим урон
@@ -582,12 +678,11 @@ fn damage_mobs(
 
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
-
             // шлём ивент смерти
             if health.current <= 0 {
                 // деспавним сразу
-                commands.entity(entity).despawn();
-                
+                commands.entity(entity).despawn_recursive();
+
                 // события "поле смерти"
                 ev_death.send(MobDeathEvent {
                     orbs: loot.orbs,
@@ -607,10 +702,22 @@ fn mob_death(
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
+
+    mut mob_map: ResMut<Map>,
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         portal_manager.pop_mob();
+
+        let mob_pos = (
+            (ev.pos.x.floor() / 32.).floor() as u16,
+            (ev.pos.y.floor() / 32.).floor() as u16,
+        );
+        mob_map
+            .map
+            .get_mut(&(mob_pos.0, mob_pos.1))
+            .unwrap()
+            .mob_count -= 1;
 
         if portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {
@@ -655,6 +762,30 @@ fn animate_mobs(
                 // ...and reset the frame timer to start counting all over again
                 config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
             }
+        }
+    }
+}
+
+fn rotate_mobs(
+    player_query: Query<&Transform, (With<Player>, Without<RotationEntity>)>,
+    mut rotation_query: Query<
+        (&GlobalTransform, &mut Transform),
+        (With<RotationEntity>, Without<Player>, Without<Stun>),
+    >,
+    time: Res<Time>,
+) {
+    for (global_rotation, mut rotation_en) in &mut rotation_query {
+        if let Ok(player_transform) = player_query.get_single() {
+            let (_, _, translation) = global_rotation.to_scale_rotation_translation();
+            let diff = Vec3::new(
+                player_transform.translation.x,
+                player_transform.translation.y,
+                translation.z,
+            ) - translation;
+            let angle = diff.y.atan2(diff.x);
+            rotation_en.rotation = rotation_en
+                .rotation
+                .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
         }
     }
 }
