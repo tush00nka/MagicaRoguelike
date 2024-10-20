@@ -5,8 +5,6 @@ use std::collections::HashMap;
 
 use crate::{
     chapter::ChapterManager,
-    exp_tank::SpawnExpTankEvent,
-    health_tank::SpawnHealthTankEvent,
     GameLayer,
     GameState
 };
@@ -260,8 +258,6 @@ pub fn spawn_map(
     asset_server: Res<AssetServer>,
     mut game_state: ResMut<NextState<GameState>>,
     mut map: ResMut<Map>,
-    mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
-    mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
     chapter_manager: Res<ChapterManager>,
 ) {
     room.start();
@@ -269,7 +265,7 @@ pub fn spawn_map(
     let room_width = room.room_width;
     let grid = &room.grid;
     let tile_size = 32.0;
-    let chance_tank_spawn = 0.9;
+
     for x in 0..room_width {
         for y in 0..room_height {
             match grid[x as usize][y as usize] {
@@ -286,26 +282,6 @@ pub fn spawn_map(
                         ..default()
                         })
                         .insert(Floor);
-
-                    if rand::thread_rng().gen::<f32>() > chance_tank_spawn {
-
-                        let tank_type = rand::thread_rng().gen::<f32>();
-
-                        let pos = Vec3::new(tile_size * x as f32, tile_size * y as f32, 1.);
-
-                        if tank_type >= 0.5 {
-                            ev_exp_tank.send(SpawnExpTankEvent {
-                                pos,
-                                orbs: 6 
-                            });
-                        }
-                        else {
-                            ev_health_tank.send(SpawnHealthTankEvent {
-                                pos,
-                                hp: 15 
-                            });
-                        }
-                    }
                 },
                 TileType::Wall => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Wall, 0));
