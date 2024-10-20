@@ -1,5 +1,5 @@
 //all things about mobs and their spawn/behaviour
-use std::{f32::consts::PI, os::windows::thread, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -21,7 +21,7 @@ use crate::{
         PortalEvent,
         PortalManager
     },
-    pathfinding::Pathfinder,
+    pathfinding::{Pathfinder,create_new_graph},
     player::Player,
     projectile::{
         Friendly,
@@ -39,8 +39,8 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
-            .add_systems(OnExit(GameState::Loading), spawn_mobs_location)
-            .add_systems(OnEnter(GameState::InGame), spawn_mobs)
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs_location.after(create_new_graph))
+            .add_systems(OnEnter(GameState::Loading), spawn_mobs.after(spawn_mobs_location))
             .add_systems(Update, (
                 damage_mobs,
                 mob_death,
@@ -329,6 +329,7 @@ pub fn spawn_mobs(
     asset_server: Res<AssetServer>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut game_state: ResMut<NextState<GameState>>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
@@ -424,6 +425,8 @@ pub fn spawn_mobs(
             }
         }
     }
+
+    game_state.set(GameState::InGame);
 }
 
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {

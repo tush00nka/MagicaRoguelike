@@ -14,7 +14,7 @@ impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
         app.insert_resource(Map::default());
-        app.add_systems(OnExit(GameState::Loading), create_new_graph.after(spawn_map))
+        app.add_systems(OnEnter(GameState::Loading), create_new_graph.after(spawn_map))
             .add_systems(Update, pathfinding_with_tp
                 .run_if(in_state(GameState::InGame))
                 .run_if(in_state(TimeState::Unpaused)))
@@ -95,28 +95,12 @@ fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
     //берем коорды, конвертим их в примерную вершину, в примерном векторе по идее - нужный нод нулевой, нужно посмотреть еще раз
 }
 
-// fn unsafe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
-//     match slf.adj_list.get(&(
-//         (vec.x.floor() / ROOM_SIZE as f32) as u16,
-//         (vec.y.floor() / ROOM_SIZE as f32) as u16,
-//     )) {
-//         None => {
-//             return (u16::MAX, u16::MAX);
-//         }
-//         _ => {
-//             return (
-//                 (vec.x.floor() / ROOM_SIZE as f32) as u16,
-//                 (vec.y.floor() / ROOM_SIZE as f32) as u16,
-//             );
-//         }
-//     }
-// }
-
-//безопасное получение координат для нодов, если не существует узла по заданым координатам - смотрим, прошли ли мы достаточно чтобы встать в следующий нод
 fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
     let mut best = Vec2::new(0., 0.);
     let mut range: usize = u32::MAX as usize;
-
+    if slf.adj_list.contains_key(&((vec.x / 32.).floor() as u16,(vec.y / 32.).floor() as u16)){
+        return ((vec.x / 32.).floor() as u16,(vec.y / 32.).floor() as u16);
+    }
     for i in slf.adj_list.clone() {
         let temp_range = distance(
             &Node::new(TileType::Floor, vec),
@@ -132,6 +116,9 @@ fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
         if range > temp_range {
             range = temp_range;
             best = Vec2::new(i.0 .0 as f32, i.0 .1 as f32);
+        }
+        if range <= 10{
+            return (best.x.floor() as u16, best.y.floor() as u16);
         }
     }
 
@@ -444,7 +431,7 @@ fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>> {
 }
 
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
-fn create_new_graph(room: Res<LevelGenerator>, mut graph_search: ResMut<Graph>) {
+pub fn create_new_graph(room: Res<LevelGenerator>, mut graph_search: ResMut<Graph>) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
     let grid = room.grid.clone();
 

@@ -256,7 +256,6 @@ pub fn spawn_map(
     mut room: ResMut<LevelGenerator>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut game_state: ResMut<NextState<GameState>>,
     mut map: ResMut<Map>,
     chapter_manager: Res<ChapterManager>,
 ) {
@@ -320,5 +319,4 @@ pub fn spawn_map(
         }
     }
 
-    game_state.set(GameState::InGame);
 }

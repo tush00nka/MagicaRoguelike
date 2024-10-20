@@ -80,6 +80,8 @@ use ui::{
     HealthUIPlugin,
     MainMenuPlugin,
     ItemUIPlugin,
+    PauseUIPlguin,
+    LoadingScreenUIPlugin,
 };
 
 mod loot;
@@ -155,7 +157,8 @@ fn main() {
         .add_plugins((InvincibilityPlugin, StunPlugin))
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
-        .add_plugins(PausePlugin)
         .add_plugins(LootPlugin)
+        .add_plugins((PausePlugin, PauseUIPlguin))
+        .add_plugins(LoadingScreenUIPlugin)
         .run();
 }
