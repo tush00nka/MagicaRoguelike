@@ -98,9 +98,6 @@ fn get_node_where_object_is(slf: &mut Graph, vec: &Vec2) -> Node {
 fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
     let mut best = Vec2::new(0., 0.);
     let mut range: usize = u32::MAX as usize;
-    if slf.adj_list.contains_key(&((vec.x / 32.).floor() as u16,(vec.y / 32.).floor() as u16)){
-        return ((vec.x / 32.).floor() as u16,(vec.y / 32.).floor() as u16);
-    }
     for i in slf.adj_list.clone() {
         let temp_range = distance(
             &Node::new(TileType::Floor, vec),
@@ -117,7 +114,7 @@ fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
             range = temp_range;
             best = Vec2::new(i.0 .0 as f32, i.0 .1 as f32);
         }
-        if range <= 10{
+        if range <= 2{
             return (best.x.floor() as u16, best.y.floor() as u16);
         }
     }
