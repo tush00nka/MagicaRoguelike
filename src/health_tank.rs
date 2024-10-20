@@ -63,7 +63,10 @@ fn pick_up_health(
         }
 
         for (candiate_e, tank) in tank_query.iter() {
-            if tank_e.is_some() && tank_e.unwrap() == candiate_e {
+            let (_player, health) = player_hp_query.single();
+            if tank_e.is_some() && tank_e.unwrap() == candiate_e
+            && health.current != health.max
+            {
                 for (_player, mut health) in player_hp_query.iter_mut() {
                     health.heal(tank.hp);
                 }
