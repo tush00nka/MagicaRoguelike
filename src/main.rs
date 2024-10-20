@@ -82,6 +82,9 @@ use ui::{
     ItemUIPlugin,
 };
 
+mod loot;
+use loot::LootPlugin;
+
 mod items;
 use items::ItemEffectsPlugin;
 
@@ -153,5 +156,6 @@ fn main() {
         .add_plugins(ChapterPlugin)
         .add_plugins((ItemPlugin, ItemUIPlugin, ItemEffectsPlugin))
         .add_plugins(PausePlugin)
+        .add_plugins(LootPlugin)
         .run();
 }
