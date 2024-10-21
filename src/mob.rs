@@ -146,7 +146,6 @@ pub struct ShootAbility {
 pub struct Mob {
     //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
-    pub hit_queue: Vec<(i32, Vec3)>,
 }
 
 #[derive(Component)]
@@ -161,7 +160,6 @@ impl Mob {
     fn new(damage: i32) -> Self {
         Self {
             damage,
-            hit_queue: vec![],
         }
     }
 }
@@ -242,6 +240,7 @@ impl MobBundle {
                 max: 100,
                 current: 100,
                 extra_lives: 0,
+                hit_queue: vec![]
             },
         }
     }
@@ -259,6 +258,7 @@ impl MobBundle {
                 max: 200,
                 current: 200,
                 extra_lives: 0,
+                hit_queue: vec![]
             },
         }
     }
@@ -276,6 +276,7 @@ impl MobBundle {
                 max: 80,
                 current: 80,
                 extra_lives: 0,
+                hit_queue: vec![]
             },
         }
     }
@@ -294,6 +295,7 @@ impl MobBundle {
                 max: 80,
                 current: 80,
                 extra_lives: 0,
+                hit_queue: vec![]
             },
         }
     }
@@ -617,7 +619,7 @@ fn hit_projectiles(
     //todo: change that we could use resistance mechanics
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(Entity, &mut Mob, &Transform, &ElementResistance)>,
+    mut mob_query: Query<(Entity, &mut Health, &Mob, &Transform, &ElementResistance), With<Mob>>,
     mut ev_collision: EventReader<Collision>,
 ) {
     for Collision(contacts) in ev_collision.read() {
@@ -634,7 +636,7 @@ fn hit_projectiles(
             mob_e = contacts.entity2;
         }
 
-        for (candidate_e, mut mob, transform, resistance) in mob_query.iter_mut() {
+        for (candidate_e, mut health,_mob, transform, resistance) in mob_query.iter_mut() {
             if mob_e == candidate_e {
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
@@ -653,7 +655,7 @@ fn hit_projectiles(
                             (transform.translation - projectile_transform.translation).normalize();
 
                         // пушим в очередь попадание
-                        mob.hit_queue.push((damage_with_res, shot_dir));
+                        health.hit_queue.push((damage_with_res, shot_dir));
 
                         // деспавним снаряд
                         commands.entity(proj_e).despawn();
@@ -667,11 +669,11 @@ fn hit_projectiles(
 fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
-    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot), Changed<Mob>>,
+    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot), With<Mob>>,
 ) {
-    for (entity, mut health, mut mob, transform, loot) in mob_query.iter_mut() {
-        if !mob.hit_queue.is_empty() {
-            let hit = mob.hit_queue.remove(0);
+    for (entity, mut health, _mob, transform, loot) in mob_query.iter_mut() {
+        if !health.hit_queue.is_empty() {
+            let hit = health.hit_queue.remove(0);
 
             // наносим урон
             health.damage(hit.0);
