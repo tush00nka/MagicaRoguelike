@@ -9,7 +9,7 @@ impl Plugin for ChapterPlugin {
         app
             .insert_resource(ChapterManager::default())
             .add_systems(OnExit(GameState::MainMenu), init_chapter)
-            .add_systems(OnExit(GameState::InGame), update_chapter);
+            .add_systems(OnEnter(GameState::Hub), update_chapter);
     }
 }
 
