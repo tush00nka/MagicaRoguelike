@@ -18,7 +18,7 @@ impl Plugin for PathfindingPlugin {
             .add_systems(Update, pathfinding_with_tp
                 .run_if(in_state(GameState::InGame))
                 .run_if(in_state(TimeState::Unpaused)))
-            .add_systems(Update, a_pathfinding
+            .add_systems(Update, a_pathfinding::<Player,Pathfinder>
                 .run_if(in_state(GameState::InGame))
                 .run_if(in_state(TimeState::Unpaused)));
     }
@@ -241,9 +241,9 @@ fn pathfinding_with_tp(
     }
 }
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
-fn a_pathfinding(
-    player_query: Query<&Transform, With<Player>>, //don't use globalTransform, please
-    mut pathfinder_query: Query<(&Transform, &mut Pathfinder), (Without<Player>, Without<Teleport>)>,
+fn a_pathfinding<T:Component, P: Component>(
+    player_query: Query<&Transform, (With<T>, Without<P>)>, //don't use globalTransform, please
+    mut pathfinder_query: Query<(&Transform, &mut Pathfinder), (Without<T>, Without<Teleport>, With<P>)>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
 ) {
