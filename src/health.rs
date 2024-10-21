@@ -5,6 +5,7 @@ pub struct Health {
     pub max: i32,
     pub current: i32,
     pub extra_lives: u8,
+    pub hit_queue: Vec<(i32, Vec3)>,
 }
 
 impl Health {
