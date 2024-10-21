@@ -71,7 +71,7 @@ fn spawn_player(
             speed: 8000.0,
             invincibility_time: 1.0,
         })
-        .insert(Health{max: 100, current: 100, extra_lives: 0});
+        .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]});
 }
 
 fn move_player(
