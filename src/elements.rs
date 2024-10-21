@@ -38,7 +38,7 @@ impl ElementType {
         let c = match self {
             ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
             ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
-            ElementType::Earth => Color::srgb(2.5, 1.25, 1.25),
+            ElementType::Earth => Color::srgb(0.45, 0.15, 0.15),
             ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
             ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
         };

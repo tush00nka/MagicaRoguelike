@@ -1,4 +1,4 @@
-use crate::{chapter::ChapterManager, gamemap::{Floor, Wall}, item::{ItemType, SpawnItemEvent}, GameState};
+use crate::{chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -13,18 +13,19 @@ impl Plugin for HubPlugin {
 fn spawn_hub(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut player_query: Query<&mut Transform, With<crate::player::Player>>,
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_item: EventWriter<crate::item::SpawnItemEvent>,
     chapter_manager: Res<ChapterManager>,
 ) {
-    let tile_size = 32.0;
-    for x in 0..=8 {
-        for y in 0..=8 {
-            if x == 0 || x == 8 || y == 0 || y == 8  {
+    let lower = ROOM_SIZE/2 - 4;
+    let upper = ROOM_SIZE/2 + 4;
+
+    for x in lower..=upper {
+        for y in lower..=upper {
+            if x == lower || x == upper || y == lower || y == upper  {
                 let texture_path = {
-                    if y > 0 {
-                        if y == 8 && 0 < x && x < 8 {
+                    if y > lower {
+                        if y == upper && lower < x && x < upper {
                             format!("textures/t_wall_top_{}.png", chapter_manager.get_current_chapter())
                         }
                         else {
@@ -39,14 +40,14 @@ fn spawn_hub(
                     .spawn(SpriteBundle {
                         texture: asset_server.load(texture_path),
                         transform: Transform::from_xyz(
-                            tile_size * x as f32,
-                            tile_size * y as f32,
+                            TILE_SIZE * x as f32,
+                            TILE_SIZE * y as f32,
                             0.0,
                         ),
                         ..default()
                     })
                     .insert(RigidBody::Static)
-                    .insert(Collider::rectangle(31.9, 31.9))
+                    .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
                     .insert(Wall);
             }
             else {
@@ -54,8 +55,8 @@ fn spawn_hub(
                     .spawn(SpriteBundle {
                         texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
                         transform: Transform::from_xyz(
-                            tile_size * x as f32,
-                            tile_size * y as f32,
+                            TILE_SIZE * x as f32,
+                            TILE_SIZE * y as f32,
                             0.0,
                         ),
                         ..default()
@@ -65,20 +66,16 @@ fn spawn_hub(
         }
     }
 
-    for i in (2..=6).step_by(2) {
+    for i in (lower+2..=upper-2).step_by(2) {
         let random_item: ItemType = rand::random();
         ev_spawn_item.send(SpawnItemEvent {
-            pos: Vec3::new(i as f32 * 32., 5. * 32., 1.),
+            pos: Vec3::new(i as f32 * TILE_SIZE, (upper - 3) as f32 * TILE_SIZE, 1.),
             item_type: random_item,
             texture_path: random_item.get_texture_path().to_string(),
         });
     }
 
-    if let Ok(mut transform) = player_query.get_single_mut() {
-        transform.translation = Vec3::new(32., 32., 1.0);
-    }
-
     ev_spawn_portal.send(crate::level_completion::PortalEvent {
-        pos: Vec3::new(7. * 32., 1. * 32., 1.0),
+        pos: Vec3::new((upper - 1) as f32 * TILE_SIZE, (lower + 1) as f32 * TILE_SIZE, 1.0),
     });
 }

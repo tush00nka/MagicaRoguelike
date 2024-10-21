@@ -10,6 +10,8 @@ use crate::{
 };
 
 pub const ROOM_SIZE: i32 = 32;
+pub const TILE_SIZE: f32 = 32.;
+
 pub struct GameMapPlugin;
 
 impl Plugin for GameMapPlugin {
@@ -263,7 +265,6 @@ pub fn spawn_map(
     let room_height = room.room_height;
     let room_width = room.room_width;
     let grid = &room.grid;
-    let tile_size = 32.0;
 
     for x in 0..room_width {
         for y in 0..room_height {
@@ -274,8 +275,8 @@ pub fn spawn_map(
                         .spawn(SpriteBundle {
                             texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
                             transform: Transform::from_xyz(
-                            tile_size * x as f32,
-                            tile_size * y as f32,
+                            TILE_SIZE * x as f32,
+                            TILE_SIZE * y as f32,
                             0.0,
                         ),
                         ..default()
@@ -301,19 +302,30 @@ pub fn spawn_map(
                         .spawn(SpriteBundle {
                             texture: asset_server.load(texture_path),
                             transform: Transform::from_xyz(
-                                tile_size * x as f32,
-                                tile_size * y as f32,
+                                TILE_SIZE * x as f32,
+                                TILE_SIZE * y as f32,
                                 0.0,
                             ),
                             ..default()
                         })
                         .insert(RigidBody::Static)
-                        .insert(Collider::rectangle(31.9, 31.9))
+                        .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
                         .insert(Wall);
                 },
                 TileType::Empty => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Empty, 0));
+
+                    commands.spawn(SpriteBundle {
+                        texture: asset_server.load(format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())),
+                        transform: Transform::from_xyz(
+                        TILE_SIZE * x as f32,
+                        TILE_SIZE * y as f32,
+                        0.0,
+                    ),
+                    ..default()
+                    })
+                    .insert(Wall);
                 }
             }
         }

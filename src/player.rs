@@ -18,6 +18,7 @@ impl Plugin for PlayerPlugin {
             .add_event::<PlayerDeathEvent>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
+            .add_systems(OnExit(GameState::InGame), reset_player_position)
             .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death)
                 .run_if(in_state(TimeState::Unpaused)))
             .add_systems(FixedUpdate, move_player

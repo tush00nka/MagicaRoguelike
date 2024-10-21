@@ -778,7 +778,7 @@ fn rotate_mobs(
 ) {
     for (global_rotation, mut rotation_en) in &mut rotation_query {
         if let Ok(player_transform) = player_query.get_single() {
-            let (_, _, translation) = global_rotation.to_scale_rotation_translation();
+            let translation = global_rotation.translation();
             let diff = Vec3::new(
                 player_transform.translation.x,
                 player_transform.translation.y,
