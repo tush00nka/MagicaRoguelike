@@ -66,6 +66,7 @@ impl Plugin for MobPlugin {
 #[derive(Component)]
 pub enum MobType {
     //add your mobtype here
+    Knight,
     Mossling,
     FireMage,
     WaterMage,
@@ -164,6 +165,19 @@ impl Mob {
     }
 }
 impl MeleeMobBundle {
+    fn knight() -> Self {
+        Self {
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 2000.,
+            },
+        }
+    }
+
     fn mossling() -> Self {
         Self {
             path_finder: Pathfinder {
@@ -226,22 +240,30 @@ impl MageBundle {
 }
 
 impl MobBundle {
-    fn mossling() -> Self {
+    fn knight() -> Self {
         Self {
             resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
-                resistance_percent: vec![0,0,15,0,0],
+                elements: vec![],
+                resistance_percent: vec![0,0,0,0,0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
-            health: Health {
-                max: 100,
-                current: 100,
-                extra_lives: 0,
-                hit_queue: vec![]
+            health: Health::new(100),
+        }
+    }
+    fn mossling() -> Self {
+        Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth, ElementType::Water],
+                resistance_percent: vec![0,15,15,0,0],
             },
+            mob_type: MobType::Mossling,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(100)
         }
     }
     fn turret() -> Self {
@@ -254,12 +276,7 @@ impl MobBundle {
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 200,
-                current: 200,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            health: Health::new(200)
         }
     }
     fn fire_mage() -> Self {
@@ -272,12 +289,7 @@ impl MobBundle {
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 80,
-                current: 80,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            health: Health::new(80)
         }
     }
 
@@ -291,12 +303,7 @@ impl MobBundle {
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 80,
-                current: 80,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            health: Health::new(80)
         }
     }
 }
@@ -331,6 +338,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
             1 => MobType::FireMage,
             2 => MobType::WaterMage,
             3 => MobType::JungleTurret,
+            4 => MobType::Knight,
             _ => MobType::Mossling,
         }
     }
@@ -396,6 +404,14 @@ pub fn spawn_mobs(
                 let has_animation: bool;
                 //pick mob with random, assign some variables
                 match mob_type {
+                    MobType::Knight => {
+                        frame_count = 4;
+                        fps = 12;
+                        texture_path = "textures/mobs/knight.png";
+                        rotation_path = "";
+                        rotation_entity = false;
+                        has_animation = true;
+                    }
                     MobType::Mossling => {
                         frame_count = 4;
                         fps = 12;
@@ -462,6 +478,12 @@ pub fn spawn_mobs(
                         .insert(animation_config);
                 }
                 match mob_type {
+                    MobType::Knight => {
+                        commands
+                        .entity(mob)
+                        .insert(MobBundle::knight())
+                        .insert(MeleeMobBundle::knight());
+                    }
                     MobType::Mossling => {
                         commands
                             .entity(mob)

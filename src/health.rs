@@ -9,6 +9,15 @@ pub struct Health {
 }
 
 impl Health {
+    pub fn new(value: i32) -> Self {
+        Self {
+            max: value,
+            current: value,
+            extra_lives: 0,
+            hit_queue: vec![]
+        }
+    }
+
     pub fn heal(&mut self, value: i32) {
         if self.current + value >= self.max {
             self.current = self.max;
