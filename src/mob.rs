@@ -189,7 +189,7 @@ impl MeleeMobBundle {
 
 impl TurretBundle {
     fn jungle_turret() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(500..999);
+        let timer: u64 = rand::thread_rng().gen_range(1500..2000);
         Self {
             shoot_ability: ShootAbility {
                 time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
