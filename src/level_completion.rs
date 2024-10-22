@@ -29,6 +29,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::exp_orb::ExpOrb>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::black_hole::BlackHole>,
                 despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
             ))
@@ -38,6 +39,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::wand::Wand>,
                 despawn_all_with::<crate::projectile::Projectile>,
                 despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::black_hole::BlackHole>,
                 despawn_all_with::<crate::item::Item>,
                 despawn_all_with::<Portal>,
             ))

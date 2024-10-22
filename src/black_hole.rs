@@ -24,7 +24,7 @@ pub struct SpawnBlackHoleEvent {
 }
 
 #[derive(Component)]
-struct BlackHole {
+pub struct BlackHole {
     target_pos: Vec3,
     timer: Timer,
     strength: f32,

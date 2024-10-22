@@ -190,10 +190,10 @@ fn cast_spell(
             && bar.earth == bar.air 
             && bar.air == bar.fire {
                 ev_spawn_black_hole.send(SpawnBlackHoleEvent {
-                    spawn_pos: wand_transform.translation,
-                    target_pos: mouse_coords.0.extend(wand_transform.translation.z),
-                    lifetime: 5., // seconds
-                    strength: 50000.,
+                    spawn_pos: wand_transform.translation.with_z(0.9),
+                    target_pos: mouse_coords.0.extend(0.9),
+                    lifetime: 1.5 * bar.len() as f32, // seconds
+                    strength: 10_000. * bar.len() as f32,
                 });
             } else {
                 
