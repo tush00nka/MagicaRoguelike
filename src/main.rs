@@ -55,6 +55,9 @@ use mob::MobPlugin;
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
 
+mod black_hole;
+use black_hole::BlackHolePlugin;
+
 mod game_over;
 use game_over::GameOverPlugin;
 
@@ -144,7 +147,7 @@ fn main() {
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
         .add_plugins((ElementsPlugin, ElementsUIPlugin))
-        .add_plugins(ShieldSpellPlugin)
+        .add_plugins((ShieldSpellPlugin, BlackHolePlugin))
         .add_plugins(ProjectilePlugin)
         .add_plugins((ExperiencePlugin, ExperienceUIPlugin, ExpOrbPlugin, ExpTankPlugin))
         .add_plugins((HealthTankPlugin, HealthUIPlugin))

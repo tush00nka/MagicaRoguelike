@@ -275,7 +275,7 @@ impl MobBundle {
             mob_type: MobType::JungleTurret,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(200)
         }
     }
@@ -288,7 +288,7 @@ impl MobBundle {
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(80)
         }
     }
@@ -302,7 +302,7 @@ impl MobBundle {
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(80)
         }
     }
@@ -335,10 +335,10 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
         match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
-            1 => MobType::FireMage,
-            2 => MobType::WaterMage,
-            3 => MobType::JungleTurret,
-            4 => MobType::Knight,
+            1 => MobType::Knight,
+            2 => MobType::FireMage,
+            3 => MobType::WaterMage,
+            4 => MobType::JungleTurret,
             _ => MobType::Mossling,
         }
     }

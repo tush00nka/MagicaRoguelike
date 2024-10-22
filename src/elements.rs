@@ -4,10 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    projectile::SpawnProjectileEvent,
-    shield_spell::SpawnShieldEvent,
-    wand::Wand,
-    GameState, TimeState
+    black_hole::SpawnBlackHoleEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState, TimeState
 };
 
 pub struct ElementsPlugin;
@@ -133,6 +130,7 @@ fn cast_spell(
     wand_query: Query<&Transform, With<Wand>>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
+    mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
 
     mut bar: ResMut<ElementBar>,
@@ -191,95 +189,101 @@ fn cast_spell(
             && bar.water == bar.earth
             && bar.earth == bar.air 
             && bar.air == bar.fire {
-                spell_desc += "black hole\n";
-            }
-
-            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {
-                spell_desc += "fire element\n";
+                ev_spawn_black_hole.send(SpawnBlackHoleEvent {
+                    spawn_pos: wand_transform.translation,
+                    target_pos: mouse_coords.0.extend(wand_transform.translation.z),
+                    lifetime: 5., // seconds
+                    strength: 50000.,
+                });
+            } else {
                 
-                let offset = PI/12.0;
-                for _i in 0..bar.fire*3 {
-                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-
-                    ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/small_fire.png".to_string(),
-                        color,
-                        translation: wand_transform.translation,
-                        angle,
-                        radius: 6.,
-                        speed: 150.0 + rng.gen_range(-25.0..25.0),
-                        damage: dmg / bar.fire as u32,
-                        element,
-                        is_friendly: true,
-                    });
-                }
-            }
-        
-            if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
-                spell_desc += "water element\n";
-
-                let offset = PI/12.0;
-                for _i in 0..bar.water*3 {
-
-                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-
-                    ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/small_fire.png".to_string(),
-                        color,
-                        translation: wand_transform.translation,
-                        angle,
-                        radius: 6.,
-                        speed: 150.0 + rng.gen_range(-25.0..25.0),
-                        damage: dmg / bar.water as u32,
-                        element,
-                        is_friendly: true,
-                    });
-                }
-            }
-        
-            if bar.earth > 0
-            && bar.air <= 0
-            && (bar.water >= bar.earth || bar.water <= 0) {
-                spell_desc += "AoE, e.g. earthquake\n";
+                if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {
+                    spell_desc += "fire element\n";
+                    
+                    let offset = PI/12.0;
+                    for _i in 0..bar.fire*3 {
+                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
     
-                let offset = (2.0*PI)/(bar.len()*3) as f32;
-                for i in 0..bar.len()*3 {
-
-                    let angle = offset * i as f32;
-
+                        ev_spawn_projectile.send(SpawnProjectileEvent {
+                            texture_path: "textures/small_fire.png".to_string(),
+                            color,
+                            translation: wand_transform.translation,
+                            angle,
+                            radius: 6.,
+                            speed: 150.0 + rng.gen_range(-25.0..25.0),
+                            damage: dmg / bar.fire as u32,
+                            element,
+                            is_friendly: true,
+                        });
+                    }
+                }
+            
+                if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
+                    spell_desc += "water element\n";
+    
+                    let offset = PI/12.0;
+                    for _i in 0..bar.water*3 {
+    
+                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+    
+                        ev_spawn_projectile.send(SpawnProjectileEvent {
+                            texture_path: "textures/small_fire.png".to_string(),
+                            color,
+                            translation: wand_transform.translation,
+                            angle,
+                            radius: 6.,
+                            speed: 150.0 + rng.gen_range(-25.0..25.0),
+                            damage: dmg / bar.water as u32,
+                            element,
+                            is_friendly: true,
+                        });
+                    }
+                }
+            
+                if bar.earth > 0
+                && bar.air <= 0
+                && (bar.water >= bar.earth || bar.water <= 0) {
+                    spell_desc += "AoE, e.g. earthquake\n";
+        
+                    let offset = (2.0*PI)/(bar.len()*3) as f32;
+                    for i in 0..bar.len()*3 {
+    
+                        let angle = offset * i as f32;
+    
+                        ev_spawn_projectile.send(SpawnProjectileEvent {
+                            texture_path: "textures/earthquake.png".to_string(),
+                            color,
+                            translation: wand_transform.translation,
+                            angle,
+                            radius: 12.,
+                            speed: 100.0,
+                            damage: dmg,
+                            element,
+                            is_friendly: true,
+                        });
+                    }
+                }
+            
+                if bar.air > 0 {
+                    spell_desc += "throwable, e.g. fireball\n";
+        
+                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x);
+    
                     ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/earthquake.png".to_string(),
+                        texture_path: "textures/fireball.png".to_string(),
                         color,
                         translation: wand_transform.translation,
                         angle,
-                        radius: 12.,
-                        speed: 100.0,
+                        radius: 8.0,
+                        speed: 150.,
                         damage: dmg,
                         element,
                         is_friendly: true,
                     });
                 }
-            }
-        
-            if bar.air > 0 {
-                spell_desc += "throwable, e.g. fireball\n";
-    
-                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
-
-                ev_spawn_projectile.send(SpawnProjectileEvent {
-                    texture_path: "textures/fireball.png".to_string(),
-                    color,
-                    translation: wand_transform.translation,
-                    angle,
-                    radius: 8.0,
-                    speed: 150.,
-                    damage: dmg,
-                    element,
-                    is_friendly: true,
-                });
             }
         }
 
