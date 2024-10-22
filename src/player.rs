@@ -3,6 +3,7 @@ use avian2d::prelude::*;
 
 use crate::invincibility::Invincibility;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
+use crate::elements::ElementResistance;
 use crate::mouse_position::MouseCoords;
 use crate::{GameLayer, TimeState};
 use crate::{gamemap::ROOM_SIZE, GameState};
@@ -72,7 +73,11 @@ fn spawn_player(
             speed: 8000.0,
             invincibility_time: 1.0,
         })
-        .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]});
+        .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]})
+        .insert(ElementResistance {
+            elements: vec![],
+            resistance_percent: vec![0, 0, 0, 0, 0],
+        });
 }
 
 fn move_player(

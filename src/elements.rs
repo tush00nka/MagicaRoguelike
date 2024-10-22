@@ -88,6 +88,23 @@ impl ElementBar {
     }
 }
 
+#[derive(Component)]
+pub struct ElementResistance {
+    //resistance component, applies any amount of elementres to entity
+    pub elements: Vec<ElementType>,
+    pub resistance_percent: Vec<i16>, // earth wind fire water steam
+}
+
+impl ElementResistance {
+    pub fn apply_to(&self, damage: &mut i32, damage_element: Option<ElementType>) {
+        if damage_element.is_some() {
+            if self.elements.contains(&damage_element.unwrap()) {
+                *damage *= (1. - self.resistance_percent[damage_element.unwrap() as usize] as f32 / 100.) as i32
+            }
+        }
+    }
+}
+
 #[derive(Event)]
 pub struct ElementBarFilled(pub ElementType);
 
