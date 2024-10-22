@@ -1,7 +1,11 @@
 use avian2d::prelude::ExternalForce;
 use bevy::prelude::*;
 
-use crate::{mob::Mob, TimeState};
+use crate::{
+    mob::Mob,
+    TimeState,
+    utils::pulsate,
+};
 
 pub struct BlackHolePlugin;
 
@@ -9,8 +13,14 @@ impl Plugin for BlackHolePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SpawnBlackHoleEvent>();
 
-        app.add_systems(Update, (spawn_black_hole, move_black_hole, pull_mobs, despawn_black_hole_on_timer)
-            .run_if(in_state(TimeState::Unpaused)));
+        app.add_systems(Update, (
+            spawn_black_hole,
+            move_black_hole,
+            pulsate::<BlackHole>,
+            pull_mobs,
+            despawn_black_hole_on_timer
+        )
+        .run_if(in_state(TimeState::Unpaused)));
     }
 }
 
