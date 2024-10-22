@@ -15,9 +15,9 @@ pub fn clear_velocity_for<C: Component>(
     }
 }
 
-pub fn pulsate<C: Component>(mut portal_query: Query<&mut Transform, With<C>>, timer: Res<Time>) {
+pub fn pulsate<C: Component>(mut portal_query: Query<&mut Transform, With<C>>, time: Res<Time>) {
     for mut transform in &mut portal_query {
-        let mut xy = timer.elapsed_seconds().sin() * timer.elapsed_seconds().sin();
+        let mut xy = time.elapsed_seconds().sin() * time.elapsed_seconds().sin();
         if xy <= 0.5 && xy + 0.05 <= 1.  {
             xy = 1. - xy + 0.05;
         }
