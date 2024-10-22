@@ -1,11 +1,19 @@
 use bevy::prelude::*;
 
+use crate::elements::ElementType;
+
 #[derive(Component)]
 pub struct Health {
     pub max: i32,
     pub current: i32,
     pub extra_lives: u8,
-    pub hit_queue: Vec<(i32, Vec3)>,
+    pub hit_queue: Vec<Hit>,
+}
+
+pub struct Hit {
+    pub damage: i32,
+    pub element: Option<ElementType>,
+    pub direction: Vec3,
 }
 
 impl Health {

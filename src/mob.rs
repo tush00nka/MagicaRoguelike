@@ -8,11 +8,11 @@ use rand::{thread_rng, Rng};
 use crate::{
     animation::AnimationConfig,
     chapter::ChapterManager,
-    elements::ElementType,
+    elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{Map, TileType, ROOM_SIZE},
-    health::Health,
+    health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     pathfinding::{create_new_graph, Pathfinder},
     player::Player,
@@ -95,12 +95,7 @@ pub struct PhysicalBundle {
     collision_layers: CollisionLayers,
     linear_velocity: LinearVelocity,
 }
-#[derive(Component)] //todo: change res percent to vector too, that there can be different values
-pub struct ElementResistance {
-    //resistance component, applies any amount of elementres to entity
-    elements: Vec<ElementType>,
-    resistance_percent: Vec<i16>, // earth wind fire water
-}
+
 #[derive(Bundle)]
 pub struct MobBundle {
     //contains mob stats
@@ -275,7 +270,7 @@ impl MobBundle {
             mob_type: MobType::JungleTurret,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(200)
         }
     }
@@ -288,7 +283,7 @@ impl MobBundle {
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(80)
         }
     }
@@ -302,7 +297,7 @@ impl MobBundle {
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
+            body_type: RigidBody::Static,
             health: Health::new(80)
         }
     }
@@ -335,10 +330,10 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
         match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
-            1 => MobType::FireMage,
-            2 => MobType::WaterMage,
-            3 => MobType::JungleTurret,
-            4 => MobType::Knight,
+            1 => MobType::Knight,
+            2 => MobType::FireMage,
+            3 => MobType::WaterMage,
+            4 => MobType::JungleTurret,
             _ => MobType::Mossling,
         }
     }
@@ -664,20 +659,19 @@ fn hit_projectiles(
                 {
                     if proj_e == proj_candidate_e {
                         // считаем урон с учётом сопротивления к элементам
-                        let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
-                        if resistance.elements.contains(&projectile.element) {
-                            damage_with_res = (damage_with_res as f32
-                                * (1. - resistance.resistance_percent[projectile.element as usize] as f32 / 100.))
-                                as i32;
-                            // print!("damage with res is - {}", damage_with_res);
-                        }
+                        let mut damage = projectile.damage as i32;
+                        resistance.apply_to(&mut damage, Some(projectile.element));
 
                         // направление выстрела
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
                         // пушим в очередь попадание
-                        health.hit_queue.push((damage_with_res, shot_dir));
+                        health.hit_queue.push( Hit {
+                            damage,
+                            element: Some(projectile.element),
+                            direction: shot_dir,
+                        });
 
                         // деспавним снаряд
                         commands.entity(proj_e).despawn();
@@ -698,7 +692,7 @@ fn damage_mobs(
             let hit = health.hit_queue.remove(0);
 
             // наносим урон
-            health.damage(hit.0);
+            health.damage(hit.damage);
 
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
@@ -711,7 +705,7 @@ fn damage_mobs(
                 ev_death.send(MobDeathEvent {
                     orbs: loot.orbs,
                     pos: transform.translation,
-                    dir: hit.1,
+                    dir: hit.direction,
                 });
             }
         }
