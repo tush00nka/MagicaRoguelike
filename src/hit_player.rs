@@ -86,7 +86,7 @@ fn damage_player(
 
             // считаем сопротивление
             let mut damage = hit.damage;
-            resistance.apply_to(&mut damage, hit.element);
+            resistance.calculate_for(&mut damage, hit.element);
 
             // наносим урон
             health.damage(damage);

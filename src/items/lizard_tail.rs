@@ -27,7 +27,6 @@ fn apply_effect(
     if let Ok(mut health) = player_query.get_single_mut() {
         for ev in ev_item_picked_up.read() {
             if ev.item_type == ItemType::LizardTail {
-                println!("Lizard Tail effect applied");
                 health.extra_lives += 1;
             }   
         }

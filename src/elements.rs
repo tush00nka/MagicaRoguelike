@@ -21,7 +21,7 @@ impl Plugin for ElementsPlugin {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ElementType {
     Fire,
     Water,
@@ -96,12 +96,20 @@ pub struct ElementResistance {
 }
 
 impl ElementResistance {
-    pub fn apply_to(&self, damage: &mut i32, damage_element: Option<ElementType>) {
+    pub fn calculate_for(&self, damage: &mut i32, damage_element: Option<ElementType>) {
         if damage_element.is_some() {
             if self.elements.contains(&damage_element.unwrap()) {
-                *damage *= (1. - self.resistance_percent[damage_element.unwrap() as usize] as f32 / 100.) as i32
+                *damage = (*damage as f32 * (1. - self.resistance_percent[damage_element.unwrap() as usize] as f32 / 100.)) as i32;
             }
         }
+    }
+
+    pub fn add(&mut self, element: ElementType, percent: i16) {
+        if !self.elements.contains(&element) {
+            self.elements.push(element);
+        }
+
+        self.resistance_percent[element as usize] += percent;
     }
 }
 

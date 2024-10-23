@@ -623,7 +623,7 @@ fn mob_shoot(
                     angle,
                     radius: 8.0,
                     speed: 150.,
-                    damage: damage,
+                    damage,
                     element: can_shoot.element,
                     is_friendly: false,
                 });
@@ -660,7 +660,7 @@ fn hit_projectiles(
                     if proj_e == proj_candidate_e {
                         // считаем урон с учётом сопротивления к элементам
                         let mut damage = projectile.damage as i32;
-                        resistance.apply_to(&mut damage, Some(projectile.element));
+                        resistance.calculate_for(&mut damage, Some(projectile.element));
 
                         // направление выстрела
                         let shot_dir =

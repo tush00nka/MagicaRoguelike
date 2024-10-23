@@ -24,7 +24,6 @@ fn apply_effect(
     if let Ok(mut health) = player_query.get_single_mut() {
         for ev in ev_item_picked_up.read() {
             if ev.item_type == ItemType::Heart {
-                println!("Heart effect applied");
                 health.max += 10;
             }   
         }

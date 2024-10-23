@@ -29,6 +29,9 @@ pub enum ItemType {
     LizardTail,
     SpeedPotion,
     WispInAJar,
+    // Water resist item
+    Mineral,
+    Glider,
 }
 
 impl ItemType {
@@ -40,6 +43,9 @@ impl ItemType {
             ItemType::LizardTail => "textures/items/lizard_tail.png",
             ItemType::SpeedPotion => "textures/items/speed_potion.png",
             ItemType::WispInAJar => "textures/items/wisp_in_a_jar.png",
+            // water resist item
+            ItemType::Mineral => "textures/items/mineral.png",
+            ItemType::Glider => "textures/items/glider.png",
         }
     }
 }
@@ -48,13 +54,15 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=5) {
+        match rng.gen_range(0..=7) {
             0 => ItemType::Amulet,
             1 => ItemType::Heart,
             2 => ItemType::LizardTail,
             3 => ItemType::SpeedPotion,
             4 => ItemType::WispInAJar,
             5 => ItemType::Bacon,
+            6 => ItemType::Mineral,
+            7 => ItemType::Glider,
             _ => ItemType::WispInAJar,
         }
     }
@@ -110,6 +118,14 @@ fn debug_spawn_random_item(
             pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
             item_type: rand_item,
             texture_path: rand_item.get_texture_path().to_string(),
+        });
+    }
+
+    if keyboard.just_pressed(KeyCode::KeyF) {
+        ev_spawn_item.send(SpawnItemEvent {
+            pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
+            item_type: ItemType::WispInAJar,
+            texture_path: ItemType::WispInAJar.get_texture_path().to_string(),
         });
     }
 }
