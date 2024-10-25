@@ -29,7 +29,7 @@ pub enum ItemType {
     LizardTail,
     SpeedPotion,
     WispInAJar,
-    // Water resist item
+    WaterbendingScroll,
     Mineral,
     Glider,
 }
@@ -43,7 +43,7 @@ impl ItemType {
             ItemType::LizardTail => "textures/items/lizard_tail.png",
             ItemType::SpeedPotion => "textures/items/speed_potion.png",
             ItemType::WispInAJar => "textures/items/wisp_in_a_jar.png",
-            // water resist item
+            ItemType::WaterbendingScroll => "textures/items/waterbending_scroll.png",
             ItemType::Mineral => "textures/items/mineral.png",
             ItemType::Glider => "textures/items/glider.png",
         }
@@ -54,15 +54,16 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=7) {
+        match rng.gen_range(0..=8) {
             0 => ItemType::Amulet,
-            1 => ItemType::Heart,
-            2 => ItemType::LizardTail,
-            3 => ItemType::SpeedPotion,
-            4 => ItemType::WispInAJar,
-            5 => ItemType::Bacon,
-            6 => ItemType::Mineral,
-            7 => ItemType::Glider,
+            1 => ItemType::Bacon,
+            2 => ItemType::Heart,
+            3 => ItemType::LizardTail,
+            4 => ItemType::SpeedPotion,
+            5 => ItemType::WispInAJar,
+            6 => ItemType::WaterbendingScroll,
+            7 => ItemType::Mineral,
+            8 => ItemType::Glider,
             _ => ItemType::WispInAJar,
         }
     }

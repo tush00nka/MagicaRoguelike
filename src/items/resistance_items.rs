@@ -26,7 +26,7 @@ fn apply_effect(
             let element = 
                 match ev.item_type {
                     ItemType::WispInAJar => Some(ElementType::Fire),
-                    // WATER
+                    ItemType::WaterbendingScroll => Some(ElementType::Water),
                     ItemType::Mineral => Some(ElementType::Earth),
                     ItemType::Glider => Some(ElementType::Air),
                     _ => None,
