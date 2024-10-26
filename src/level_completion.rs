@@ -20,7 +20,8 @@ impl Plugin for LevelCompletionPlugin {
             .add_systems(Update, collision_portal
                 .run_if(in_state(TimeState::Unpaused))
                 .run_if(in_state(GameState::Hub)))
-            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mobs))
+//maybe delete?
+//            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::first_spawn_mobs)) 
             .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,
                 despawn_all_with::<crate::health_tank::HealthTank>,
@@ -83,6 +84,10 @@ impl PortalManager {
 
     pub fn no_mobs_on_level(&self) -> bool {
         self.mobs <= 0
+    }
+    
+    pub fn push_mob(&mut self){
+        self.mobs += 1;
     }
 }
 

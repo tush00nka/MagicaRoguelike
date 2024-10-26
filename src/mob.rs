@@ -28,13 +28,14 @@ impl Plugin for MobPlugin {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
             .add_event::<CorpseSpawnEvent>()
+            .add_event::<MobSpawnEvent>()
             .add_systems(
                 OnEnter(GameState::Loading),
                 spawn_mobs_location.after(create_new_graph),
             )
             .add_systems(
                 OnEnter(GameState::Loading),
-                spawn_mobs.after(spawn_mobs_location),
+                first_spawn_mobs.after(spawn_mobs_location),
             )
             .add_systems(
                 Update,
@@ -47,6 +48,7 @@ impl Plugin for MobPlugin {
                     animate_mobs,
                     rotate_mobs,
                     mob_shoot,
+                    spawn_mob,
                     hit_projectiles,
                     teleport_mobs,
                 )
@@ -353,7 +355,11 @@ pub struct MobDeathEvent {
     pub pos: Vec3,
     pub dir: Vec3,
 }
-
+#[derive(Event)]
+pub struct MobSpawnEvent{
+    pub mob_type: MobType,
+    pub pos: (u16,u16),
+}
 //event to spawn corpse
 #[derive(Event)]
 pub struct CorpseSpawnEvent {
@@ -388,13 +394,166 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
         }
     }
 }
-
-pub fn spawn_mobs(
+pub fn spawn_mob(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut ev_mob_spawn: EventReader<MobSpawnEvent>
+) {
+    for ev in ev_mob_spawn.read() {
+        let texture_path: &str;
+        let frame_count: u32;
+        let fps: u8;
+        let rotation_entity: bool;
+        let rotation_path: &str;
+        let has_animation: bool;
+
+        let x = ev.pos.0;
+        let y = ev.pos.1;
+        
+        //pick mob with random, assign some variables
+        match ev.mob_type {
+            MobType::Knight => {
+                frame_count = 4;
+                fps = 12;
+                texture_path = "textures/mobs/knight.png";
+                rotation_path = "";
+                rotation_entity = false;
+                has_animation = true;
+            }
+            MobType::Mossling => {
+                frame_count = 4;
+                fps = 12;
+                texture_path = "textures/mobs/mossling.png";
+                rotation_path = "";
+                rotation_entity = false;
+                has_animation = true;
+            }
+            MobType::FireMage => {
+                texture_path = "textures/mobs/fire_mage.png";
+                rotation_path = "";
+                frame_count = 2;
+                fps = 3;
+                rotation_entity = false;
+                has_animation = true;
+            }
+            MobType::WaterMage => {
+                frame_count = 2;
+                fps = 3;
+                texture_path = "textures/mobs/water_mage.png";
+                rotation_path = "";
+                rotation_entity = false;
+                has_animation = true;
+            }
+            MobType::JungleTurret => {
+                frame_count = 1;
+                fps = 1;
+                texture_path = "textures/mobs/plant_body.png";
+                rotation_path = "textures/mobs/plant_head.png";
+                rotation_entity = true;
+                has_animation = false;
+            }
+        }
+        //get texture and layout
+        let texture = asset_server.load(texture_path);
+
+        let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
+        let texture_atlas_layout = texture_atlas_layouts.add(layout);
+        //setup animation cfg
+        let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
+        //spawn mob with texture
+        let mob = commands
+            .spawn(SpriteBundle {
+                texture,
+                transform: Transform::from_xyz(
+                    (x as i32 * ROOM_SIZE) as f32,
+                    (y as i32 * ROOM_SIZE) as f32,
+                    1.0,
+                ),
+                ..default()
+            })
+            .id();
+
+        commands.entity(mob).insert(PhysicalBundle::default());
+
+        if has_animation {
+            commands
+                .entity(mob) //todo: change it that we could test mobs without animations
+                .insert(TextureAtlas {
+                    layout: texture_atlas_layout.clone(),
+                    index: animation_config.first_sprite_index,
+                })
+                .insert(animation_config);
+        }
+        match ev.mob_type {
+            MobType::Knight => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::knight())
+                    .insert(MeleeMobBundle::knight());
+            }
+            MobType::Mossling => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::mossling())
+                    .insert(MeleeMobBundle::mossling());
+            }
+            MobType::FireMage => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::fire_mage())
+                    .insert(MageBundle::fire_mage());
+
+                mob_map
+                    .map
+                    .get_mut(&(x as u16, y as u16))
+                    .unwrap()
+                    .mob_count += 1;
+            }
+            MobType::WaterMage => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::water_mage())
+                    .insert(MageBundle::water_mage());
+
+                mob_map
+                    .map
+                    .get_mut(&(x as u16, y as u16))
+                    .unwrap()
+                    .mob_count += 1;
+            }
+            MobType::JungleTurret => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::turret())
+                    .insert(TurretBundle::jungle_turret());
+
+                mob_map
+                    .map
+                    .get_mut(&(x as u16, y as u16))
+                    .unwrap()
+                    .mob_count += 1;
+            }
+        }
+        if rotation_entity {
+            commands.entity(mob).with_children(|parent| {
+                parent
+                    .spawn(SpriteBundle {
+                        texture: asset_server.load(rotation_path),
+                        transform: Transform::from_xyz(0., 0., 1.0),
+                        ..default()
+                    })
+                    .insert(RotationEntity);
+            });
+        }
+    }
+}
+pub fn first_spawn_mobs(
+    mut mob_map: ResMut<Map>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
+    mut portal_manager: ResMut<PortalManager>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
@@ -405,150 +564,10 @@ pub fn spawn_mobs(
                     .unwrap()
                     .mob_count = 0;
 
-                let mob_type: MobType = rand::random();
-                let texture_path: &str;
-                let frame_count: u32;
-                let fps: u8;
-                let rotation_entity: bool;
-                let rotation_path: &str;
-                let has_animation: bool;
-                //pick mob with random, assign some variables
-                match mob_type {
-                    MobType::Knight => {
-                        frame_count = 4;
-                        fps = 12;
-                        texture_path = "textures/mobs/knight.png";
-                        rotation_path = "";
-                        rotation_entity = false;
-                        has_animation = true;
-                    }
-                    MobType::Mossling => {
-                        frame_count = 4;
-                        fps = 12;
-                        texture_path = "textures/mobs/mossling.png";
-                        rotation_path = "";
-                        rotation_entity = false;
-                        has_animation = true;
-                    }
-                    MobType::FireMage => {
-                        texture_path = "textures/mobs/fire_mage.png";
-                        rotation_path = "";
-                        frame_count = 2;
-                        fps = 3;
-                        rotation_entity = false;
-                        has_animation = true;
-                    }
-                    MobType::WaterMage => {
-                        frame_count = 2;
-                        fps = 3;
-                        texture_path = "textures/mobs/water_mage.png";
-                        rotation_path = "";
-                        rotation_entity = false;
-                        has_animation = true;
-                    }
-                    MobType::JungleTurret => {
-                        frame_count = 1;
-                        fps = 1;
-                        texture_path = "textures/mobs/plant_body.png";
-                        rotation_path = "textures/mobs/plant_head.png";
-                        rotation_entity = true;
-                        has_animation = false;
-                    }
-                }
-                //get texture and layout
-                let texture = asset_server.load(texture_path);
-
-                let layout =
-                    TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
-                let texture_atlas_layout = texture_atlas_layouts.add(layout);
-                //setup animation cfg
-                let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
-                //spawn mob with texture
-                let mob = commands
-                    .spawn(SpriteBundle {
-                        texture,
-                        transform: Transform::from_xyz(
-                            (x as i32 * ROOM_SIZE) as f32,
-                            (y as i32 * ROOM_SIZE) as f32,
-                            1.0,
-                        ),
-                        ..default()
-                    })
-                    .id();
-
-                commands.entity(mob).insert(PhysicalBundle::default());
-
-                if has_animation {
-                    commands
-                        .entity(mob) //todo: change it that we could test mobs without animations
-                        .insert(TextureAtlas {
-                            layout: texture_atlas_layout.clone(),
-                            index: animation_config.first_sprite_index,
-                        })
-                        .insert(animation_config);
-                }
-                match mob_type {
-                    MobType::Knight => {
-                        commands
-                            .entity(mob)
-                            .insert(MobBundle::knight())
-                            .insert(MeleeMobBundle::knight());
-                    }
-                    MobType::Mossling => {
-                        commands
-                            .entity(mob)
-                            .insert(MobBundle::mossling())
-                            .insert(MeleeMobBundle::mossling());
-                    }
-                    MobType::FireMage => {
-                        commands
-                            .entity(mob)
-                            .insert(MobBundle::fire_mage())
-                            .insert(MageBundle::fire_mage());
-
-                        mob_map
-                            .map
-                            .get_mut(&(x as u16, y as u16))
-                            .unwrap()
-                            .mob_count += 1;
-                    }
-                    MobType::WaterMage => {
-                        commands
-                            .entity(mob)
-                            .insert(MobBundle::water_mage())
-                            .insert(MageBundle::water_mage());
-
-                        mob_map
-                            .map
-                            .get_mut(&(x as u16, y as u16))
-                            .unwrap()
-                            .mob_count += 1;
-                    }
-                    MobType::JungleTurret => {
-                        commands
-                            .entity(mob)
-                            .insert(MobBundle::turret())
-                            .insert(TurretBundle::jungle_turret());
-
-                        mob_map
-                            .map
-                            .get_mut(&(x as u16, y as u16))
-                            .unwrap()
-                            .mob_count += 1;
-                    }
-                }
-                if rotation_entity {
-                    commands.entity(mob).with_children(|parent| {
-                        parent
-                            .spawn(SpriteBundle {
-                                texture: asset_server.load(rotation_path),
-                                transform: Transform::from_xyz(0., 0., 1.0),
-                                ..default()
-                            })
-                            .insert(RotationEntity);
-                    });
-                }
-            }
+                    let mob_type: MobType = rand::random();
+                    portal_manager.push_mob();
+                    ev_mob_spawn.send(MobSpawnEvent { mob_type: mob_type, pos: (x as u16,y as u16) });
+            }  
         }
     }
 
@@ -696,7 +715,8 @@ fn hit_projectiles(
     }
 }
 
-fn hit_obstacles<T: Component>(//TODO: ADD LOOT DROP FROM OBSTACLES IDK, MAYBE ADD LOOT TO THEM
+fn hit_obstacles<T: Component>(
+    //TODO: ADD LOOT DROP FROM OBSTACLES IDK, MAYBE ADD LOOT TO THEM
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
     mut mob_query: Query<(Entity, &mut Health, &Transform), With<T>>,
@@ -746,16 +766,9 @@ fn hit_obstacles<T: Component>(//TODO: ADD LOOT DROP FROM OBSTACLES IDK, MAYBE A
 
 fn damage_obstacles<T: Component>(
     mut commands: Commands,
-    mut obstacle_query: Query<
-        (
-            Entity,
-            &mut Health,
-            &Transform,
-        ),
-        With<T>,
-    >,
+    mut obstacle_query: Query<(Entity, &mut Health, &Transform), With<T>>,
 ) {
-    for (entity, mut health, transform,) in obstacle_query.iter_mut() {
+    for (entity, mut health, transform) in obstacle_query.iter_mut() {
         if !health.hit_queue.is_empty() {
             let hit = health.hit_queue.remove(0);
 
