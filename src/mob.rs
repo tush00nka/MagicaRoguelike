@@ -27,6 +27,7 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Map::default())
             .add_event::<MobDeathEvent>()
+            .add_event::<CorpseSpawnEvent>()
             .add_systems(
                 OnEnter(GameState::Loading),
                 spawn_mobs_location.after(create_new_graph),
@@ -40,6 +41,7 @@ impl Plugin for MobPlugin {
                 (
                     damage_mobs,
                     mob_death,
+                    spawn_corpse,
                     animate_mobs,
                     rotate_mobs,
                     mob_shoot,
@@ -63,7 +65,7 @@ impl Plugin for MobPlugin {
 }
 //Components and bundles
 //If you want to add something (create new mob, or add new component), first of all, add bundle and components there (and check, maybe it exists already)
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub enum MobType {
     //add your mobtype here
     Knight,
@@ -143,6 +145,11 @@ pub struct Mob {
     //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
 }
+//Corpse component for necromancer.
+#[derive(Component)]
+pub struct Corpse {
+    mob_type: MobType,
+}
 
 #[derive(Component)]
 pub struct MobLoot {
@@ -154,9 +161,7 @@ pub struct MobLoot {
 //change it, only if you know what you're doing
 impl Mob {
     fn new(damage: i32) -> Self {
-        Self {
-            damage,
-        }
+        Self { damage }
     }
 }
 impl MeleeMobBundle {
@@ -239,7 +244,7 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![],
-                resistance_percent: vec![0,0,0,0,0],
+                resistance_percent: vec![0, 0, 0, 0, 0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
@@ -252,39 +257,39 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0,15,15,0,0],
+                resistance_percent: vec![0, 15, 15, 0, 0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
-            health: Health::new(100)
+            health: Health::new(100),
         }
     }
     fn turret() -> Self {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0,60,60,0,0],
+                resistance_percent: vec![0, 60, 60, 0, 0],
             },
             mob_type: MobType::JungleTurret,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Static,
-            health: Health::new(200)
+            health: Health::new(200),
         }
     }
     fn fire_mage() -> Self {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Fire],
-                resistance_percent: vec![80,0,0,0,0],
+                resistance_percent: vec![80, 0, 0, 0, 0],
             },
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Static,
-            health: Health::new(80)
+            health: Health::new(80),
         }
     }
 
@@ -292,13 +297,13 @@ impl MobBundle {
         Self {
             resistance: ElementResistance {
                 elements: vec![ElementType::Water],
-                resistance_percent: vec![0,80,0,0,0],
+                resistance_percent: vec![0, 80, 0, 0, 0],
             },
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Static,
-            health: Health::new(80)
+            health: Health::new(80),
         }
     }
 }
@@ -338,12 +343,20 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
         }
     }
 }
-
+//Events for mobs
+//event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
 #[derive(Event)]
 pub struct MobDeathEvent {
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
+}
+
+//event to spawn corpse
+#[derive(Event)]
+pub struct CorpseSpawnEvent {
+    pub pos: Vec3,
+    pub mob_type: MobType,
 }
 
 fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>) {
@@ -475,9 +488,9 @@ pub fn spawn_mobs(
                 match mob_type {
                     MobType::Knight => {
                         commands
-                        .entity(mob)
-                        .insert(MobBundle::knight())
-                        .insert(MeleeMobBundle::knight());
+                            .entity(mob)
+                            .insert(MobBundle::knight())
+                            .insert(MeleeMobBundle::knight());
                     }
                     MobType::Mossling => {
                         commands
@@ -633,7 +646,6 @@ fn mob_shoot(
 }
 
 fn hit_projectiles(
-    //todo: change that we could use resistance mechanics
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
     mut mob_query: Query<(Entity, &mut Health, &Mob, &Transform, &ElementResistance), With<Mob>>,
@@ -653,7 +665,7 @@ fn hit_projectiles(
             mob_e = contacts.entity2;
         }
 
-        for (candidate_e, mut health,_mob, transform, resistance) in mob_query.iter_mut() {
+        for (candidate_e, mut health, _mob, transform, resistance) in mob_query.iter_mut() {
             if mob_e == candidate_e {
                 for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
                 {
@@ -667,7 +679,7 @@ fn hit_projectiles(
                             (transform.translation - projectile_transform.translation).normalize();
 
                         // пушим в очередь попадание
-                        health.hit_queue.push( Hit {
+                        health.hit_queue.push(Hit {
                             damage,
                             element: Some(projectile.element),
                             direction: shot_dir,
@@ -682,12 +694,30 @@ fn hit_projectiles(
     }
 }
 
+fn hit_obstacles(
+    
+) {
+}
+
+fn damage_obstacles() {}
+
 fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
-    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobLoot), With<Mob>>,
+    mut ev_corpse: EventWriter<CorpseSpawnEvent>,
+    mut mob_query: Query<
+        (
+            Entity,
+            &mut Health,
+            &mut Mob,
+            &Transform,
+            &MobLoot,
+            &MobType,
+        ),
+        With<Mob>,
+    >,
 ) {
-    for (entity, mut health, _mob, transform, loot) in mob_query.iter_mut() {
+    for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
             let hit = health.hit_queue.remove(0);
 
@@ -707,8 +737,60 @@ fn damage_mobs(
                     pos: transform.translation,
                     dir: hit.direction,
                 });
+                // спавним труп на месте смерти моба
+                ev_corpse.send(CorpseSpawnEvent {
+                    mob_type: mob_type.clone(),
+                    pos: transform.translation,
+                });
             }
         }
+    }
+}
+
+//обработка спавна трупа для некромансера
+fn spawn_corpse(
+    mut ev_corpse_spawn: EventReader<CorpseSpawnEvent>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for ev in ev_corpse_spawn.read() {
+        let texture_path: &str;
+        match ev.mob_type {
+            MobType::Knight => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+            }
+            MobType::Mossling => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+            }
+            MobType::FireMage => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+            }
+            MobType::WaterMage => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+            }
+            MobType::JungleTurret => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+            }
+        }
+        let texture = asset_server.load(texture_path);
+        commands
+            .spawn(SpriteBundle {
+                texture,
+                transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
+                ..default()
+            })
+            .insert(Collider::circle(6.))
+            .insert(LockedAxes::ROTATION_LOCKED)
+            .insert(GravityScale(0.0))
+            .insert(CollisionLayers::new(
+                GameLayer::Enemy,
+                [GameLayer::Wall, GameLayer::Projectile],
+            ))
+            .insert(RigidBody::Dynamic)
+            .insert(Health::new(40)) //TODO: ADD ABILITY TO CRUSH THEIR SKULLS or smth idk
+            .insert(Corpse {
+                mob_type: ev.mob_type.clone(),
+            });
     }
 }
 
@@ -731,6 +813,7 @@ fn mob_death(
             (ev.pos.x.floor() / 32.).floor() as u16,
             (ev.pos.y.floor() / 32.).floor() as u16,
         );
+
         mob_map
             .map
             .get_mut(&(mob_pos.0, mob_pos.1))
