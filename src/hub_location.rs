@@ -1,4 +1,4 @@
-use crate::{chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
+use crate::{gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -15,10 +15,11 @@ fn spawn_hub(
     mut commands: Commands,
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_item: EventWriter<crate::item::SpawnItemEvent>,
-    chapter_manager: Res<ChapterManager>,
 ) {
     let lower = ROOM_SIZE/2 - 4;
     let upper = ROOM_SIZE/2 + 4;
+
+    commands.insert_resource(ClearColor(Color::srgb(69./255., 35./255., 13./255.)));
 
     for x in lower..=upper {
         for y in lower..=upper {
@@ -26,13 +27,13 @@ fn spawn_hub(
                 let texture_path = {
                     if y > lower {
                         if y == upper && lower < x && x < upper {
-                            format!("textures/t_wall_top_{}.png", chapter_manager.get_current_chapter())
+                            "textures/t_wall_top_hub.png"
                         }
                         else {
-                            format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())
+                            "textures/t_wall_hub.png"
                         }
                     } else {
-                        format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())
+                        "textures/t_wall_hub.png"
                     }
                 };
 
@@ -53,7 +54,7 @@ fn spawn_hub(
             else {
                 commands
                     .spawn(SpriteBundle {
-                        texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
+                        texture: asset_server.load("textures/t_floor_hub.png"),
                         transform: Transform::from_xyz(
                             TILE_SIZE * x as f32,
                             TILE_SIZE * y as f32,

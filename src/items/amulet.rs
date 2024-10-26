@@ -22,7 +22,6 @@ fn apply_effect(
 ) {
     for ev in ev_item_picked_up.read() {
         if ev.item_type == ItemType::Amulet {
-            println!("Bacon effect applied");
             player_experience.orb_bonus += 1;
         }   
     }

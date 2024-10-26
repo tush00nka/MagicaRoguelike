@@ -15,6 +15,9 @@ use amulet::AmuletPlugin;
 pub mod lizard_tail;
 use lizard_tail::LizardTailPlugin;
 
+pub mod resistance_items;
+use resistance_items::ResistanceItemsPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -24,6 +27,7 @@ impl Plugin for ItemEffectsPlugin {
             HeartPlugin,
             AmuletPlugin,
             LizardTailPlugin,
+            ResistanceItemsPlugin
         ));
     }
 }

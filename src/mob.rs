@@ -8,11 +8,11 @@ use rand::{thread_rng, Rng};
 use crate::{
     animation::AnimationConfig,
     chapter::ChapterManager,
-    elements::ElementType,
+    elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::{Map, TileType, ROOM_SIZE},
-    health::Health,
+    health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     pathfinding::{create_new_graph, Pathfinder},
     player::Player,
@@ -66,6 +66,7 @@ impl Plugin for MobPlugin {
 #[derive(Component)]
 pub enum MobType {
     //add your mobtype here
+    Knight,
     Mossling,
     FireMage,
     WaterMage,
@@ -94,12 +95,7 @@ pub struct PhysicalBundle {
     collision_layers: CollisionLayers,
     linear_velocity: LinearVelocity,
 }
-#[derive(Component)] //todo: change res percent to vector too, that there can be different values
-pub struct ElementResistance {
-    //resistance component, applies any amount of elementres to entity
-    elements: Vec<ElementType>,
-    resistance_percent: Vec<i16>, // earth wind fire water
-}
+
 #[derive(Bundle)]
 pub struct MobBundle {
     //contains mob stats
@@ -164,6 +160,19 @@ impl Mob {
     }
 }
 impl MeleeMobBundle {
+    fn knight() -> Self {
+        Self {
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 2000.,
+            },
+        }
+    }
+
     fn mossling() -> Self {
         Self {
             path_finder: Pathfinder {
@@ -180,7 +189,7 @@ impl MeleeMobBundle {
 
 impl TurretBundle {
     fn jungle_turret() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(500..999);
+        let timer: u64 = rand::thread_rng().gen_range(1500..2000);
         Self {
             shoot_ability: ShootAbility {
                 time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
@@ -226,22 +235,30 @@ impl MageBundle {
 }
 
 impl MobBundle {
-    fn mossling() -> Self {
+    fn knight() -> Self {
         Self {
             resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
-                resistance_percent: vec![0,0,15,0,0],
+                elements: vec![],
+                resistance_percent: vec![0,0,0,0,0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
-            health: Health {
-                max: 100,
-                current: 100,
-                extra_lives: 0,
-                hit_queue: vec![]
+            health: Health::new(100),
+        }
+    }
+    fn mossling() -> Self {
+        Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth, ElementType::Water],
+                resistance_percent: vec![0,15,15,0,0],
             },
+            mob_type: MobType::Mossling,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(100)
         }
     }
     fn turret() -> Self {
@@ -253,13 +270,8 @@ impl MobBundle {
             mob_type: MobType::JungleTurret,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 200,
-                current: 200,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            body_type: RigidBody::Static,
+            health: Health::new(200)
         }
     }
     fn fire_mage() -> Self {
@@ -271,13 +283,8 @@ impl MobBundle {
             mob_type: MobType::FireMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 80,
-                current: 80,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            body_type: RigidBody::Static,
+            health: Health::new(80)
         }
     }
 
@@ -290,13 +297,8 @@ impl MobBundle {
             mob_type: MobType::WaterMage,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Kinematic,
-            health: Health {
-                max: 80,
-                current: 80,
-                extra_lives: 0,
-                hit_queue: vec![]
-            },
+            body_type: RigidBody::Static,
+            health: Health::new(80)
         }
     }
 }
@@ -328,9 +330,10 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
         match rng.gen_range(0..=4) {
             0 => MobType::Mossling,
-            1 => MobType::FireMage,
-            2 => MobType::WaterMage,
-            3 => MobType::JungleTurret,
+            1 => MobType::Knight,
+            2 => MobType::FireMage,
+            3 => MobType::WaterMage,
+            4 => MobType::JungleTurret,
             _ => MobType::Mossling,
         }
     }
@@ -396,6 +399,14 @@ pub fn spawn_mobs(
                 let has_animation: bool;
                 //pick mob with random, assign some variables
                 match mob_type {
+                    MobType::Knight => {
+                        frame_count = 4;
+                        fps = 12;
+                        texture_path = "textures/mobs/knight.png";
+                        rotation_path = "";
+                        rotation_entity = false;
+                        has_animation = true;
+                    }
                     MobType::Mossling => {
                         frame_count = 4;
                         fps = 12;
@@ -462,6 +473,12 @@ pub fn spawn_mobs(
                         .insert(animation_config);
                 }
                 match mob_type {
+                    MobType::Knight => {
+                        commands
+                        .entity(mob)
+                        .insert(MobBundle::knight())
+                        .insert(MeleeMobBundle::knight());
+                    }
                     MobType::Mossling => {
                         commands
                             .entity(mob)
@@ -606,7 +623,7 @@ fn mob_shoot(
                     angle,
                     radius: 8.0,
                     speed: 150.,
-                    damage: damage,
+                    damage,
                     element: can_shoot.element,
                     is_friendly: false,
                 });
@@ -642,20 +659,19 @@ fn hit_projectiles(
                 {
                     if proj_e == proj_candidate_e {
                         // считаем урон с учётом сопротивления к элементам
-                        let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
-                        if resistance.elements.contains(&projectile.element) {
-                            damage_with_res = (damage_with_res as f32
-                                * (1. - resistance.resistance_percent[projectile.element as usize] as f32 / 100.))
-                                as i32;
-                            // print!("damage with res is - {}", damage_with_res);
-                        }
+                        let mut damage = projectile.damage as i32;
+                        resistance.calculate_for(&mut damage, Some(projectile.element));
 
                         // направление выстрела
                         let shot_dir =
                             (transform.translation - projectile_transform.translation).normalize();
 
                         // пушим в очередь попадание
-                        health.hit_queue.push((damage_with_res, shot_dir));
+                        health.hit_queue.push( Hit {
+                            damage,
+                            element: Some(projectile.element),
+                            direction: shot_dir,
+                        });
 
                         // деспавним снаряд
                         commands.entity(proj_e).despawn();
@@ -676,7 +692,7 @@ fn damage_mobs(
             let hit = health.hit_queue.remove(0);
 
             // наносим урон
-            health.damage(hit.0);
+            health.damage(hit.damage);
 
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
@@ -689,7 +705,7 @@ fn damage_mobs(
                 ev_death.send(MobDeathEvent {
                     orbs: loot.orbs,
                     pos: transform.translation,
-                    dir: hit.1,
+                    dir: hit.direction,
                 });
             }
         }

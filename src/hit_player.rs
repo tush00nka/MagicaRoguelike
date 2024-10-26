@@ -1,11 +1,6 @@
 //all systems that can damage player should be there
 use crate::{
-    health::Health,
-    invincibility::Invincibility,
-    mob::Mob,
-    player::{Player, PlayerDeathEvent},
-    projectile::{Hostile, Projectile},
-    GameState, TimeState,
+    elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mob::Mob, player::{Player, PlayerDeathEvent}, projectile::{Hostile, Projectile}, GameState, TimeState
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -36,7 +31,11 @@ fn hit_player(  //todo: change that we could add resistance mechanic
         if let Ok((_player_e, mut health, _player)) = player_query.get_single_mut() {
             for (mob_cadidate_e, mob) in mob_query.iter() {
                 if mob_cadidate_e == mob_e {
-                    health.hit_queue.push((mob.damage as i32, Vec3::new(0.0,0.0,0.0)));
+                    health.hit_queue.push(Hit {
+                        damage: mob.damage,
+                        element: None,
+                        direction: Vec3::ZERO,
+                    });
                 }
             }
         }
@@ -64,7 +63,11 @@ fn proj_hit_player( //todo: change that we could add resistance mechanic
         if let Ok((_player_e, mut health, _player)) = player_query.get_single_mut() {
             for (proj_cand_e, proj) in projectile_query.iter() {
                 if proj_cand_e == projectile_e {
-                    health.hit_queue.push((proj.damage as i32, Vec3::new(0.0,0.0,0.0)));
+                    health.hit_queue.push( Hit {
+                        damage: proj.damage as i32,
+                        element: Some(proj.element),
+                        direction: Vec3::ZERO,
+                    });
                     commands.get_entity(proj_cand_e).unwrap().despawn();
                 }
             }
@@ -75,23 +78,18 @@ fn proj_hit_player( //todo: change that we could add resistance mechanic
 fn damage_player(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    mut player_query: Query<(Entity, &mut Health, &Player), With<Player>>,
+    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), With<Player>>,
 ) {
-    for (player_e, mut health, player) in player_query.iter_mut() {
+    for (player_e, mut health, player, resistance) in player_query.iter_mut() {
         if !health.hit_queue.is_empty() {
             let hit = health.hit_queue.remove(0);
 
-            // наносим урон
-            health.damage(hit.0);
+            // считаем сопротивление
+            let mut damage = hit.damage;
+            resistance.calculate_for(&mut damage, hit.element);
 
-            // урон с резистом на будущее
-            // let mut damage_with_res: i32 = projectile.damage.try_into().unwrap();
-            // if resistance.elements.contains(&projectile.element) {
-            //     damage_with_res = (damage_with_res as f32
-            //         * (1. - resistance.resistance_percent[projectile.element as usize] as f32 / 100.))
-            //         as i32;
-            //     // print!("damage with res is - {}", damage_with_res);
-            // }
+            // наносим урон
+            health.damage(damage);
 
             //i-frames
             commands
