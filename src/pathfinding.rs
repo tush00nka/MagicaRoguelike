@@ -14,19 +14,29 @@ impl Plugin for PathfindingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Graph::default());
         app.insert_resource(Map::default());
-        app.add_systems(OnEnter(GameState::Loading), create_new_graph.after(spawn_map))
-            .add_systems(Update, pathfinding_with_tp
+        app.add_systems(
+            OnEnter(GameState::Loading),
+            create_new_graph.after(spawn_map),
+        )
+        .add_systems(
+            Update,
+            pathfinding_with_tp
                 .run_if(in_state(GameState::InGame))
-                .run_if(in_state(TimeState::Unpaused)))
-            .add_systems(Update, a_pathfinding::<Player,Pathfinder>
+                .run_if(in_state(TimeState::Unpaused)),
+        )
+        .add_systems(
+            Update,
+            a_pathfinding::<Player, Pathfinder>
                 .run_if(in_state(GameState::InGame))
-                .run_if(in_state(TimeState::Unpaused)));
+                .run_if(in_state(TimeState::Unpaused)),
+        );
     }
 }
-
+// структуры для поиска пути
+// структура для поиска пути, путь, таймер для перерасчета пути, скорость ходьбы
 #[derive(Component)]
 pub struct Pathfinder {
-    pub path: Vec<(u16, u16)>, 
+    pub path: Vec<(u16, u16)>,
     pub update_path_timer: Timer,
     pub speed: f32,
 }
@@ -39,6 +49,21 @@ pub struct Node {
     position: Vec2,
 }
 
+// Граф - хэшмапа массивов нодов, так называемый лист смежности, в каждом массиве - список нодов в которые можно прийти из ноды ((u16,u16) - индексы в LevelGenerator)
+
+#[derive(Resource)]
+pub struct Graph {
+    adj_list: HashMap<(u16, u16), Vec<Node>>,
+}
+
+//структура нодов с ценами и путем, из них создается двумерная матрица по которой ищем и составляем путь
+#[derive(Clone)]
+struct CostNode {
+    cost: u16,
+    path: LinkedList<(u16, u16)>,
+}
+
+//имплементация структур
 impl Node {
     pub fn new(tile_type_new: TileType, position_new: Vec2) -> Self {
         Node {
@@ -46,13 +71,6 @@ impl Node {
             position: position_new,
         }
     }
-}
-
-// Граф - хэшмапа массивов нодов, так называемый лист смежности, в каждом массиве - список нодов в которые можно прийти из ноды ((u16,u16) - индексы в LevelGenerator)
-
-#[derive(Resource)]
-pub struct Graph {
-    adj_list: HashMap<(u16, u16), Vec<Node>>,
 }
 
 impl Default for Graph {
@@ -63,9 +81,20 @@ impl Default for Graph {
     }
 }
 
+impl CostNode {
+    fn new(cost_new: u16) -> Self {
+        CostNode {
+            cost: cost_new,
+            path: LinkedList::new(),
+        }
+    }
+    fn change_cost(&mut self, cost_new: u16) {
+        self.cost = cost_new;
+    }
+}
+//вспомогательные функции для построения пути
 //добавляем массив в хэшмапу, добавляя саму нод внутрь, для будущего pathfinding-а,
-//возможно стоит убрать добавление самого нода, нужно отрефакторить, вроде бы не используется
-
+//TODO: перенести функции в граф, проблема была не в этом
 fn add_node_list(slf: &mut Graph, tup: (u16, u16), node: Node) {
     let mut vec = Vec::new();
 
@@ -114,7 +143,7 @@ fn safe_get_pos(vec: Vec2, slf: &Graph) -> (u16, u16) {
             range = temp_range;
             best = Vec2::new(i.0 .0 as f32, i.0 .1 as f32);
         }
-        if range <= 2{
+        if range <= 2 {
             return (best.x.floor() as u16, best.y.floor() as u16);
         }
     }
@@ -128,46 +157,108 @@ fn get_list(slf: &Graph, vec: Vec2) -> Vec<Node> {
     let ans = slf.adj_list[&(i, j)].clone();
     return ans;
 }
-//структура нодов с ценами и путем, из них создается двумерная матрица по которой ищем и составляем путь
-#[derive(Clone)]
-struct CostNode {
-    cost: u16,
-    path: LinkedList<(u16, u16)>,
+
+//function to avoid diagonal movement through walls
+fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>> {
+    let mut sub_grid: Vec<Vec<u8>> = vec![vec![0, 0, 0], vec![0, 0, 0], vec![0, 0, 0]];
+
+    if grid[i][j - 1] == TileType::Wall {
+        sub_grid[0][0] += 1;
+        sub_grid[1][0] += 1;
+        sub_grid[2][0] += 1;
+    }
+    if grid[i][j + 1] == TileType::Wall {
+        sub_grid[0][2] += 1;
+        sub_grid[1][2] += 1;
+        sub_grid[2][2] += 1;
+    }
+    if grid[i - 1][j] == TileType::Wall {
+        sub_grid[0][0] += 1;
+        sub_grid[0][1] += 1;
+        sub_grid[0][2] += 1;
+    }
+    if grid[i + 1][j] == TileType::Wall {
+        sub_grid[2][0] += 1;
+        sub_grid[2][1] += 1;
+        sub_grid[2][2] += 1;
+    }
+
+    return sub_grid;
 }
-impl CostNode {
-    fn new(cost_new: u16) -> Self {
-        CostNode {
-            cost: cost_new,
-            path: LinkedList::new(),
+// Функция возвращает путь, который хранится в мапе
+fn build_path(node: CostNode) -> Vec<(u16, u16)> {
+    let mut path: Vec<(u16, u16)> = Vec::new();
+    for i in node.path {
+        path.push(i);
+    }
+    path.remove(0); // удаляем точку, в которой уже стоит моб на момент создания пути
+    return path;
+}
+//функция выбора нода, эвристика, учитывает только расстояние до цели и длину пути,
+//можно добавить что-то, например кастомные тайлы пола, по которым не будут хотеть ходить мобы
+fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>>) -> Node {
+    let mut min_cost: usize = usize::MAX;
+    let mut best_node: Node = Node::new(TileType::Floor, Vec2::new(0., 0.));
+
+    let path_coef = 100; // можно покрутить, зависимость от кол-ва пройденных нодов
+
+    for node in reachable {
+        //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)
+        let cost_to_start: usize = path_coef
+            * cost_grid[((node.position.x) / ROOM_SIZE as f32) as usize]
+                [((node.position.y) / ROOM_SIZE as f32) as usize]
+                .cost as usize;
+
+        //добавление цены за дистанцию до нода
+        let cost_node_to_goal: usize = distance(&node, &goal_node);
+        let total_cost: usize = cost_to_start + cost_node_to_goal;
+
+        if min_cost > total_cost {
+            min_cost = total_cost;
+            best_node = node;
         }
     }
-    fn change_cost(&mut self, cost_new: u16) {
-        self.cost = cost_new;
-    }
+    return best_node;
 }
 
+//функция расчета дистанции для функции выбора нода
+fn distance(node1: &Node, node2: &Node) -> usize {
+    return std::cmp::min(
+        (node2.position.x - node1.position.x).abs() as usize
+            + (node2.position.y - node1.position.y).abs() as usize,
+        ((node1.position.x - node2.position.x).powf(2.)
+            + (node1.position.y - node2.position.y).powf(2.))
+        .sqrt() as usize,
+    );
+}
+
+//Системы поиска пути и построения графа
+//Поиск пути с телепортом, строим прямую из возможной точки телепортации до игрока, если нет стен - телепортируемся
 fn pathfinding_with_tp(
     player_query: Query<&Transform, With<Player>>,
     mut pathfinder_query: Query<(&mut Teleport, &Transform), Without<Player>>,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
-    mut mob_map: ResMut<Map>
+    mut mob_map: ResMut<Map>,
 ) {
     for (mut mob, transform) in pathfinder_query.iter_mut() {
         mob.time_to_teleport.tick(time.delta());
         if mob.time_to_teleport.just_finished() {
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
-                
+
                 let k: (u16, u16) = safe_get_pos(player.translation.truncate(), &mut graph_search);
-                let mob_pos = ((transform.translation.x.floor() / 32.).floor() as u16, (transform.translation.y.floor() / 32.).floor() as u16); 
+                let mob_pos = (
+                    (transform.translation.x.floor() / 32.).floor() as u16,
+                    (transform.translation.y.floor() / 32.).floor() as u16,
+                );
 
                 let mut padding_i: u16 = 0;
                 let mut padding_j: u16 = 0;
 
                 let mut padding_i_upper: u16 = 0;
                 let mut padding_j_upper: u16 = 0;
-                
+                //смотрим только те клетки, которые не вылезают из диапазона
                 if mob.amount_of_tiles as u16 > k.0 {
                     padding_i = mob.amount_of_tiles as u16 - k.0;
                 }
@@ -176,12 +267,10 @@ fn pathfinding_with_tp(
                 }
 
                 if mob.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
-                    padding_i_upper =
-                        mob.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
+                    padding_i_upper = mob.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
                 }
                 if mob.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
-                    padding_j_upper =
-                        mob.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
+                    padding_j_upper = mob.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
                 }
 
                 for i in k.0 + padding_i - mob.amount_of_tiles as u16
@@ -196,42 +285,53 @@ fn pathfinding_with_tp(
                             || j == k.1 + mob.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
-
-                            if !mob_map.map.contains_key(&(i, j)) // skip iter if tile doesnt exist
-                            { 
-                                continue; 
-                            }
-
-                            if mob_map.map.get(&(i, j)).unwrap().tiletype != TileType::Floor // skip iter if tile isnt floor
-                            || mob_map.map.get(&(i, j)).unwrap().mob_count != 0 // skip iter if there are mobs
+                            if !mob_map.map.contains_key(&(i, j))
+                            // skip iter if tile doesnt exist
                             {
                                 continue;
                             }
-                            //maybe change i and j????
-                            let d = ((player.translation.x-i as f32 * 32.).powf(2.)+(player.translation.y-j as f32 * 32.)).sqrt();
+
+                            if mob_map.map.get(&(i, j)).unwrap().tiletype != TileType::Floor // skip iter if tile isnt floor
+                            || mob_map.map.get(&(i, j)).unwrap().mob_count != 0
+                            // skip iter if there are mobs
+                            {
+                                continue;
+                            }
+                            //построение прямой
+                            let d = ((player.translation.x - i as f32 * 32.).powf(2.)
+                                + (player.translation.y - j as f32 * 32.))
+                                .sqrt();
                             let mut k = 0;
-                            let coef = d/200.;
-                        
-                            while k<=200{
-                                let r = (coef * k as f32)/d;
+                            let coef = d / 200.;
+
+                            while k <= 200 {
+                                let r = (coef * k as f32) / d;
 
                                 let x_temp = r * player.translation.x + (1. - r) * (i as f32 * 32.);
                                 let y_temp = r * player.translation.y + (1. - r) * (j as f32 * 32.);
 
-                                let temp_pos = ((x_temp.floor() / 32.) as u16, (y_temp.floor() /32.) as u16);
-                                if !mob_map.map.contains_key(&temp_pos) || mob_map.map.get(&temp_pos).unwrap().tiletype == TileType::Wall  {
+                                let temp_pos =
+                                    ((x_temp.floor() / 32.) as u16, (y_temp.floor() / 32.) as u16);
+                                if !mob_map.map.contains_key(&temp_pos)
+                                    || mob_map.map.get(&temp_pos).unwrap().tiletype
+                                        == TileType::Wall
+                                {
                                     break;
                                 }
                                 k += 1;
                             }
-
-                            if k >= 190{
+                            //если не встретили стену, строим путь
+                            if k >= 190 {
                                 mob.place_to_teleport = Vec::new();
                                 mob.place_to_teleport.push((i, j));
                                 check = true;
 
-                                mob_map.map.get_mut(&(i,j)).unwrap().mob_count += 1;
-                                mob_map.map.get_mut(&(mob_pos.0,mob_pos.1)).unwrap().mob_count -= 1;  
+                                mob_map.map.get_mut(&(i, j)).unwrap().mob_count += 1;
+                                mob_map
+                                    .map
+                                    .get_mut(&(mob_pos.0, mob_pos.1))
+                                    .unwrap()
+                                    .mob_count -= 1;
                             }
                         }
                     }
@@ -241,9 +341,12 @@ fn pathfinding_with_tp(
     }
 }
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
-fn a_pathfinding<T:Component, P: Component>(
-    player_query: Query<&Transform, (With<T>, Without<P>)>, //don't use globalTransform, please
-    mut pathfinder_query: Query<(&Transform, &mut Pathfinder), (Without<T>, Without<Teleport>, With<P>)>,
+fn a_pathfinding<T: Component, P: Component>(
+    target_query: Query<&Transform, (With<T>, Without<P>)>, //don't use globalTransform, please
+    mut pathfinder_query: Query<
+        (&Transform, &mut Pathfinder),
+        (Without<T>, Without<Teleport>, With<P>),
+    >,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
 ) {
@@ -251,7 +354,7 @@ fn a_pathfinding<T:Component, P: Component>(
         pathfinder.update_path_timer.tick(time.delta());
         if pathfinder.update_path_timer.just_finished() {
             //получаем позицию игрока
-            if let Ok(player) = player_query.get_single() {
+            if let Ok(target) = target_query.get_single() {
                 //создаем нод где стоит моб
                 let start_node = Node::new(
                     TileType::Floor,
@@ -274,13 +377,13 @@ fn a_pathfinding<T:Component, P: Component>(
                 //делаем на основе позиции игрока goal_node
                 let goal_node = get_node_where_object_is(
                     &mut graph_search,
-                    &Vec2::new(player.translation.x.floor(), player.translation.y.floor()),
+                    &Vec2::new(target.translation.x.floor(), target.translation.y.floor()),
                 );
 
                 //задаем нод где стоит моб нулевой ценой
                 field[pathfinder_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
-                     [pathfinder_transform.translation.y.floor() as usize / ROOM_SIZE as usize].change_cost(0);
-
+                    [pathfinder_transform.translation.y.floor() as usize / ROOM_SIZE as usize]
+                    .change_cost(0);
 
                 //создаем хэшмапы для пройденных нодов и доступных
                 let mut reachable = HashMap::new();
@@ -314,8 +417,8 @@ fn a_pathfinding<T:Component, P: Component>(
                             ));
 
                         pathfinder.path = build_path(
-                            field[((goal_node.position.x ) / ROOM_SIZE as f32) as usize]
-                                [((goal_node.position.y ) / ROOM_SIZE as f32) as usize]
+                            field[((goal_node.position.x) / ROOM_SIZE as f32) as usize]
+                                [((goal_node.position.y) / ROOM_SIZE as f32) as usize]
                                 .clone(),
                         );
                         break;
@@ -399,34 +502,6 @@ fn a_pathfinding<T:Component, P: Component>(
     }
 }
 
-//function to avoid diagonal movement through walls
-fn sub_grid_new(grid: Vec<Vec<TileType>>, i: usize, j: usize) -> Vec<Vec<u8>> {
-    let mut sub_grid: Vec<Vec<u8>> = vec![vec![0, 0, 0], vec![0, 0, 0], vec![0, 0, 0]];
-
-    if grid[i][j - 1] == TileType::Wall {
-        sub_grid[0][0] += 1;
-        sub_grid[1][0] += 1;
-        sub_grid[2][0] += 1;
-    }
-    if grid[i][j + 1] == TileType::Wall {
-        sub_grid[0][2] += 1;
-        sub_grid[1][2] += 1;
-        sub_grid[2][2] += 1;
-    }
-    if grid[i - 1][j] == TileType::Wall {
-        sub_grid[0][0] += 1;
-        sub_grid[0][1] += 1;
-        sub_grid[0][2] += 1;
-    }
-    if grid[i + 1][j] == TileType::Wall {
-        sub_grid[2][0] += 1;
-        sub_grid[2][1] += 1;
-        sub_grid[2][2] += 1;
-    }
-
-    return sub_grid;
-}
-
 //система создания графа как листа смежности, граф идет как ресурс, мб стоит проверить, что с ним все нормально и он меняется и сохраняется
 pub fn create_new_graph(room: Res<LevelGenerator>, mut graph_search: ResMut<Graph>) {
     //берем мапу с LevelGenerator, потом надо будет вынести ее оттуда в отдельную структуру
@@ -487,51 +562,4 @@ pub fn create_new_graph(room: Res<LevelGenerator>, mut graph_search: ResMut<Grap
             }
         }
     }
-}
-// ФУНКЦИЯ ПОСТРОЕНИЯ ПУТИ, НУЖНО РЕШИТЬ ЧТО С НЕЙ ДЕЛАТЬ, КУДА СОХРАНЯТЬ ПУТЬ
-fn build_path(node: CostNode) -> Vec<(u16, u16)> {
-    let mut path: Vec<(u16, u16)> = Vec::new();
-    for i in node.path {
-        path.push(i);
-    }
-    path.remove(0); // удаляем точку, в которой уже стоит моб на момент создания пути
-    return path;
-}
-
-//функция выбора нода, эвристика, учитывает только расстояние до цели и длину пути,
-//можно добавить что-то, например кастомные тайлы пола, по которым не будут хотеть ходить мобы
-fn pick_node(reachable: Vec<Node>, goal_node: Node, cost_grid: Vec<Vec<CostNode>>) -> Node {
-    let mut min_cost: usize = usize::MAX;
-    let mut best_node: Node = Node::new(TileType::Floor, Vec2::new(0., 0.));
-
-    let path_coef = 100; // можно покрутить, зависимость от кол-ва пройденных нодов
-
-    for node in reachable {
-        //цена пути (учет кол-ва пройденных нодов, можно здесь подумать покрутить параметры)
-        let cost_to_start: usize = path_coef
-            * cost_grid[((node.position.x) / ROOM_SIZE as f32) as usize]
-                [((node.position.y) / ROOM_SIZE as f32) as usize]
-                .cost as usize;
-
-        //добавление цены за дистанцию до нода
-        let cost_node_to_goal: usize = distance(&node, &goal_node);
-        let total_cost: usize = cost_to_start + cost_node_to_goal;
-
-        if min_cost > total_cost {
-            min_cost = total_cost;
-            best_node = node;
-        }
-    }
-    return best_node;
-}
-
-//функция расчета дистанции для функции выбора нода
-fn distance(node1: &Node, node2: &Node) -> usize {
-    return std::cmp::min(
-        (node2.position.x - node1.position.x).abs() as usize
-            + (node2.position.y - node1.position.y).abs() as usize,
-        ((node1.position.x - node2.position.x).powf(2.)
-            + (node1.position.y - node2.position.y).powf(2.))
-        .sqrt() as usize,
-    );
 }
