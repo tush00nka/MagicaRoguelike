@@ -43,10 +43,11 @@ impl Plugin for MobPlugin {
                     damage_mobs,
                     mob_death,
                     spawn_corpse,
-                    damage_obstacles::<Corpse>,
-                    hit_obstacles::<Corpse>,
+                    damage_obstacles::<Obstacle>,
+                    hit_obstacles::<Obstacle>,
                     animate_mobs,
                     rotate_mobs,
+                    raising_dead,
                     mob_shoot,
                     spawn_mob,
                     hit_projectiles,
@@ -77,6 +78,7 @@ pub enum MobType {
     FireMage,
     WaterMage,
     JungleTurret,
+    Necromancer,
 }
 
 #[derive(Component, Clone)]
@@ -117,7 +119,6 @@ pub struct MeleeMobBundle {
     // can add smth else, like has phasing or smth idk
     path_finder: Pathfinder,
 }
-
 #[derive(Bundle)]
 pub struct TurretBundle {
     shoot_ability: ShootAbility,
@@ -130,12 +131,24 @@ pub struct MageBundle {
     shoot_ability: ShootAbility,
 }
 
+#[derive(Bundle)]
+pub struct SummoningBundle {
+    summoning_ability: Summoning,
+    //maybe add something like flag structure, which will check is that static object, who spawns or something else, so we can add portal for example
+}
+
 #[derive(Component)]
 pub struct Teleport {
     //todo: change to just tuple? maybe not?
     pub amount_of_tiles: u8,
     pub place_to_teleport: Vec<(u16, u16)>,
     pub time_to_teleport: Timer,
+}
+//component to mob and structures who can spawn enemy.
+#[derive(Component)]
+pub struct Summoning {
+    pub time_to_spawn: Timer,
+    pub is_static: bool,
 }
 
 #[derive(Component)]
@@ -155,6 +168,10 @@ pub struct Corpse {
     mob_type: MobType,
 }
 
+//struct for obstacles, which can be destroyed(post, corpses, smth)
+#[derive(Component)]
+pub struct Obstacle;
+
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
@@ -168,6 +185,7 @@ impl Mob {
         Self { damage }
     }
 }
+
 impl MeleeMobBundle {
     fn knight() -> Self {
         Self {
@@ -191,6 +209,19 @@ impl MeleeMobBundle {
                     TimerMode::Repeating,
                 ),
                 speed: 2500.,
+            },
+        }
+    }
+
+    fn necromancer() -> Self {
+        Self {
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 3500.,
             },
         }
     }
@@ -242,7 +273,19 @@ impl MageBundle {
         }
     }
 }
-
+impl SummoningBundle {
+    fn necromancer() -> Self {
+        Self {
+            summoning_ability: Summoning {
+                time_to_spawn: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(1000..2000)),
+                    TimerMode::Repeating,
+                ),
+                is_static: false,
+            },
+        }
+    }
+}
 impl MobBundle {
     fn knight() -> Self {
         Self {
@@ -310,6 +353,20 @@ impl MobBundle {
             health: Health::new(80),
         }
     }
+
+    fn necromancer() -> Self {
+        Self {
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth],
+                resistance_percent: vec![0, 0, 30, 0, 0],
+            },
+            mob_type: MobType::Necromancer,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 5 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(140),
+        }
+    }
 }
 
 impl Default for PhysicalBundle {
@@ -337,12 +394,13 @@ impl Default for PhysicalBundle {
 // range for enum of mobs todo: change to better spawn?
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
-        match rng.gen_range(0..=4) {
+        match rng.gen_range(0..=6) {
             0 => MobType::Mossling,
             1 => MobType::Knight,
             2 => MobType::FireMage,
             3 => MobType::WaterMage,
             4 => MobType::JungleTurret,
+            5 => MobType::Necromancer,
             _ => MobType::Mossling,
         }
     }
@@ -356,9 +414,9 @@ pub struct MobDeathEvent {
     pub dir: Vec3,
 }
 #[derive(Event)]
-pub struct MobSpawnEvent{
+pub struct MobSpawnEvent {
     pub mob_type: MobType,
-    pub pos: (u16,u16),
+    pub pos: (u16, u16),
 }
 //event to spawn corpse
 #[derive(Event)]
@@ -399,7 +457,7 @@ pub fn spawn_mob(
     asset_server: Res<AssetServer>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut ev_mob_spawn: EventReader<MobSpawnEvent>
+    mut ev_mob_spawn: EventReader<MobSpawnEvent>,
 ) {
     for ev in ev_mob_spawn.read() {
         let texture_path: &str;
@@ -408,10 +466,11 @@ pub fn spawn_mob(
         let rotation_entity: bool;
         let rotation_path: &str;
         let has_animation: bool;
+        let pixel_size: u32;
 
         let x = ev.pos.0;
         let y = ev.pos.1;
-        
+
         //pick mob with random, assign some variables
         match ev.mob_type {
             MobType::Knight => {
@@ -421,6 +480,7 @@ pub fn spawn_mob(
                 rotation_path = "";
                 rotation_entity = false;
                 has_animation = true;
+                pixel_size = 16;
             }
             MobType::Mossling => {
                 frame_count = 4;
@@ -429,6 +489,7 @@ pub fn spawn_mob(
                 rotation_path = "";
                 rotation_entity = false;
                 has_animation = true;
+                pixel_size = 16;
             }
             MobType::FireMage => {
                 texture_path = "textures/mobs/fire_mage.png";
@@ -437,6 +498,7 @@ pub fn spawn_mob(
                 fps = 3;
                 rotation_entity = false;
                 has_animation = true;
+                pixel_size = 16;
             }
             MobType::WaterMage => {
                 frame_count = 2;
@@ -445,6 +507,7 @@ pub fn spawn_mob(
                 rotation_path = "";
                 rotation_entity = false;
                 has_animation = true;
+                pixel_size = 16;
             }
             MobType::JungleTurret => {
                 frame_count = 1;
@@ -453,12 +516,22 @@ pub fn spawn_mob(
                 rotation_path = "textures/mobs/plant_head.png";
                 rotation_entity = true;
                 has_animation = false;
+                pixel_size = 16;
+            }
+            MobType::Necromancer => {
+                frame_count = 4;
+                fps = 12;
+                texture_path = "textures/mobs/necromancer.png";
+                rotation_path = "";
+                rotation_entity = false;
+                has_animation = true;
+                pixel_size = 24;
             }
         }
         //get texture and layout
         let texture = asset_server.load(texture_path);
-
-        let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), frame_count, 1, None, None);
+        let layout =
+            TextureAtlasLayout::from_grid(UVec2::splat(pixel_size), frame_count, 1, None, None);
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
         //setup animation cfg
         let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
@@ -535,6 +608,14 @@ pub fn spawn_mob(
                     .unwrap()
                     .mob_count += 1;
             }
+            MobType::Necromancer => {
+                commands
+                    .entity(mob)
+                    .insert(MobBundle::necromancer())
+                    .insert(SummoningBundle::necromancer())
+                    .insert(MeleeMobBundle::necromancer());
+                //add necro bundles
+            }
         }
         if rotation_entity {
             commands.entity(mob).with_children(|parent| {
@@ -549,6 +630,7 @@ pub fn spawn_mob(
         }
     }
 }
+
 pub fn first_spawn_mobs(
     mut mob_map: ResMut<Map>,
     mut game_state: ResMut<NextState<GameState>>,
@@ -564,10 +646,13 @@ pub fn first_spawn_mobs(
                     .unwrap()
                     .mob_count = 0;
 
-                    let mob_type: MobType = rand::random();
-                    portal_manager.push_mob();
-                    ev_mob_spawn.send(MobSpawnEvent { mob_type: mob_type, pos: (x as u16,y as u16) });
-            }  
+                let mob_type: MobType = rand::random();
+                portal_manager.push_mob();
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: mob_type,
+                    pos: (x as u16, y as u16),
+                });
+            }
         }
     }
 
@@ -665,7 +750,51 @@ fn mob_shoot(
         }
     }
 }
-
+//Function for moving spawner mobs
+fn raising_dead(
+    mut commands: Commands,
+    mut ev_spawn: EventWriter<MobSpawnEvent>,
+    mut summoner_query: Query<(Entity, &Transform, &mut Summoning, &Pathfinder)>,
+    mut corpse_query: Query<(Entity, &Transform, &Corpse)>,
+    mut ev_collision: EventReader<Collision>,
+    mut portal_manager: ResMut<PortalManager>,
+    //    time: Res<Time>,
+) {
+    for Collision(contacts) in ev_collision.read() {
+        let mut spawner_e = Entity::PLACEHOLDER;
+        let mut corpse_e = Entity::PLACEHOLDER;
+        
+        if summoner_query.contains(contacts.entity2) && corpse_query.contains(contacts.entity1) {
+            spawner_e = contacts.entity2;
+            corpse_e = contacts.entity1;
+        } else if summoner_query.contains(contacts.entity1)
+            && corpse_query.contains(contacts.entity2)
+        {
+            spawner_e = contacts.entity1;
+            corpse_e = contacts.entity2;
+        }
+        for (candidate_e, _transform, mut summoning, _pathfinder) in summoner_query.iter_mut() {
+            if spawner_e == candidate_e {
+//                summoning.time_to_spawn.tick(time.delta());
+//                if summoning.time_to_spawn.just_finished() {
+                    for (corpse_candidate_e, transform, corpse) in corpse_query.iter_mut() {
+                        if corpse_e == corpse_candidate_e {
+                            ev_spawn.send(MobSpawnEvent {
+                                mob_type: corpse.mob_type.clone(),
+                                pos: (
+                                    (transform.translation.x / 32.).floor() as u16,
+                                    (transform.translation.y / 32.).floor() as u16,
+                                ),
+                            });
+                            portal_manager.push_mob();
+                            commands.entity(corpse_candidate_e).despawn();
+//                        }
+                    }
+                }
+            }
+        }
+    }
+}
 fn hit_projectiles(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
@@ -766,9 +895,9 @@ fn hit_obstacles<T: Component>(
 
 fn damage_obstacles<T: Component>(
     mut commands: Commands,
-    mut obstacle_query: Query<(Entity, &mut Health, &Transform), With<T>>,
+    mut obstacle_query: Query<(Entity, &mut Health), With<T>>,
 ) {
-    for (entity, mut health, transform) in obstacle_query.iter_mut() {
+    for (entity, mut health) in obstacle_query.iter_mut() {
         if !health.hit_queue.is_empty() {
             let hit = health.hit_queue.remove(0);
 
@@ -839,42 +968,57 @@ fn spawn_corpse(
 ) {
     for ev in ev_corpse_spawn.read() {
         let texture_path: &str;
+        let can_be_spawned: bool;
         match ev.mob_type {
             MobType::Knight => {
                 texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
             MobType::Mossling => {
                 texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
             MobType::FireMage => {
                 texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
             MobType::WaterMage => {
                 texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
             MobType::JungleTurret => {
                 texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::Necromancer => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = false;
             }
         }
         let texture = asset_server.load(texture_path);
-        commands
+        let grave = commands
             .spawn(SpriteBundle {
                 texture,
                 transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
                 ..default()
             })
-            .insert(Collider::circle(6.))
+            .insert(Collider::circle(32.))
+            .insert(Sensor)
             .insert(LockedAxes::ROTATION_LOCKED)
             .insert(GravityScale(0.0))
             .insert(CollisionLayers::new(
                 GameLayer::Enemy,
-                [GameLayer::Wall, GameLayer::Projectile],
+                [GameLayer::Projectile, GameLayer::Enemy],
             ))
             .insert(RigidBody::Dynamic)
-            .insert(Health::new(40)) //TODO: ADD ABILITY TO CRUSH THEIR SKULLS or smth idk
-            .insert(Corpse {
+            .insert(Health::new(40))
+            .insert(Obstacle)
+            .id();
+        if can_be_spawned {
+            commands.entity(grave).insert(Corpse {
                 mob_type: ev.mob_type.clone(),
             });
+        }
     }
 }
 

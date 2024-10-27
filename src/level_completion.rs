@@ -1,4 +1,4 @@
-use crate::mob::Mob;
+use crate::mob::{Mob, Obstacle};
 use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
@@ -12,38 +12,54 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-            .add_systems(Update, (spawn_portal, rotate_portal, pulsate::<Portal>)
-                .run_if(in_state(TimeState::Unpaused)))
-            .add_systems(Update, collision_portal
-                .run_if(in_state(TimeState::Unpaused))
-                .run_if(in_state(GameState::InGame)))
-            .add_systems(Update, collision_portal
-                .run_if(in_state(TimeState::Unpaused))
-                .run_if(in_state(GameState::Hub)))
-//maybe delete?
-//            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::first_spawn_mobs)) 
-            .add_systems(OnEnter(GameState::Hub), (
-                despawn_all_with::<crate::exp_tank::ExpTank>,
-                despawn_all_with::<crate::health_tank::HealthTank>,
-                despawn_all_with::<crate::gamemap::Floor>,
-                despawn_all_with::<crate::gamemap::Wall>,
-                despawn_all_with::<crate::exp_orb::ExpOrb>,
-                despawn_all_with::<crate::projectile::Projectile>,
-                despawn_all_with::<crate::shield_spell::Shield>,
-                despawn_all_with::<crate::black_hole::BlackHole>,
-                despawn_all_with::<crate::item::Item>,
-                despawn_all_with::<Portal>,
-            ))
-            .add_systems(OnExit(GameState::Hub), (
-                despawn_all_with::<crate::gamemap::Wall>,
-                despawn_all_with::<crate::gamemap::Floor>,
-                despawn_all_with::<crate::wand::Wand>,
-                despawn_all_with::<crate::projectile::Projectile>,
-                despawn_all_with::<crate::shield_spell::Shield>,
-                despawn_all_with::<crate::black_hole::BlackHole>,
-                despawn_all_with::<crate::item::Item>,
-                despawn_all_with::<Portal>,
-            ))
+            .add_systems(
+                Update,
+                (spawn_portal, rotate_portal, pulsate::<Portal>)
+                    .run_if(in_state(TimeState::Unpaused)),
+            )
+            .add_systems(
+                Update,
+                collision_portal
+                    .run_if(in_state(TimeState::Unpaused))
+                    .run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                Update,
+                collision_portal
+                    .run_if(in_state(TimeState::Unpaused))
+                    .run_if(in_state(GameState::Hub)),
+            )   
+            //maybe delete?
+            //            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::first_spawn_mobs))
+            .add_systems(
+                OnEnter(GameState::Hub),
+                (
+                    despawn_all_with::<crate::exp_tank::ExpTank>,
+                    despawn_all_with::<crate::health_tank::HealthTank>,
+                    despawn_all_with::<crate::gamemap::Floor>,
+                    despawn_all_with::<crate::gamemap::Wall>,
+                    despawn_all_with::<crate::exp_orb::ExpOrb>,
+                    despawn_all_with::<crate::projectile::Projectile>,
+                    despawn_all_with::<crate::shield_spell::Shield>,
+                    despawn_all_with::<crate::black_hole::BlackHole>,
+                    despawn_all_with::<crate::item::Item>,
+                    despawn_all_with::<Portal>,
+                    despawn_all_with::<Obstacle>,
+                ),
+            )
+            .add_systems(
+                OnExit(GameState::Hub),
+                (
+                    despawn_all_with::<crate::gamemap::Wall>,
+                    despawn_all_with::<crate::gamemap::Floor>,
+                    despawn_all_with::<crate::wand::Wand>,
+                    despawn_all_with::<crate::projectile::Projectile>,
+                    despawn_all_with::<crate::shield_spell::Shield>,
+                    despawn_all_with::<crate::black_hole::BlackHole>,
+                    despawn_all_with::<crate::item::Item>,
+                    despawn_all_with::<Portal>,
+                ),
+            )
             .insert_resource(PortalManager::default());
     }
 }
@@ -61,7 +77,7 @@ impl Default for PortalManager {
                 y: 0.,
                 z: 0.,
             },
-            mobs: 0
+            mobs: 0,
         }
     }
 }
@@ -85,8 +101,8 @@ impl PortalManager {
     pub fn no_mobs_on_level(&self) -> bool {
         self.mobs <= 0
     }
-    
-    pub fn push_mob(&mut self){
+
+    pub fn push_mob(&mut self) {
         self.mobs += 1;
     }
 }
@@ -128,19 +144,13 @@ fn spawn_portal(
     }
 }
 
-fn rotate_portal(
-    mut portal_query: Query<&mut Transform, With<Portal>>,
-    time: Res<Time>,
-) {
+fn rotate_portal(mut portal_query: Query<&mut Transform, With<Portal>>, time: Res<Time>) {
     for mut transform in portal_query.iter_mut() {
         transform.rotate_z(time.delta_seconds());
     }
 }
 
-fn recalculate_mobs(
-    mut portal_manager: ResMut<PortalManager>,
-    mob_query: Query<&Mob>,
-) {
+fn recalculate_mobs(mut portal_manager: ResMut<PortalManager>, mob_query: Query<&Mob>) {
     portal_manager.set_mobs(mob_query.iter().len() as u32);
 }
 
@@ -159,7 +169,7 @@ fn collision_portal(
                 GameState::InGame => {
                     game_state.set(GameState::Hub);
                 }
-                GameState::Hub =>{
+                GameState::Hub => {
                     game_state.set(GameState::Loading);
                 }
                 _ => {}
