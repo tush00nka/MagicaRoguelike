@@ -30,6 +30,7 @@ impl Plugin for GameOverPlugin {
                 despawn_all_with::<crate::ui::ExpBarUI>,
                 despawn_all_with::<crate::ui::HPBarUI>,
                 despawn_all_with::<crate::ui::ItemUI>,
+                despawn_all_with::<crate::mob::Obstacle>,
             ));
 
     }

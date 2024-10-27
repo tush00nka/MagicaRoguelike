@@ -47,7 +47,9 @@ impl Plugin for MobPlugin {
                     hit_obstacles::<Obstacle>,
                     animate_mobs,
                     rotate_mobs,
-                    raising_dead,
+                    corpse_collision,
+                    handle_raising,
+                    spawner_mob_spawn,
                     mob_shoot,
                     spawn_mob,
                     hit_projectiles,
@@ -172,6 +174,15 @@ pub struct Corpse {
 #[derive(Component)]
 pub struct Obstacle;
 
+#[derive(Component)]
+pub struct Raising {
+    pub mob_type: MobType,
+    pub mob_pos: Transform,
+    pub corpse_id: Entity,
+}
+
+#[derive(Component)]
+pub struct BusyRaising;
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
@@ -675,7 +686,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<S
 fn move_mobs(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
-        (Without<Stun>, Without<Teleport>),
+        (Without<Stun>, Without<Teleport>, Without<Raising>),
     >,
     time: Res<Time>,
 ) {
@@ -751,19 +762,52 @@ fn mob_shoot(
     }
 }
 //Function for moving spawner mobs
-fn raising_dead(
+fn spawner_mob_spawn(
     mut commands: Commands,
     mut ev_spawn: EventWriter<MobSpawnEvent>,
-    mut summoner_query: Query<(Entity, &Transform, &mut Summoning, &Pathfinder)>,
-    mut corpse_query: Query<(Entity, &Transform, &Corpse)>,
-    mut ev_collision: EventReader<Collision>,
+    mut summoner_query: Query<(Entity, &mut Summoning, &Raising, &mut Sprite), Without<Stun>>,
+    corpse_query: Query<Entity,(With<Corpse>, With<BusyRaising>)>,
+    time: Res<Time>,
     mut portal_manager: ResMut<PortalManager>,
-    //    time: Res<Time>,
+) {
+    for (summoner, mut summoning, raising, mut sprite) in summoner_query.iter_mut() {
+        if !corpse_query.contains(raising.corpse_id){
+            commands.entity(summoner).remove::<Raising>();
+            sprite.color = Color::srgb(1., 1., 1.);
+            continue;
+        }
+        summoning.time_to_spawn.tick(time.delta());
+        if summoning.time_to_spawn.just_finished() {
+            let mob_pos: (u16, u16) = (
+                (raising.mob_pos.translation.x / 32.).floor() as u16,
+                (raising.mob_pos.translation.y / 32.).floor() as u16,
+            );
+            ev_spawn.send(MobSpawnEvent {
+                mob_type: raising.mob_type.clone(),
+                pos: mob_pos,
+            });
+
+            commands.entity(raising.corpse_id).despawn();
+            commands.entity(summoner).remove::<Raising>();
+            sprite.color = Color::srgb(1., 1., 1.);
+            portal_manager.push_mob();
+        }
+    }
+}
+
+fn corpse_collision(
+    mut commands: Commands,
+    mut summoner_query: Query<
+        (Entity, &Transform, &mut Summoning, &Pathfinder),
+        (Without<Raising>, Without<Stun>),
+    >,
+    mut corpse_query: Query<(Entity, &Transform, &Corpse), Without<BusyRaising>>,
+    mut ev_collision: EventReader<Collision>,
 ) {
     for Collision(contacts) in ev_collision.read() {
         let mut spawner_e = Entity::PLACEHOLDER;
         let mut corpse_e = Entity::PLACEHOLDER;
-        
+
         if summoner_query.contains(contacts.entity2) && corpse_query.contains(contacts.entity1) {
             spawner_e = contacts.entity2;
             corpse_e = contacts.entity1;
@@ -773,22 +817,16 @@ fn raising_dead(
             spawner_e = contacts.entity1;
             corpse_e = contacts.entity2;
         }
-        for (candidate_e, _transform, mut summoning, _pathfinder) in summoner_query.iter_mut() {
+        for (candidate_e, _transform, _summoning, _pathfinder) in summoner_query.iter_mut() {
             if spawner_e == candidate_e {
-//                summoning.time_to_spawn.tick(time.delta());
-//                if summoning.time_to_spawn.just_finished() {
-                    for (corpse_candidate_e, transform, corpse) in corpse_query.iter_mut() {
-                        if corpse_e == corpse_candidate_e {
-                            ev_spawn.send(MobSpawnEvent {
-                                mob_type: corpse.mob_type.clone(),
-                                pos: (
-                                    (transform.translation.x / 32.).floor() as u16,
-                                    (transform.translation.y / 32.).floor() as u16,
-                                ),
-                            });
-                            portal_manager.push_mob();
-                            commands.entity(corpse_candidate_e).despawn();
-//                        }
+                for (corpse_candidate_e, transform, corpse) in corpse_query.iter_mut() {
+                    if corpse_e == corpse_candidate_e {
+                        commands.entity(spawner_e).insert(Raising {
+                            mob_type: corpse.mob_type.clone(),
+                            mob_pos: *transform,
+                            corpse_id: corpse_e,
+                        });
+                        commands.entity(corpse_e).insert(BusyRaising);
                     }
                 }
             }
@@ -893,6 +931,14 @@ fn hit_obstacles<T: Component>(
     }
 }
 
+fn handle_raising(
+    mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<Raising>>,
+) {
+    for (mut sprite, mut linvel) in raising_query.iter_mut() {
+        sprite.color = Color::srgb(1., 3., 3.);
+        linvel.0 = Vec2::ZERO;
+    }
+}
 fn damage_obstacles<T: Component>(
     mut commands: Commands,
     mut obstacle_query: Query<(Entity, &mut Health), With<T>>,
@@ -1002,7 +1048,7 @@ fn spawn_corpse(
                 transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
                 ..default()
             })
-            .insert(Collider::circle(32.))
+            .insert(Collider::circle(8.))
             .insert(Sensor)
             .insert(LockedAxes::ROTATION_LOCKED)
             .insert(GravityScale(0.0))
@@ -1036,7 +1082,6 @@ fn mob_death(
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         portal_manager.pop_mob();
-
         let mob_pos = (
             (ev.pos.x.floor() / 32.).floor() as u16,
             (ev.pos.y.floor() / 32.).floor() as u16,
