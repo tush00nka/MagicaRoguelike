@@ -1,7 +1,7 @@
 //all things about mobs and their spawn/behaviour
 use std::{f32::consts::PI, time::Duration};
 
-use avian2d::prelude::*;
+use avian2d::{parry::na::Const, prelude::*};
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
@@ -20,6 +20,9 @@ use crate::{
     stun::Stun,
     GameLayer, GameState, TimeState,
 };
+
+const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
+const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
 
 pub struct MobPlugin;
 
@@ -63,7 +66,7 @@ impl Plugin for MobPlugin {
 }
 //Components and bundles
 //If you want to add something (create new mob, or add new component), first of all, add bundle and components there (and check, maybe it exists already)
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub enum MobType {
     //add your mobtype here
     Knight,
@@ -380,6 +383,7 @@ pub fn spawn_mobs(
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut game_state: ResMut<NextState<GameState>>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
@@ -390,7 +394,18 @@ pub fn spawn_mobs(
                     .unwrap()
                     .mob_count = 0;
 
-                let mob_type: MobType = rand::random();
+                let mob_type: MobType;
+                match chapter_manager.get_current_chapter() {
+                    1 => { 
+                        let mob_index = rand::thread_rng().gen_range(0..DESERT_MOBS.len());
+                        mob_type = DESERT_MOBS[mob_index].clone();
+                    }
+                    2 => { 
+                        let mob_index = rand::thread_rng().gen_range(0..JUNGLE_MOBS.len());
+                        mob_type = JUNGLE_MOBS[mob_index].clone();
+                    }
+                    _ => {mob_type = rand::random();}
+                }
                 let texture_path: &str;
                 let frame_count: u32;
                 let fps: u8;
@@ -398,6 +413,7 @@ pub fn spawn_mobs(
                 let rotation_path: &str;
                 let has_animation: bool;
                 //pick mob with random, assign some variables
+
                 match mob_type {
                     MobType::Knight => {
                         frame_count = 4;
