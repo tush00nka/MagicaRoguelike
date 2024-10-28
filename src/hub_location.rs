@@ -1,4 +1,4 @@
-use crate::{gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
+use crate::{chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -6,7 +6,8 @@ pub struct HubPlugin;
 impl Plugin for HubPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<crate::level_completion::PortalEvent>()
-            .add_systems(OnEnter(GameState::Hub), spawn_hub);
+            .add_systems(OnEnter(GameState::Hub), spawn_hub)
+            .add_systems(OnExit(GameState::Hub), leave_hub);
     }
 }
 
@@ -79,4 +80,12 @@ fn spawn_hub(
     ev_spawn_portal.send(crate::level_completion::PortalEvent {
         pos: Vec3::new((upper - 1) as f32 * TILE_SIZE, (lower + 1) as f32 * TILE_SIZE, 1.0),
     });
+}
+
+fn leave_hub(
+    mut commands: Commands,
+    chapter_manager: Res<ChapterManager>,
+) {
+    commands.insert_resource(ClearColor(chapter_manager.get_current_color()));
+
 }

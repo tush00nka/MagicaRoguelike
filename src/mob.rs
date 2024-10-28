@@ -1,7 +1,7 @@
 //all things about mobs and their spawn/behaviour
 use std::{f32::consts::PI, time::Duration};
 
-use avian2d::{parry::na::Const, prelude::*};
+use avian2d::prelude::*;
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
@@ -80,7 +80,7 @@ pub enum MobType {
 #[allow(dead_code)]
 pub enum ProjectileType {
     // can use to create mobs with different types of projectiles
-    Circle,  //spawn some projectiles around
+    Circle,  // spawn some projectiles around
     Missile, // like fireball
     Gatling, // a lot of small ones
 }

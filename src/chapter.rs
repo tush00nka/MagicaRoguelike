@@ -34,6 +34,14 @@ impl ChapterManager {
     pub fn get_current_chapter(&self) -> u8 {
         self.current_chapter
     }
+
+    pub fn get_current_color(&self) -> Color {
+        match self.current_chapter {
+            1 => Color::srgb(69./255., 35./255., 13./255.),
+            2 => Color::srgb(31./255., 36./255., 10./255.),
+            _ => Color::WHITE,
+        }
+    }
 }
 
 fn init_chapter(
@@ -54,13 +62,7 @@ fn update_chapter(
         if chapter_manager.max_chapter > chapter_manager.current_chapter {
             chapter_manager.current_chapter += 1;
 
-            let bg_color: Color;
-
-            match chapter_manager.current_chapter {
-                1 => bg_color = Color::srgb(69./255., 35./255., 13./255.),
-                2 => bg_color = Color::srgb(31./255., 36./255., 10./255.),
-                _ => bg_color = Color::WHITE,
-            }
+            let bg_color = chapter_manager.get_current_color();
 
             commands.insert_resource(ClearColor(bg_color));
         }
