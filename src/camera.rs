@@ -1,7 +1,7 @@
 use bevy::{core_pipeline::bloom::BloomSettings, prelude::{Camera, *}};
 
 use crate::{
-    gamemap::{ROOM_SIZE, TILE_SIZE}, player::Player, GameState, TimeState
+    gamemap::{ROOM_SIZE, TILE_SIZE}, player::Player, GameState
 };
 pub struct CameraPlugin;
 
@@ -11,11 +11,9 @@ impl Plugin for CameraPlugin {
         app.add_systems(OnExit(GameState::Hub), reset_player_camera);
         app.add_systems(OnExit(GameState::InGame), reset_player_camera);
         app.add_systems(Update, sync_player_camera
-            .run_if(in_state(GameState::InGame))
-            .run_if(in_state(TimeState::Unpaused)));
+            .run_if(in_state(GameState::InGame)));
         app.add_systems(Update, sync_player_camera
-            .run_if(in_state(GameState::Hub))
-            .run_if(in_state(TimeState::Unpaused)));
+            .run_if(in_state(GameState::Hub)));
     }
 }
 

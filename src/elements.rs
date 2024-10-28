@@ -4,7 +4,11 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState, TimeState
+    black_hole::SpawnBlackHoleEvent,
+    projectile::SpawnProjectileEvent,
+    shield_spell::SpawnShieldEvent,
+    wand::Wand,
+    GameState,
 };
 
 pub struct ElementsPlugin;
@@ -16,8 +20,7 @@ impl Plugin for ElementsPlugin {
             .add_event::<ElementBarClear>()
             .insert_resource(ElementBar::default())
             .add_systems(OnExit(GameState::MainMenu), init_bar)
-            .add_systems(Update, (fill_bar, cast_spell)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, (fill_bar, cast_spell));
     }
 }
 
@@ -127,6 +130,7 @@ fn init_bar(
 
 fn fill_bar(
     mut bar: ResMut<ElementBar>,
+    time: Res<Time<Virtual>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut ev_bar_filled: EventWriter<ElementBarFilled>,
 ) {
@@ -141,7 +145,7 @@ fn fill_bar(
             _ => { new_element = None }
         }
 
-        if new_element.is_some() && bar.len() < bar.max {
+        if new_element.is_some() && bar.len() < bar.max && !time.is_paused() {
             ev_bar_filled.send(ElementBarFilled(new_element.unwrap()));
             bar.add(new_element.unwrap());
         }
@@ -162,8 +166,10 @@ fn cast_spell(
     mut ev_bar_clear: EventWriter<ElementBarClear>,
 
     mouse: Res<ButtonInput<MouseButton>>,
+
+    time: Res<Time<Virtual>>,
 ) {
-    if mouse.just_pressed(MouseButton::Left) && bar.len() > 0 {
+    if mouse.just_pressed(MouseButton::Left) && bar.len() > 0 && !time.is_paused() {
         
         ev_bar_clear.send(ElementBarClear);
 

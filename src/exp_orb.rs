@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     experience::{ExpGained, PlayerExperience},
-    player::Player, TimeState
+    player::Player,
 };
 
 pub struct ExpOrbPlugin;
@@ -11,8 +11,7 @@ impl Plugin for ExpOrbPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnExpOrbEvent>()
-            .add_systems(Update, (spawn_particles, drop_particles, move_particles)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, (spawn_particles, drop_particles, move_particles));
     }
 }
 

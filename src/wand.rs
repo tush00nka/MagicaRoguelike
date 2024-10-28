@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::mouse_position::MouseCoords;
 use crate::player::Player;
-use crate::{GameState, TimeState};
+use crate::GameState;
 
 pub struct WandPlugin;
 
@@ -10,8 +10,7 @@ impl Plugin for WandPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnEnter(GameState::InGame), spawn_wand)
-            .add_systems(FixedUpdate, move_rotate_wand
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(FixedUpdate, move_rotate_wand);
     }
 }
 

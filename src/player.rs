@@ -5,7 +5,7 @@ use crate::invincibility::Invincibility;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::elements::ElementResistance;
 use crate::mouse_position::MouseCoords;
-use crate::{GameLayer, TimeState};
+use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
 use crate::health::*;
 
@@ -20,11 +20,8 @@ impl Plugin for PlayerPlugin {
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
             .add_systems(OnExit(GameState::InGame), reset_player_position)
-            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death)
-                .run_if(in_state(TimeState::Unpaused)))
-            .add_systems(FixedUpdate, move_player
-                .run_if(in_state(TimeState::Unpaused)))
-            .add_systems(OnEnter(TimeState::Paused), crate::utils::clear_velocity_for::<Player>);
+            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death))
+            .add_systems(FixedUpdate, move_player);
     }
 }
 
@@ -144,15 +141,18 @@ fn animate_player(
 }
 
 fn flip_towards_mouse(
-    mut player_query: Query<(&mut Sprite, &Transform), With<Player>>,
+    mut player_query: Query<(&mut Sprite, &mut Transform), With<Player>>,
     mouse_coords: Res<MouseCoords>,
+    time: Res<Time>,
 ) {
-    if let Ok((mut sprite, player_transform)) = player_query.get_single_mut() {
+    if let Ok((mut _sprite, mut player_transform)) = player_query.get_single_mut() {
         if player_transform.translation.x - mouse_coords.0.x > 0. {
-            sprite.flip_x = true;
+            // sprite.flip_x = true;
+            player_transform.scale.x = player_transform.scale.x.lerp(-1.0, 10.0 * time.delta_seconds());
         }
         else {
-            sprite.flip_x = false;
+            // sprite.flip_x = false;
+            player_transform.scale.x = player_transform.scale.x.lerp(1.0, 10.0 * time.delta_seconds());
         }
     }
 }

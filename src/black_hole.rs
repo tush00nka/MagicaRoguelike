@@ -3,7 +3,6 @@ use bevy::prelude::*;
 
 use crate::{
     mob::Mob,
-    TimeState,
     utils::pulsate,
 };
 
@@ -19,8 +18,7 @@ impl Plugin for BlackHolePlugin {
             pulsate::<BlackHole>,
             pull_mobs,
             despawn_black_hole_on_timer
-        )
-        .run_if(in_state(TimeState::Unpaused)));
+        ));
     }
 }
 
