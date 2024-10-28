@@ -141,17 +141,15 @@ fn animate_player(
 }
 
 fn flip_towards_mouse(
-    mut player_query: Query<(&mut Sprite, &mut Transform), With<Player>>,
+    mut player_query: Query<&mut Transform, With<Player>>,
     mouse_coords: Res<MouseCoords>,
     time: Res<Time>,
 ) {
-    if let Ok((mut _sprite, mut player_transform)) = player_query.get_single_mut() {
+    if let Ok(mut player_transform) = player_query.get_single_mut() {
         if player_transform.translation.x - mouse_coords.0.x > 0. {
-            // sprite.flip_x = true;
             player_transform.scale.x = player_transform.scale.x.lerp(-1.0, 10.0 * time.delta_seconds());
         }
         else {
-            // sprite.flip_x = false;
             player_transform.scale.x = player_transform.scale.x.lerp(1.0, 10.0 * time.delta_seconds());
         }
     }
