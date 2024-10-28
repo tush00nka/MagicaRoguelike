@@ -92,6 +92,19 @@ pub enum ProjectileType {
     Gatling, // a lot of small ones
 }
 
+#[derive(Component)]
+pub enum MobTarget{
+    Player,
+    Corpse,
+    HPTank,
+    EXPTank,
+    Noone,
+}
+#[derive(Component, Default)]
+pub struct PlayerRush;
+#[derive(Component, Default)]
+pub struct CorpseRush;
+
 //Entity for
 #[derive(Component)]
 pub struct RotationEntity;
@@ -405,7 +418,7 @@ impl Default for PhysicalBundle {
 // range for enum of mobs todo: change to better spawn?
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
-        match rng.gen_range(0..=6) {
+        match rng.gen_range(0..=5) {
             0 => MobType::Mossling,
             1 => MobType::Knight,
             2 => MobType::FireMage,
@@ -478,6 +491,7 @@ pub fn spawn_mob(
         let rotation_path: &str;
         let has_animation: bool;
         let pixel_size: u32;
+        let target_for_melee: MobTarget;
 
         let x = ev.pos.0;
         let y = ev.pos.1;
@@ -492,6 +506,7 @@ pub fn spawn_mob(
                 rotation_entity = false;
                 has_animation = true;
                 pixel_size = 16;
+                target_for_melee = MobTarget::Player;
             }
             MobType::Mossling => {
                 frame_count = 4;
@@ -501,6 +516,7 @@ pub fn spawn_mob(
                 rotation_entity = false;
                 has_animation = true;
                 pixel_size = 16;
+                target_for_melee = MobTarget::Player;
             }
             MobType::FireMage => {
                 texture_path = "textures/mobs/fire_mage.png";
@@ -510,6 +526,7 @@ pub fn spawn_mob(
                 rotation_entity = false;
                 has_animation = true;
                 pixel_size = 16;
+                target_for_melee = MobTarget::Noone;
             }
             MobType::WaterMage => {
                 frame_count = 2;
@@ -519,6 +536,7 @@ pub fn spawn_mob(
                 rotation_entity = false;
                 has_animation = true;
                 pixel_size = 16;
+                target_for_melee = MobTarget::Noone;
             }
             MobType::JungleTurret => {
                 frame_count = 1;
@@ -528,6 +546,7 @@ pub fn spawn_mob(
                 rotation_entity = true;
                 has_animation = false;
                 pixel_size = 16;
+                target_for_melee = MobTarget::Noone;
             }
             MobType::Necromancer => {
                 frame_count = 4;
@@ -537,6 +556,7 @@ pub fn spawn_mob(
                 rotation_entity = false;
                 has_animation = true;
                 pixel_size = 24;
+                target_for_melee = MobTarget::Corpse;
             }
         }
         //get texture and layout
@@ -627,6 +647,17 @@ pub fn spawn_mob(
                     .insert(MeleeMobBundle::necromancer());
                 //add necro bundles
             }
+        }
+        match target_for_melee{
+            MobTarget::Player => {
+                commands.entity(mob).insert(PlayerRush);
+            }
+            MobTarget::Corpse => {
+                commands.entity(mob).insert(CorpseRush);
+            }
+            MobTarget::EXPTank => {}
+            MobTarget::HPTank => {}
+            MobTarget::Noone => {}
         }
         if rotation_entity {
             commands.entity(mob).with_children(|parent| {
