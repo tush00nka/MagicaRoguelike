@@ -92,12 +92,16 @@ pub enum ProjectileType {
     Gatling, // a lot of small ones
 }
 
+#[allow(unused)]
 #[derive(Component)]
 pub enum MobTarget{
     Player,
     Corpse,
+
+    // Для моба-вора?
     HPTank,
     EXPTank,
+    
     Noone,
 }
 #[derive(Component, Default)]
@@ -317,7 +321,7 @@ impl MobBundle {
                 elements: vec![],
                 resistance_percent: vec![0, 0, 0, 0, 0],
             },
-            mob_type: MobType::Mossling,
+            mob_type: MobType::Knight,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
@@ -545,7 +549,7 @@ pub fn spawn_mob(
                 rotation_path = "textures/mobs/plant_head.png";
                 rotation_entity = true;
                 has_animation = false;
-                pixel_size = 16;
+                pixel_size = 24;
                 target_for_melee = MobTarget::Noone;
             }
             MobType::Necromancer => {
@@ -970,6 +974,7 @@ fn handle_raising(
         linvel.0 = Vec2::ZERO;
     }
 }
+
 fn damage_obstacles<T: Component>(
     mut commands: Commands,
     mut obstacle_query: Query<(Entity, &mut Health), With<T>>,
@@ -1048,23 +1053,23 @@ fn spawn_corpse(
         let can_be_spawned: bool;
         match ev.mob_type {
             MobType::Knight => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/knight_corpse.png";
                 can_be_spawned = true;
             }
             MobType::Mossling => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/mossling_corpse.png";
                 can_be_spawned = true;
             }
             MobType::FireMage => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/fire_mage_corpse.png";
                 can_be_spawned = true;
             }
             MobType::WaterMage => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/water_mage_corpse.png";
                 can_be_spawned = true;
             }
             MobType::JungleTurret => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/plant_corpse.png";
                 can_be_spawned = true;
             }
             MobType::Necromancer => {
