@@ -25,7 +25,7 @@ impl Default for ChapterManager {
         Self {
             current_level: 1,
             current_chapter: 1,
-            max_chapter: 2,
+            max_chapter: 3,
         }
     }
 }
@@ -39,6 +39,7 @@ impl ChapterManager {
         match self.current_chapter {
             1 => Color::srgb(69./255., 35./255., 13./255.),
             2 => Color::srgb(31./255., 36./255., 10./255.),
+            3 => Color::srgb(48./255., 15./255., 10./255.),
             _ => Color::WHITE,
         }
     }
