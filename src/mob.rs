@@ -452,7 +452,7 @@ pub struct MobDeathEvent {
 #[derive(Event)]
 pub struct MobSpawnEvent {
     pub mob_type: MobType,
-    pub pos: (u16, u16),
+    pub pos: Vec2,
 }
 //event to spawn corpse
 #[derive(Event)]
@@ -508,8 +508,8 @@ pub fn spawn_mob(
         let pixel_size: u32;
         let target_for_melee: MobTarget;
 
-        let x = ev.pos.0;
-        let y = ev.pos.1;
+        let x = ev.pos.x;
+        let y = ev.pos.y;
 
         //pick mob with random, assign some variables
         match ev.mob_type {
@@ -693,7 +693,6 @@ pub fn first_spawn_mobs(
     mut mob_map: ResMut<Map>,
     mut game_state: ResMut<NextState<GameState>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
-    mut portal_manager: ResMut<PortalManager>,
     chapter_manager: Res<ChapterManager>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
@@ -718,10 +717,9 @@ pub fn first_spawn_mobs(
                     _ => { mob_type = rand::random(); }
                 }
 
-                portal_manager.push_mob();
                 ev_mob_spawn.send(MobSpawnEvent {
                     mob_type,
-                    pos: (x as u16, y as u16),
+                    pos: Vec2::new((x * ROOM_SIZE) as f32, (y * ROOM_SIZE) as f32),
                 });
             }
         }
@@ -852,7 +850,6 @@ fn spawner_mob_spawn(
     mut summoner_query: Query<(Entity, &mut Summoning, &Raising, &mut Sprite), Without<Stun>>,
     corpse_query: Query<Entity, (With<Corpse>, With<BusyRaising>)>,
     time: Res<Time>,
-    mut portal_manager: ResMut<PortalManager>,
 ) {
     for (summoner, mut summoning, raising, mut sprite) in summoner_query.iter_mut() {
         if !corpse_query.contains(raising.corpse_id) {
@@ -862,19 +859,14 @@ fn spawner_mob_spawn(
         }
         summoning.time_to_spawn.tick(time.delta());
         if summoning.time_to_spawn.just_finished() {
-            let mob_pos: (u16, u16) = (
-                (raising.mob_pos.translation.x / 32.).floor() as u16,
-                (raising.mob_pos.translation.y / 32.).floor() as u16,
-            );
             ev_spawn.send(MobSpawnEvent {
                 mob_type: raising.mob_type.clone(),
-                pos: mob_pos,
+                pos: raising.mob_pos.translation.truncate(),
             });
 
             commands.entity(raising.corpse_id).despawn();
             commands.entity(summoner).remove::<Raising>();
             sprite.color = Color::srgb(1., 1., 1.);
-            portal_manager.push_mob();
         }
     }
 }
@@ -1082,7 +1074,7 @@ fn damage_mobs(
                 // спавним труп на месте смерти моба
                 ev_corpse.send(CorpseSpawnEvent {
                     mob_type: mob_type.clone(),
-                    pos: transform.translation,
+                    pos: transform.translation.with_z(0.05),
                 });
             }
         }
@@ -1137,7 +1129,7 @@ fn spawn_corpse(
             .insert(GravityScale(0.0))
             .insert(CollisionLayers::new(
                 GameLayer::Enemy,
-                [GameLayer::Projectile, GameLayer::Enemy],
+                [GameLayer::Enemy],
             ))
             .insert(RigidBody::Dynamic)
             .insert(Health::new(40))
