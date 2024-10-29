@@ -1,4 +1,4 @@
-use crate::mob::Mob;
+use crate::mob::{Mob, Obstacle};
 use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
@@ -56,7 +56,7 @@ impl Default for PortalManager {
                 y: 0.,
                 z: 0.,
             },
-            mobs: 0
+            mobs: 0,
         }
     }
 }
@@ -79,6 +79,10 @@ impl PortalManager {
 
     pub fn no_mobs_on_level(&self) -> bool {
         self.mobs <= 0
+    }
+
+    pub fn push_mob(&mut self) {
+        self.mobs += 1;
     }
 }
 
@@ -119,19 +123,13 @@ fn spawn_portal(
     }
 }
 
-fn rotate_portal(
-    mut portal_query: Query<&mut Transform, With<Portal>>,
-    time: Res<Time>,
-) {
+fn rotate_portal(mut portal_query: Query<&mut Transform, With<Portal>>, time: Res<Time>) {
     for mut transform in portal_query.iter_mut() {
         transform.rotate_z(time.delta_seconds());
     }
 }
 
-fn recalculate_mobs(
-    mut portal_manager: ResMut<PortalManager>,
-    mob_query: Query<&Mob>,
-) {
+fn recalculate_mobs(mut portal_manager: ResMut<PortalManager>, mob_query: Query<&Mob>) {
     portal_manager.set_mobs(mob_query.iter().len() as u32);
 }
 
@@ -150,7 +148,7 @@ fn collision_portal(
                 GameState::InGame => {
                     game_state.set(GameState::Hub);
                 }
-                GameState::Hub =>{
+                GameState::Hub => {
                     game_state.set(GameState::Loading);
                 }
                 _ => {}
