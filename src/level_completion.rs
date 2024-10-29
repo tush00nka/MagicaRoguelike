@@ -1,4 +1,4 @@
-use crate::mob::{Mob, Obstacle};
+use crate::mob::Mob;
 use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
@@ -16,7 +16,7 @@ impl Plugin for LevelCompletionPlugin {
                 .run_if(in_state(GameState::InGame)))
             .add_systems(Update, collision_portal
                 .run_if(in_state(GameState::Hub)))
-            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mobs))
+            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mob))
             .add_systems(OnEnter(GameState::Hub), (
                 despawn_all_with::<crate::exp_tank::ExpTank>,
                 despawn_all_with::<crate::health_tank::HealthTank>,
@@ -27,6 +27,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::shield_spell::Shield>,
                 despawn_all_with::<crate::black_hole::BlackHole>,
                 despawn_all_with::<crate::item::Item>,
+                despawn_all_with::<crate::mob::Obstacle>,
                 despawn_all_with::<Portal>,
             ))
             .add_systems(OnExit(GameState::Hub), (
@@ -37,6 +38,7 @@ impl Plugin for LevelCompletionPlugin {
                 despawn_all_with::<crate::shield_spell::Shield>,
                 despawn_all_with::<crate::black_hole::BlackHole>,
                 despawn_all_with::<crate::item::Item>,
+                despawn_all_with::<crate::mob::Obstacle>,
                 despawn_all_with::<Portal>,
             ))
             .insert_resource(PortalManager::default());

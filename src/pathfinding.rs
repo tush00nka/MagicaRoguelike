@@ -114,7 +114,7 @@ fn change_target_appeared<
 fn change_to_player<Check: Component, Before: Component, After: Component + Default>(
     mob_query: Query<Entity, (With<Before>, With<Pathfinder>)>,
     mut commands: Commands,
-    mut check_query: Query<Entity, With<Check>>,
+    check_query: Query<Entity, With<Check>>,
 ) {
     let len = check_query.iter().len();
     if len == 0 {

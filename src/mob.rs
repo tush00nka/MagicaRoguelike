@@ -63,7 +63,6 @@ impl Plugin for MobPlugin {
             .add_systems(
                 FixedUpdate,
                 (move_mobs, runaway_mob)
-                    .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
             );
             // .add_systems(
@@ -171,6 +170,8 @@ pub struct Teleport {
     pub time_to_teleport: Timer,
 }
 //component to mob and structures who can spawn enemy.
+
+#[allow(dead_code)]
 #[derive(Component)]
 pub struct Summoning {
     pub time_to_spawn: Timer,
@@ -494,9 +495,10 @@ pub fn spawn_mob(
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut ev_mob_spawn: EventReader<MobSpawnEvent>,
-    chapter_manager: Res<ChapterManager>,
+    mut portal_manager: ResMut<PortalManager>,
 ) {
     for ev in ev_mob_spawn.read() {
+        portal_manager.push_mob();
         let texture_path: &str;
         let frame_count: u32;
         let fps: u8;
@@ -692,6 +694,7 @@ pub fn first_spawn_mobs(
     mut game_state: ResMut<NextState<GameState>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
     mut portal_manager: ResMut<PortalManager>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     for x in 1..ROOM_SIZE - 1 {
         for y in 1..ROOM_SIZE - 1 {
