@@ -62,20 +62,51 @@ impl Plugin for MobPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (move_mobs, runaway_mob)
-                    .run_if(in_state(GameState::InGame)),
+                (move_mobs, runaway_mob).run_if(in_state(GameState::InGame)),
             );
-            // .add_systems(
-            //     OnEnter(TimeState::Paused),
-            //     crate::utils::clear_velocity_for::<Mob>,
-            // );
+        // .add_systems(
+        //     OnEnter(TimeState::Paused),
+        //     crate::utils::clear_velocity_for::<Mob>,
+        // );
     }
 }
-//Components and bundles
-//If you want to add something (create new mob, or add new component), first of all, add bundle and components there (and check, maybe it exists already)
+
+//Events for mobs
+//event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
+#[derive(Event)]
+pub struct MobDeathEvent {
+    pub orbs: u32,
+    pub pos: Vec3,
+    pub dir: Vec3,
+}
+#[derive(Event)]
+pub struct MobSpawnEvent {
+    pub mob_type: MobType,
+    pub pos: Vec2,
+}
+//event to spawn corpse
+#[derive(Event)]
+pub struct CorpseSpawnEvent {
+    pub pos: Vec3,
+    pub mob_type: MobType,
+}
+
+//structures for init=======================================================================================================================
+//add here if you need to check another one parameter when you spawn mob. don't forget to add this parameter for impl
+pub struct SpawnKit<'a> {
+    texture_path: &'a str,
+    frame_count: u32,
+    fps: u8,
+    rotation_entity: bool,
+    rotation_path: &'a str,
+    has_animation: bool,
+    pixel_size: u32,
+}
+
+//Enum components========================================================================================================================================
+//MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
 #[derive(Component, Clone)]
 pub enum MobType {
-    //add your mobtype here
     Knight,
     Mossling,
     FireMage,
@@ -84,6 +115,7 @@ pub enum MobType {
     Necromancer,
 }
 
+//projectile types
 #[derive(Component, Clone)]
 #[allow(dead_code)]
 pub enum ProjectileType {
@@ -93,6 +125,7 @@ pub enum ProjectileType {
     Gatling, // a lot of small ones
 }
 
+//targets for mob pathfinding as enum
 #[allow(unused)]
 #[derive(Component)]
 pub enum MobTarget {
@@ -106,62 +139,9 @@ pub enum MobTarget {
     Runaway,
     Noone,
 }
-#[derive(Component, Default)]
-pub struct PlayerRush;
-
-#[derive(Component, Default)]
-pub struct CorpseRush;
-
-#[derive(Component, Default)]
-pub struct RunawayRush;
-
-//Entity for
-#[derive(Component)]
-pub struct RotationEntity;
-
-#[derive(Bundle)]
-pub struct PhysicalBundle {
-    // physical bundle with all physical stats
-    collider: Collider,
-    axes: LockedAxes,
-    gravity: GravityScale,
-    collision_layers: CollisionLayers,
-    linear_velocity: LinearVelocity,
-}
-
-#[derive(Bundle)]
-pub struct MobBundle {
-    //contains mob stats
-    resistance: ElementResistance,
-    mob_type: MobType,
-    mob: Mob,
-    loot: MobLoot,
-    body_type: RigidBody,
-    health: Health,
-}
-#[derive(Bundle)]
-pub struct MeleeMobBundle {
-    // can add smth else, like has phasing or smth idk
-    path_finder: Pathfinder,
-}
-#[derive(Bundle)]
-pub struct TurretBundle {
-    shoot_ability: ShootAbility,
-}
-
-#[derive(Bundle)]
-pub struct MageBundle {
-    //bundle only for mages
-    teleport_ability: Teleport,
-    shoot_ability: ShootAbility,
-}
-
-#[derive(Bundle)]
-pub struct SummoningBundle {
-    summoning_ability: Summoning,
-    //maybe add something like flag structure, which will check is that static object, who spawns or something else, so we can add portal for example
-}
-
+//Pure components=========================================================================================================================================
+//If you want to add something (create new mob, or add new component), first of all, add components there (and check, maybe it exists already)
+//ability to teleport, contains timer and range in tiles from target
 #[derive(Component)]
 pub struct Teleport {
     //todo: change to just tuple? maybe not?
@@ -169,8 +149,8 @@ pub struct Teleport {
     pub place_to_teleport: Vec<(u16, u16)>,
     pub time_to_teleport: Timer,
 }
-//component to mob and structures who can spawn enemy.
 
+//component to mob and structures who can spawn enemy.
 #[allow(dead_code)]
 #[derive(Component)]
 pub struct Summoning {
@@ -178,17 +158,20 @@ pub struct Summoning {
     pub is_static: bool,
 }
 
+//component to shoot, has timer, element and proj type according to enum ProjectileType
 #[derive(Component)]
 pub struct ShootAbility {
     pub time_to_shoot: Timer,
     element: ElementType,
     proj_type: ProjectileType,
 }
+
+//component to deal contact damage
 #[derive(Component)]
 pub struct Mob {
-    //todo: Rename to contact damage or smth, or remove damage and save mob struct as flag
     pub damage: i32,
 }
+
 //Corpse component for necromancer.
 #[derive(Component)]
 pub struct Corpse {
@@ -199,6 +182,7 @@ pub struct Corpse {
 #[derive(Component)]
 pub struct Obstacle;
 
+//Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
     pub mob_type: MobType,
@@ -206,202 +190,99 @@ pub struct Raising {
     pub corpse_id: Entity,
 }
 
-#[derive(Component)]
-pub struct BusyRaising;
+//mob loot(amount of exp)
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
     // we can add an item for this
     pub orbs: u32,
 }
+
+//Flags===========================================================================================================================================
+//flag to pathfinding: rush to player
+#[derive(Component, Default)]
+pub struct PlayerRush;
+
+//flag to pathfinding: rush to corpse
+#[derive(Component, Default)]
+pub struct CorpseRush;
+
+//flag to pathfinding: try to run away
+#[derive(Component, Default)]
+pub struct RunawayRush;
+
+//flag for entities with rotation parts
+#[derive(Component)]
+pub struct RotationEntity;
+
+//Corpse flag, which shows that necromancer is trying to raise mob from this grave
+#[derive(Component)]
+pub struct BusyRaising;
+
+//Bundles===========================================================================================================================================
+//Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),
+//if you want to add mob - add bundle there and add impl later
+// physical bundle with all physical stats
+#[derive(Bundle)]
+pub struct PhysicalBundle {
+    collider: Collider,
+    axes: LockedAxes,
+    gravity: GravityScale,
+    collision_layers: CollisionLayers,
+    linear_velocity: LinearVelocity,
+}
+
+//bundle with all basic parameters of mob
+#[derive(Bundle)]
+pub struct MobBundle {
+    //contains mob stats
+    phys_bundle: PhysicalBundle,
+    resistance: ElementResistance,
+    mob_type: MobType,
+    mob: Mob,
+    loot: MobLoot,
+    body_type: RigidBody,
+    health: Health,
+}
+
+//bundle for turrets(can shoot)
+#[derive(Bundle)]
+pub struct TurretBundle {
+    mob_bundle: MobBundle,
+    shoot_ability: ShootAbility,
+}
+
+//bundle for spawning mobs(like necromancer)
+#[derive(Bundle)]
+pub struct SpawnerBundle {
+    mob_bundle: MobBundle,
+    summoning_ability: Summoning,
+    path_finder: Pathfinder,
+    target: MobTarget,
+}
+
+//bundle for mages
+#[derive(Bundle)]
+pub struct MageBundle {
+    mob_bundle: MobBundle,
+    teleport_ability: Teleport,
+    shoot_ability: ShootAbility,
+}
+
+//bundle for melee only mobs
+#[derive(Bundle)]
+pub struct MeleeMobBundle {
+    mob_bundle: MobBundle,
+    path_finder: Pathfinder,
+    target: MobTarget,
+}
+
 //implemenations
 //change it, only if you know what you're doing
+//add something there, and later go to spawn_mob
 impl Mob {
     fn new(damage: i32) -> Self {
         Self { damage }
-    }
-}
-
-impl MeleeMobBundle {
-    fn knight() -> Self {
-        Self {
-            path_finder: Pathfinder {
-                path: vec![],
-                update_path_timer: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
-                    TimerMode::Repeating,
-                ),
-                speed: 2000.,
-            },
-        }
-    }
-
-    fn mossling() -> Self {
-        Self {
-            path_finder: Pathfinder {
-                path: vec![],
-                update_path_timer: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
-                    TimerMode::Repeating,
-                ),
-                speed: 2500.,
-            },
-        }
-    }
-
-    fn necromancer() -> Self {
-        Self {
-            path_finder: Pathfinder {
-                path: vec![],
-                update_path_timer: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
-                    TimerMode::Repeating,
-                ),
-                speed: 3500.,
-            },
-        }
-    }
-}
-
-impl TurretBundle {
-    fn jungle_turret() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(1500..2000);
-        Self {
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Earth,
-                proj_type: ProjectileType::Gatling,
-            },
-        }
-    }
-}
-
-impl MageBundle {
-    fn fire_mage() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
-        Self {
-            teleport_ability: Teleport {
-                amount_of_tiles: 4,
-                place_to_teleport: vec![],
-                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-            },
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Fire,
-                proj_type: ProjectileType::Missile,
-            },
-        }
-    }
-    fn water_mage() -> Self {
-        //maybe ice idk?
-        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
-        Self {
-            teleport_ability: Teleport {
-                amount_of_tiles: 4,
-                place_to_teleport: vec![],
-                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-            },
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Water,
-                proj_type: ProjectileType::Missile,
-            },
-        }
-    }
-}
-impl SummoningBundle {
-    fn necromancer() -> Self {
-        Self {
-            summoning_ability: Summoning {
-                time_to_spawn: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(1000..2000)),
-                    TimerMode::Repeating,
-                ),
-                is_static: false,
-            },
-        }
-    }
-}
-impl MobBundle {
-    fn knight() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![],
-                resistance_percent: vec![0, 0, 0, 0, 0],
-            },
-            mob_type: MobType::Knight,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(100),
-        }
-    }
-    fn mossling() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 15, 15, 0, 0],
-            },
-            mob_type: MobType::Mossling,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(100),
-        }
-    }
-    fn turret() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 60, 60, 0, 0],
-            },
-            mob_type: MobType::JungleTurret,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(200),
-        }
-    }
-    fn fire_mage() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![ElementType::Fire],
-                resistance_percent: vec![80, 0, 0, 0, 0],
-            },
-            mob_type: MobType::FireMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    fn water_mage() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![ElementType::Water],
-                resistance_percent: vec![0, 80, 0, 0, 0],
-            },
-            mob_type: MobType::WaterMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    fn necromancer() -> Self {
-        Self {
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
-                resistance_percent: vec![0, 0, 30, 0, 0],
-            },
-            mob_type: MobType::Necromancer,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 5 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(140),
-        }
     }
 }
 
@@ -427,6 +308,265 @@ impl Default for PhysicalBundle {
     }
 }
 
+impl MobBundle {
+    fn knight() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![],
+                resistance_percent: vec![0, 0, 0, 0, 0],
+            },
+            mob_type: MobType::Knight,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(100),
+        }
+    }
+    fn mossling() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth, ElementType::Water],
+                resistance_percent: vec![0, 15, 15, 0, 0],
+            },
+            mob_type: MobType::Mossling,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(100),
+        }
+    }
+    fn turret() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth, ElementType::Water],
+                resistance_percent: vec![0, 60, 60, 0, 0],
+            },
+            mob_type: MobType::JungleTurret,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Static,
+            health: Health::new(200),
+        }
+    }
+    fn fire_mage() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![ElementType::Fire],
+                resistance_percent: vec![80, 0, 0, 0, 0],
+            },
+            mob_type: MobType::FireMage,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Static,
+            health: Health::new(80),
+        }
+    }
+
+    fn water_mage() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![ElementType::Water],
+                resistance_percent: vec![0, 80, 0, 0, 0],
+            },
+            mob_type: MobType::WaterMage,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 3 },
+            body_type: RigidBody::Static,
+            health: Health::new(80),
+        }
+    }
+
+    fn necromancer() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle::default(),
+            resistance: ElementResistance {
+                elements: vec![ElementType::Earth],
+                resistance_percent: vec![0, 0, 30, 0, 0],
+            },
+            mob_type: MobType::Necromancer,
+            mob: Mob::new(20),
+            loot: MobLoot { orbs: 5 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(140),
+        }
+    }
+}
+
+impl MeleeMobBundle {
+    fn knight() -> Self {
+        Self {
+            mob_bundle: MobBundle::knight(),
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 2000.,
+            },
+            target: MobTarget::Player,
+        }
+    }
+
+    fn mossling() -> Self {
+        Self {
+            mob_bundle: MobBundle::mossling(),
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 2500.,
+            },
+            target: MobTarget::Player,
+        }
+    }
+}
+
+impl TurretBundle {
+    fn jungle_turret() -> Self {
+        let timer: u64 = rand::thread_rng().gen_range(1500..2000);
+        Self {
+            mob_bundle: MobBundle::turret(),
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Earth,
+                proj_type: ProjectileType::Gatling,
+            },
+        }
+    }
+}
+
+impl MageBundle {
+    fn fire_mage() -> Self {
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
+        Self {
+            mob_bundle: MobBundle::fire_mage(),
+            teleport_ability: Teleport {
+                amount_of_tiles: 4,
+                place_to_teleport: vec![],
+                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+            },
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Fire,
+                proj_type: ProjectileType::Missile,
+            },
+        }
+    }
+    fn water_mage() -> Self {
+        //maybe ice idk?
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
+        Self {
+            mob_bundle: MobBundle::water_mage(),
+            teleport_ability: Teleport {
+                amount_of_tiles: 4,
+                place_to_teleport: vec![],
+                time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+            },
+            shoot_ability: ShootAbility {
+                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                element: ElementType::Water,
+                proj_type: ProjectileType::Missile,
+            },
+        }
+    }
+}
+impl SpawnerBundle {
+    fn necromancer() -> Self {
+        Self {
+            mob_bundle: MobBundle::necromancer(),
+            summoning_ability: Summoning {
+                time_to_spawn: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(1000..2000)),
+                    TimerMode::Repeating,
+                ),
+                is_static: false,
+            },
+            path_finder: Pathfinder {
+                path: vec![],
+                update_path_timer: Timer::new(
+                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                    TimerMode::Repeating,
+                ),
+                speed: 3800.,
+            },
+            target: MobTarget::Corpse,
+        }
+    }
+}
+
+impl Default for SpawnKit<'_> {
+    fn default() -> Self {
+        Self {
+            texture_path: "",
+            frame_count: 4,
+            fps: 12,
+            rotation_entity: false,
+            rotation_path: "",
+            has_animation: true,
+            pixel_size: 16,
+        }
+    }
+}
+
+impl SpawnKit<'_> {
+    fn knight() -> Self {
+        Self {
+            texture_path: "textures/mobs/knight.png",
+            ..default()
+        }
+    }
+    fn mossling() -> Self {
+        Self {
+            texture_path: "textures/mobs/mossling.png",
+            ..default()
+        }
+    }
+    fn jungle_turret() -> Self {
+        Self {
+            texture_path: "textures/mobs/plant_body.png",
+            rotation_path: "textures/mobs/plant_head.png",
+            rotation_entity: true,
+            has_animation: false,
+            pixel_size: 24,
+            ..default()
+        }
+    }
+    fn water_mage() -> Self {
+        Self {
+            frame_count: 2,
+            fps: 3,
+            texture_path: "textures/mobs/water_mage.png",
+            ..default()
+        }
+    }
+    fn fire_mage() -> Self {
+        Self {
+            frame_count: 2,
+            fps: 3,
+            texture_path: "textures/mobs/fire_mage.png",
+            ..default()
+        }
+    }
+    fn necromancer() -> Self {
+        Self {
+            frame_count: 4,
+            fps: 12,
+            texture_path: "textures/mobs/necromancer.png",
+            pixel_size: 24,
+            ..default()
+        }
+    }
+}
+
+//assist functions==================================================================================
 // range for enum of mobs todo: change to better spawn?
 impl rand::distributions::Distribution<MobType> for rand::distributions::Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MobType {
@@ -441,26 +581,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
         }
     }
 }
-//Events for mobs
-//event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
-#[derive(Event)]
-pub struct MobDeathEvent {
-    pub orbs: u32,
-    pub pos: Vec3,
-    pub dir: Vec3,
-}
-#[derive(Event)]
-pub struct MobSpawnEvent {
-    pub mob_type: MobType,
-    pub pos: Vec2,
-}
-//event to spawn corpse
-#[derive(Event)]
-pub struct CorpseSpawnEvent {
-    pub pos: Vec3,
-    pub mob_type: MobType,
-}
-
+//actual code========================================================================================================
 fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>) {
     let chap_num = chapter_manager.get_current_chapter();
     let mut rng = thread_rng();
@@ -499,14 +620,7 @@ pub fn spawn_mob(
 ) {
     for ev in ev_mob_spawn.read() {
         portal_manager.push_mob();
-        let texture_path: &str;
-        let frame_count: u32;
-        let fps: u8;
-        let rotation_entity: bool;
-        let rotation_path: &str;
-        let has_animation: bool;
-        let pixel_size: u32;
-        let target_for_melee: MobTarget;
+        let spawn_kit: SpawnKit;
 
         let x = ev.pos.x;
         let y = ev.pos.y;
@@ -514,89 +628,48 @@ pub fn spawn_mob(
         //pick mob with random, assign some variables
         match ev.mob_type {
             MobType::Knight => {
-                frame_count = 4;
-                fps = 12;
-                texture_path = "textures/mobs/knight.png";
-                rotation_path = "";
-                rotation_entity = false;
-                has_animation = true;
-                pixel_size = 16;
-                target_for_melee = MobTarget::Player;
+                spawn_kit = SpawnKit::knight();
             }
             MobType::Mossling => {
-                frame_count = 4;
-                fps = 12;
-                texture_path = "textures/mobs/mossling.png";
-                rotation_path = "";
-                rotation_entity = false;
-                has_animation = true;
-                pixel_size = 16;
-                target_for_melee = MobTarget::Player;
+                spawn_kit = SpawnKit::mossling();
             }
             MobType::FireMage => {
-                texture_path = "textures/mobs/fire_mage.png";
-                rotation_path = "";
-                frame_count = 2;
-                fps = 3;
-                rotation_entity = false;
-                has_animation = true;
-                pixel_size = 16;
-                target_for_melee = MobTarget::Noone;
+                spawn_kit = SpawnKit::fire_mage();
             }
             MobType::WaterMage => {
-                frame_count = 2;
-                fps = 3;
-                texture_path = "textures/mobs/water_mage.png";
-                rotation_path = "";
-                rotation_entity = false;
-                has_animation = true;
-                pixel_size = 16;
-                target_for_melee = MobTarget::Noone;
+                spawn_kit = SpawnKit::water_mage();
             }
             MobType::JungleTurret => {
-                frame_count = 1;
-                fps = 1;
-                texture_path = "textures/mobs/plant_body.png";
-                rotation_path = "textures/mobs/plant_head.png";
-                rotation_entity = true;
-                has_animation = false;
-                pixel_size = 24;
-                target_for_melee = MobTarget::Noone;
+                spawn_kit = SpawnKit::jungle_turret();
             }
             MobType::Necromancer => {
-                frame_count = 4;
-                fps = 12;
-                texture_path = "textures/mobs/necromancer.png";
-                rotation_path = "";
-                rotation_entity = false;
-                has_animation = true;
-                pixel_size = 24;
-                target_for_melee = MobTarget::Corpse;
+                spawn_kit = SpawnKit::necromancer();
             }
         }
+
         //get texture and layout
-        let texture = asset_server.load(texture_path);
-        let layout =
-            TextureAtlasLayout::from_grid(UVec2::splat(pixel_size), frame_count, 1, None, None);
+        let texture = asset_server.load(spawn_kit.texture_path);
+        let layout = TextureAtlasLayout::from_grid(
+            UVec2::splat(spawn_kit.pixel_size),
+            spawn_kit.frame_count,
+            1,
+            None,
+            None,
+        );
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
         //setup animation cfg
-        let animation_config = AnimationConfig::new(0, frame_count as usize - 1, fps);
+        let animation_config =
+            AnimationConfig::new(0, spawn_kit.frame_count as usize - 1, spawn_kit.fps);
         //spawn mob with texture
         let mob = commands
             .spawn(SpriteBundle {
                 texture,
-                transform: Transform::from_xyz(
-                    (x as i32 * ROOM_SIZE) as f32,
-                    (y as i32 * ROOM_SIZE) as f32,
-                    1.0,
-                ),
+                transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
             .id();
 
-        commands.entity(mob).insert(PhysicalBundle::default());
-
-        if has_animation {
+        if spawn_kit.has_animation {
             commands
                 .entity(mob) //todo: change it that we could test mobs without animations
                 .insert(TextureAtlas {
@@ -607,79 +680,52 @@ pub fn spawn_mob(
         }
         match ev.mob_type {
             MobType::Knight => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::knight())
-                    .insert(MeleeMobBundle::knight());
+                commands.entity(mob).insert(MeleeMobBundle::knight());
             }
             MobType::Mossling => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::mossling())
-                    .insert(MeleeMobBundle::mossling());
+                commands.entity(mob).insert(MeleeMobBundle::mossling());
             }
             MobType::FireMage => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::fire_mage())
-                    .insert(MageBundle::fire_mage());
+                commands.entity(mob).insert(MageBundle::fire_mage());
 
                 mob_map
                     .map
-                    .get_mut(&(x as u16, y as u16))
+                    .get_mut(&(
+                        (x / ROOM_SIZE as f32).floor() as u16,
+                        (y / ROOM_SIZE as f32).floor() as u16,
+                    ))
                     .unwrap()
                     .mob_count += 1;
             }
             MobType::WaterMage => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::water_mage())
-                    .insert(MageBundle::water_mage());
+                commands.entity(mob).insert(MageBundle::water_mage());
 
                 mob_map
                     .map
-                    .get_mut(&(x as u16, y as u16))
+                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
                     .unwrap()
                     .mob_count += 1;
             }
             MobType::JungleTurret => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::turret())
-                    .insert(TurretBundle::jungle_turret());
+                commands.entity(mob).insert(TurretBundle::jungle_turret());
 
                 mob_map
                     .map
-                    .get_mut(&(x as u16, y as u16))
+                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
                     .unwrap()
                     .mob_count += 1;
             }
             MobType::Necromancer => {
-                commands
-                    .entity(mob)
-                    .insert(MobBundle::necromancer())
-                    .insert(SummoningBundle::necromancer())
-                    .insert(MeleeMobBundle::necromancer());
+                commands.entity(mob).insert(SpawnerBundle::necromancer());
                 //add necro bundles
             }
         }
-        match target_for_melee {
-            MobTarget::Player => {
-                commands.entity(mob).insert(PlayerRush);
-            }
-            MobTarget::Corpse => {
-                commands.entity(mob).insert(CorpseRush);
-            }
-            MobTarget::EXPTank => {}
-            MobTarget::HPTank => {}
-            MobTarget::Noone => {}
-            MobTarget::Runaway => {}
-        }
-        if rotation_entity {
+
+        if spawn_kit.rotation_entity {
             commands.entity(mob).with_children(|parent| {
                 parent
                     .spawn(SpriteBundle {
-                        texture: asset_server.load(rotation_path),
+                        texture: asset_server.load(spawn_kit.rotation_path),
                         transform: Transform::from_xyz(0., 0., 1.0),
                         ..default()
                     })
@@ -706,15 +752,17 @@ pub fn first_spawn_mobs(
 
                 let mob_type: MobType;
                 match chapter_manager.get_current_chapter() {
-                    1 => { 
+                    1 => {
                         let mob_index = rand::thread_rng().gen_range(0..DESERT_MOBS.len());
                         mob_type = DESERT_MOBS[mob_index].clone();
                     }
-                    2 => { 
+                    2 => {
                         let mob_index = rand::thread_rng().gen_range(0..JUNGLE_MOBS.len());
                         mob_type = JUNGLE_MOBS[mob_index].clone();
                     }
-                    _ => { mob_type = rand::random(); }
+                    _ => {
+                        mob_type = rand::random();
+                    }
                 }
 
                 ev_mob_spawn.send(MobSpawnEvent {
@@ -1123,14 +1171,11 @@ fn spawn_corpse(
                 transform: Transform::from_xyz(ev.pos.x, ev.pos.y, ev.pos.z),
                 ..default()
             })
-            .insert(Collider::circle(8.))
+            .insert(Collider::circle(6.))
             .insert(Sensor)
             .insert(LockedAxes::ROTATION_LOCKED)
             .insert(GravityScale(0.0))
-            .insert(CollisionLayers::new(
-                GameLayer::Enemy,
-                [GameLayer::Enemy],
-            ))
+            .insert(CollisionLayers::new(GameLayer::Enemy, [GameLayer::Enemy]))
             .insert(RigidBody::Dynamic)
             .insert(Health::new(40))
             .insert(Obstacle)
