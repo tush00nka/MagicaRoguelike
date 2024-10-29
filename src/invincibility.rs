@@ -1,13 +1,10 @@
 use bevy::prelude::*;
 
-use crate::TimeState;
-
 pub struct InvincibilityPlugin;
 
 impl Plugin for InvincibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_invincibility
-            .run_if(in_state(TimeState::Unpaused)));
+        app.add_systems(Update, handle_invincibility);
     }
 }
 

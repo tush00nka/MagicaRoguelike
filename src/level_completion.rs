@@ -3,7 +3,6 @@ use crate::player::Player;
 use crate::utils::*;
 use crate::GameLayer;
 use crate::GameState;
-use crate::TimeState;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -12,54 +11,34 @@ pub struct LevelCompletionPlugin;
 impl Plugin for LevelCompletionPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PortalEvent>()
-            .add_systems(
-                Update,
-                (spawn_portal, rotate_portal, pulsate::<Portal>)
-                    .run_if(in_state(TimeState::Unpaused)),
-            )
-            .add_systems(
-                Update,
-                collision_portal
-                    .run_if(in_state(TimeState::Unpaused))
-                    .run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                Update,
-                collision_portal
-                    .run_if(in_state(TimeState::Unpaused))
-                    .run_if(in_state(GameState::Hub)),
-            )   
-            //maybe delete?
-            //            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::first_spawn_mobs))
-            .add_systems(
-                OnEnter(GameState::Hub),
-                (
-                    despawn_all_with::<crate::exp_tank::ExpTank>,
-                    despawn_all_with::<crate::health_tank::HealthTank>,
-                    despawn_all_with::<crate::gamemap::Floor>,
-                    despawn_all_with::<crate::gamemap::Wall>,
-                    despawn_all_with::<crate::exp_orb::ExpOrb>,
-                    despawn_all_with::<crate::projectile::Projectile>,
-                    despawn_all_with::<crate::shield_spell::Shield>,
-                    despawn_all_with::<crate::black_hole::BlackHole>,
-                    despawn_all_with::<crate::item::Item>,
-                    despawn_all_with::<Portal>,
-                    despawn_all_with::<Obstacle>,
-                ),
-            )
-            .add_systems(
-                OnExit(GameState::Hub),
-                (
-                    despawn_all_with::<crate::gamemap::Wall>,
-                    despawn_all_with::<crate::gamemap::Floor>,
-                    despawn_all_with::<crate::wand::Wand>,
-                    despawn_all_with::<crate::projectile::Projectile>,
-                    despawn_all_with::<crate::shield_spell::Shield>,
-                    despawn_all_with::<crate::black_hole::BlackHole>,
-                    despawn_all_with::<crate::item::Item>,
-                    despawn_all_with::<Portal>,
-                ),
-            )
+            .add_systems(Update, (spawn_portal, rotate_portal, pulsate::<Portal>))
+            .add_systems(Update, collision_portal
+                .run_if(in_state(GameState::InGame)))
+            .add_systems(Update, collision_portal
+                .run_if(in_state(GameState::Hub)))
+            .add_systems(OnEnter(GameState::InGame), recalculate_mobs.after(crate::mob::spawn_mobs))
+            .add_systems(OnEnter(GameState::Hub), (
+                despawn_all_with::<crate::exp_tank::ExpTank>,
+                despawn_all_with::<crate::health_tank::HealthTank>,
+                despawn_all_with::<crate::gamemap::Floor>,
+                despawn_all_with::<crate::gamemap::Wall>,
+                despawn_all_with::<crate::exp_orb::ExpOrb>,
+                despawn_all_with::<crate::projectile::Projectile>,
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::black_hole::BlackHole>,
+                despawn_all_with::<crate::item::Item>,
+                despawn_all_with::<Portal>,
+            ))
+            .add_systems(OnExit(GameState::Hub), (
+                despawn_all_with::<crate::gamemap::Wall>,
+                despawn_all_with::<crate::gamemap::Floor>,
+                despawn_all_with::<crate::wand::Wand>,
+                despawn_all_with::<crate::projectile::Projectile>,
+                despawn_all_with::<crate::shield_spell::Shield>,
+                despawn_all_with::<crate::black_hole::BlackHole>,
+                despawn_all_with::<crate::item::Item>,
+                despawn_all_with::<Portal>,
+            ))
             .insert_resource(PortalManager::default());
     }
 }

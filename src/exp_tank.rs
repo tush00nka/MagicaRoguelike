@@ -5,7 +5,7 @@ use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     mouse_position::MouseCoords,
-    player::Player, TimeState,
+    player::Player,
 };
 
 pub struct ExpTankPlugin;
@@ -14,8 +14,7 @@ impl Plugin for ExpTankPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnExpTankEvent>()
-            .add_systems(Update, (spawn_tank, debug_tank, break_tank)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, (spawn_tank, debug_tank, break_tank));
     }
 }
 

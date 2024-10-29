@@ -5,7 +5,7 @@ use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
     mob::{Corpse, CorpseRush, Summoning, PlayerRush, Teleport},
     player::Player,
-    GameState, TimeState,
+    GameState,
 };
 use bevy::prelude::*;
 pub struct PathfindingPlugin;
@@ -21,8 +21,7 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             pathfinding_with_tp
-                .run_if(in_state(GameState::InGame))
-                .run_if(in_state(TimeState::Unpaused)),
+                .run_if(in_state(GameState::InGame)),
         )
         .add_systems(
             Update,
@@ -32,8 +31,7 @@ impl Plugin for PathfindingPlugin {
                 a_pathfinding::<Player, PlayerRush>,
                 a_pathfinding::<Corpse, CorpseRush>,
             )
-                .run_if(in_state(GameState::InGame))
-                .run_if(in_state(TimeState::Unpaused)),
+                .run_if(in_state(GameState::InGame)),
         );
     }
 }

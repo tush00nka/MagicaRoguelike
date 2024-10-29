@@ -1,6 +1,21 @@
 //all systems that can damage player should be there
 use crate::{
-    elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mob::Mob, player::{Player, PlayerDeathEvent}, projectile::{Hostile, Projectile}, GameState, TimeState
+    elements::ElementResistance,
+    health::{
+        Health,
+        Hit
+    },
+    invincibility::Invincibility,
+    mob::Mob,
+    player::{
+        Player,
+        PlayerDeathEvent
+    },
+    projectile::{
+        Hostile,
+        Projectile
+    }, 
+    GameState,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -9,8 +24,7 @@ pub struct HitPlayerPlugin;
 impl Plugin for HitPlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, (hit_player, proj_hit_player, damage_player)
-                .run_if(in_state(GameState::InGame))
-                .run_if(in_state(TimeState::Unpaused)));
+                .run_if(in_state(GameState::InGame)));
     }
 }
 //damage by collision with mob

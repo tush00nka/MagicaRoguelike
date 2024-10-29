@@ -107,13 +107,6 @@ pub enum GameState {
     Hub,
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum TimeState {
-    #[default]
-    Unpaused,
-    Paused,
-}
-
 #[derive(PhysicsLayer)]
 pub enum GameLayer {
     Player,
@@ -139,7 +132,6 @@ fn main() {
             }))
         .add_plugins(PhysicsPlugins::default())
         .init_state::<GameState>()
-        .init_state::<TimeState>()
         .add_plugins(MainMenuPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)

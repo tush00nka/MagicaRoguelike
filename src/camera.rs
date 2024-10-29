@@ -1,7 +1,7 @@
 use bevy::{core_pipeline::bloom::BloomSettings, prelude::{Camera, *}};
 
 use crate::{
-    gamemap::{ROOM_SIZE, TILE_SIZE}, player::Player, GameState, TimeState
+    gamemap::{ROOM_SIZE, TILE_SIZE}, player::Player, GameState
 };
 pub struct CameraPlugin;
 
@@ -10,12 +10,10 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, spawn_camera);
         app.add_systems(OnExit(GameState::Hub), reset_player_camera);
         app.add_systems(OnExit(GameState::InGame), reset_player_camera);
-        app.add_systems(Update, (sync_player_camera, player_camera_border)
-            .run_if(in_state(GameState::InGame))
-            .run_if(in_state(TimeState::Unpaused)));
-        app.add_systems(Update, (sync_player_camera, player_camera_border)
-            .run_if(in_state(GameState::Hub))
-            .run_if(in_state(TimeState::Unpaused)));
+        app.add_systems(Update, sync_player_camera
+            .run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, sync_player_camera
+            .run_if(in_state(GameState::Hub)));
     }
 }
 
@@ -111,6 +109,7 @@ fn sync_player_camera(
         .lerp(direction, time.delta_seconds() * CAM_LERP); // сглаживание с помощью линейной интерполяции
 }
 
+#[allow(unused)]
 fn player_camera_border(
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     player_query: Query<&GlobalTransform, With<Player>>,

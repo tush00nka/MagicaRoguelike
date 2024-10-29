@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{health::Health, player::Player, TimeState};
+use crate::{health::Health, player::Player};
 
 pub struct HealthTankPlugin;
 
@@ -9,8 +9,7 @@ impl Plugin for HealthTankPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnHealthTankEvent>()
-            .add_systems(Update, (spawn_health_tank, pick_up_health)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, (spawn_health_tank, pick_up_health));
     }
 }
 

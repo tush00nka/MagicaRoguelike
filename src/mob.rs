@@ -18,8 +18,11 @@ use crate::{
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
-    GameLayer, GameState, TimeState,
+    GameLayer, GameState,
 };
+
+const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
+const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
 
 pub struct MobPlugin;
 
@@ -55,19 +58,17 @@ impl Plugin for MobPlugin {
                     hit_projectiles,
                     teleport_mobs,
                 )
-                    .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
                 move_mobs
-                    .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                OnEnter(TimeState::Paused),
-                crate::utils::clear_velocity_for::<Mob>,
             );
+            // .add_systems(
+            //     OnEnter(TimeState::Paused),
+            //     crate::utils::clear_velocity_for::<Mob>,
+            // );
     }
 }
 //Components and bundles
@@ -87,7 +88,7 @@ pub enum MobType {
 #[allow(dead_code)]
 pub enum ProjectileType {
     // can use to create mobs with different types of projectiles
-    Circle,  //spawn some projectiles around
+    Circle,  // spawn some projectiles around
     Missile, // like fireball
     Gatling, // a lot of small ones
 }
@@ -480,12 +481,14 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
         }
     }
 }
+
 pub fn spawn_mob(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut mob_map: ResMut<Map>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut ev_mob_spawn: EventReader<MobSpawnEvent>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     for ev in ev_mob_spawn.read() {
         let texture_path: &str;
@@ -692,10 +695,22 @@ pub fn first_spawn_mobs(
                     .unwrap()
                     .mob_count = 0;
 
-                let mob_type: MobType = rand::random();
+                let mob_type: MobType;
+                match chapter_manager.get_current_chapter() {
+                    1 => { 
+                        let mob_index = rand::thread_rng().gen_range(0..DESERT_MOBS.len());
+                        mob_type = DESERT_MOBS[mob_index].clone();
+                    }
+                    2 => { 
+                        let mob_index = rand::thread_rng().gen_range(0..JUNGLE_MOBS.len());
+                        mob_type = JUNGLE_MOBS[mob_index].clone();
+                    }
+                    _ => { mob_type = rand::random(); }
+                }
+
                 portal_manager.push_mob();
                 ev_mob_spawn.send(MobSpawnEvent {
-                    mob_type: mob_type,
+                    mob_type,
                     pos: (x as u16, y as u16),
                 });
             }

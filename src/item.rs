@@ -6,7 +6,7 @@ use rand::{
     Rng,
 };
 
-use crate::{mouse_position::MouseCoords, player::Player, TimeState};
+use crate::{mouse_position::MouseCoords, player::Player};
 
 pub struct ItemPlugin;
 
@@ -15,8 +15,7 @@ impl Plugin for ItemPlugin {
         app
             .add_event::<SpawnItemEvent>()
             .add_event::<ItemPickedUpEvent>()
-            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item));
     }
 }
 
