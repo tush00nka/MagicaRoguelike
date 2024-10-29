@@ -3,7 +3,7 @@ use std::collections::{HashMap, LinkedList};
 //A* Pathfinding for enemies
 use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
-    mob::{Corpse, CorpseRush, Summoning, PlayerRush, Teleport},
+    mob::{Corpse, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
     player::Player,
     GameState, TimeState,
 };
@@ -27,8 +27,8 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             (
-                change_target_appeared::<CorpseRush, PlayerRush, Corpse, Summoning>,
-                change_to_player::<Corpse, CorpseRush>,
+                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>,
+                change_to_player::<Corpse, CorpseRush, RunawayRush>,
                 a_pathfinding::<Player, PlayerRush>,
                 a_pathfinding::<Corpse, CorpseRush>,
             )
@@ -113,7 +113,7 @@ fn change_target_appeared<
     }
 }
 
-fn change_to_player<Check: Component, Before: Component>(
+fn change_to_player<Check: Component, Before: Component, After: Component + Default>(
     mob_query: Query<Entity, (With<Before>, With<Pathfinder>)>,
     mut commands: Commands,
     mut check_query: Query<Entity, With<Check>>,
@@ -121,11 +121,8 @@ fn change_to_player<Check: Component, Before: Component>(
     let len = check_query.iter().len();
     if len == 0 {
         for mob in mob_query.iter() {
-            if !mob_query.contains(mob) {
-                continue;
-            }
             commands.entity(mob).remove::<Before>();
-            commands.entity(mob).insert(PlayerRush);
+            commands.entity(mob).insert(After::default());
         }
     }
 }

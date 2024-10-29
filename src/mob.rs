@@ -60,7 +60,7 @@ impl Plugin for MobPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                move_mobs
+                (move_mobs, runaway_mob)
                     .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
             )
@@ -94,20 +94,25 @@ pub enum ProjectileType {
 
 #[allow(unused)]
 #[derive(Component)]
-pub enum MobTarget{
+pub enum MobTarget {
     Player,
     Corpse,
 
-    // Для моба-вора?
+    // Для моба-вора? ну типа
     HPTank,
     EXPTank,
-    
+
+    Runaway,
     Noone,
 }
 #[derive(Component, Default)]
 pub struct PlayerRush;
+
 #[derive(Component, Default)]
 pub struct CorpseRush;
+
+#[derive(Component, Default)]
+pub struct RunawayRush;
 
 //Entity for
 #[derive(Component)]
@@ -652,7 +657,7 @@ pub fn spawn_mob(
                 //add necro bundles
             }
         }
-        match target_for_melee{
+        match target_for_melee {
             MobTarget::Player => {
                 commands.entity(mob).insert(PlayerRush);
             }
@@ -662,6 +667,7 @@ pub fn spawn_mob(
             MobTarget::EXPTank => {}
             MobTarget::HPTank => {}
             MobTarget::Noone => {}
+            MobTarget::Runaway => {}
         }
         if rotation_entity {
             commands.entity(mob).with_children(|parent| {
@@ -717,7 +723,31 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<S
         }
     }
 }
-
+fn runaway_mob(
+    mut mob_query: Query<
+        (&mut LinearVelocity, &Transform, &mut Pathfinder),
+        (
+            Without<Stun>,
+            Without<Teleport>,
+            Without<Raising>,
+            With<RunawayRush>,
+        ),
+    >,
+    mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
+    time: Res<Time>,
+) {
+    if let Ok(player) = player_query.get_single_mut() {
+        let player_pos = player.translation.truncate();
+        for (mut linvel, transform, pathfinder) in mob_query.iter_mut() {
+            let direction = Vec2::new(
+                transform.translation.x - player_pos.x,
+                transform.translation.y - player_pos.y,
+            )
+            .normalize();
+            linvel.0 = direction * pathfinder.speed * time.delta_seconds();
+        }
+    }
+}
 fn move_mobs(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
@@ -801,12 +831,12 @@ fn spawner_mob_spawn(
     mut commands: Commands,
     mut ev_spawn: EventWriter<MobSpawnEvent>,
     mut summoner_query: Query<(Entity, &mut Summoning, &Raising, &mut Sprite), Without<Stun>>,
-    corpse_query: Query<Entity,(With<Corpse>, With<BusyRaising>)>,
+    corpse_query: Query<Entity, (With<Corpse>, With<BusyRaising>)>,
     time: Res<Time>,
     mut portal_manager: ResMut<PortalManager>,
 ) {
     for (summoner, mut summoning, raising, mut sprite) in summoner_query.iter_mut() {
-        if !corpse_query.contains(raising.corpse_id){
+        if !corpse_query.contains(raising.corpse_id) {
             commands.entity(summoner).remove::<Raising>();
             sprite.color = Color::srgb(1., 1., 1.);
             continue;
@@ -966,9 +996,7 @@ fn hit_obstacles<T: Component>(
     }
 }
 
-fn handle_raising(
-    mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<Raising>>,
-) {
+fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<Raising>>) {
     for (mut sprite, mut linvel) in raising_query.iter_mut() {
         sprite.color = Color::srgb(1., 3., 3.);
         linvel.0 = Vec2::ZERO;
