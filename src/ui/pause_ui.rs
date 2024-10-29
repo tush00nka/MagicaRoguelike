@@ -1,15 +1,11 @@
 use bevy::prelude::*;
-
-use crate::TimeState;
-
 pub struct PauseUIPlguin;
 
 impl Plugin for PauseUIPlguin {
     fn build(&self, app: &mut App) {
         app
             .add_systems(Startup, init_pause_menu)
-            .add_systems(OnEnter(TimeState::Paused), show_pause_menu)
-            .add_systems(OnEnter(TimeState::Unpaused), hide_pause_menu);
+            .add_systems(Update, (show_pause_menu, hide_pause_menu));
     }
 }
 
@@ -52,18 +48,24 @@ fn init_pause_menu(
 }
 
 fn hide_pause_menu(
-    mut query: Query<&mut Visibility, With<PauseMenu>>, 
+    mut query: Query<&mut Visibility, With<PauseMenu>>,
+    time: Res<Time<Virtual>>,
 ) {
-    for mut v in query.iter_mut() {
-        *v = Visibility::Hidden;
+    if !time.is_paused() {
+        for mut v in query.iter_mut() {
+            *v = Visibility::Hidden;
+        }
     }
 }
 
 
 fn show_pause_menu(
     mut query: Query<&mut Visibility, With<PauseMenu>>, 
+    time: Res<Time<Virtual>>,
 ) {
-    for mut v in query.iter_mut() {
-        *v = Visibility::Visible;
+    if time.is_paused() {
+        for mut v in query.iter_mut() {
+            *v = Visibility::Visible;
+        }
     }
 }

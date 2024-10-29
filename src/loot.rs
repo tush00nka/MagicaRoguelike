@@ -2,7 +2,13 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    exp_tank::SpawnExpTankEvent, health_tank::SpawnHealthTankEvent, item::{ItemType, SpawnItemEvent}, mob::MobDeathEvent, TimeState
+    exp_tank::SpawnExpTankEvent,
+    health_tank::SpawnHealthTankEvent,
+    item::{
+        ItemType,
+        SpawnItemEvent
+    },
+    mob::MobDeathEvent
 };
 
 pub struct LootPlugin;
@@ -11,8 +17,7 @@ impl Plugin for LootPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<MobDeathEvent>()
-            .add_systems(Update, (loot_drop)
-                .run_if(in_state(TimeState::Unpaused)));
+            .add_systems(Update, loot_drop);
     }
 }
 

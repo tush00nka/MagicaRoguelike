@@ -18,7 +18,7 @@ use crate::{
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
-    GameLayer, GameState, TimeState,
+    GameLayer, GameState,
 };
 
 const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
@@ -49,19 +49,17 @@ impl Plugin for MobPlugin {
                     hit_projectiles,
                     teleport_mobs,
                 )
-                    .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
                 move_mobs
-                    .run_if(in_state(TimeState::Unpaused))
                     .run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                OnEnter(TimeState::Paused),
-                crate::utils::clear_velocity_for::<Mob>,
             );
+            // .add_systems(
+            //     OnEnter(TimeState::Paused),
+            //     crate::utils::clear_velocity_for::<Mob>,
+            // );
     }
 }
 //Components and bundles
