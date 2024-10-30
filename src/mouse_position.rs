@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use crate::camera::InGameCamera;
+
 #[derive(Resource, Default)]
 pub struct MouseCoords(pub Vec2); // ресурс, где всегда будет текущая позиция мыши в мире
 
@@ -17,15 +19,17 @@ impl Plugin for MousePositionPlugin {
 fn update_mouse_coords(
     mut coords: ResMut<MouseCoords>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
 ) {
-    if let Ok((camera, camera_transform)) = camera_query.get_single() { // проверяем, есть ли камера
-        if let Ok(window) = window_query.get_single() { // есть ли окно
-            if let Some(world_position) = window.cursor_position() // берем позицию курсора на экране и конвертируем в позицию в мире
-                .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-                .map(|ray| ray.origin.truncate()) {
-                    coords.0 = world_position;
-                }
-        }
-    }
+    let (camera, camera_transform) = camera_query.single();
+
+    let Some(cursor_position) = window_query.single().cursor_position() else {
+        return;
+    };
+
+    let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
+    };
+
+    coords.0 = point;
 }

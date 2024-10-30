@@ -1,6 +1,18 @@
 use bevy::prelude::*;
 
-use crate::{elements::{ElementBar, ElementBarClear, ElementBarFilled, ElementType}, experience::{ExpGained, PlayerExperience}, GameState};
+use crate::{
+    elements::{
+        ElementBar,
+        ElementBarClear,
+        ElementBarFilled,
+        ElementType
+    },
+    experience::{
+        ExpGained,
+        PlayerExperience
+    },
+    GameState
+};
 
 pub struct ElementsUIPlugin;
 

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{player::*, GameState, health::*};
+use crate::{health::*, player::*, GameState};
 pub struct HealthUIPlugin;
 
 impl Plugin for HealthUIPlugin {

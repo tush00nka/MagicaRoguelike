@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    item::ItemPickedUpEvent,
-    GameState
+    item::ItemPickedUpEvent, GameState
 };
 
 pub struct ItemUIPlugin;
