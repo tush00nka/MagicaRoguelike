@@ -1,34 +1,31 @@
 //all systems that can damage player should be there
-use crate::{
-    elements::ElementResistance,
-    health::{
-        Health,
-        Hit
-    },
-    invincibility::Invincibility,
-    mob::Mob,
-    player::{
-        Player,
-        PlayerDeathEvent
-    },
-    projectile::{
-        Hostile,
-        Projectile
-    }, 
-    GameState,
-};
+
 use avian2d::prelude::*;
 use bevy::prelude::*;
+
+use crate::{
+    elements::ElementResistance,
+    health::{Health, Hit},
+    invincibility::Invincibility,
+    mobs::Mob,
+    player::{Player, PlayerDeathEvent},
+    projectile::{Hostile, Projectile},
+    GameState,
+};
+
 pub struct HitPlayerPlugin;
 
 impl Plugin for HitPlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, (hit_player, proj_hit_player, damage_player)
-                .run_if(in_state(GameState::InGame)));
+        app.add_systems(
+            FixedUpdate,
+            (hit_player, proj_hit_player, damage_player).run_if(in_state(GameState::InGame)),
+        );
     }
 }
 //damage by collision with mob
-fn hit_player(  //todo: change that we could add resistance mechanic
+fn hit_player(
+    //todo: change that we could add resistance mechanic
     mut collision_event_reader: EventReader<Collision>,
     mob_query: Query<(Entity, &Mob), Without<Player>>,
     mut player_query: Query<(Entity, &mut Health, &Player), Without<Invincibility>>,
@@ -57,7 +54,8 @@ fn hit_player(  //todo: change that we could add resistance mechanic
 }
 
 //damage by projectiles
-fn proj_hit_player( //todo: change that we could add resistance mechanic
+fn proj_hit_player(
+    //todo: change that we could add resistance mechanic
     mut commands: Commands,
     mut collision_event_reader: EventReader<Collision>,
     projectile_query: Query<(Entity, &Projectile), With<Hostile>>,
@@ -77,7 +75,7 @@ fn proj_hit_player( //todo: change that we could add resistance mechanic
         if let Ok((_player_e, mut health, _player)) = player_query.get_single_mut() {
             for (proj_cand_e, proj) in projectile_query.iter() {
                 if proj_cand_e == projectile_e {
-                    health.hit_queue.push( Hit {
+                    health.hit_queue.push(Hit {
                         damage: proj.damage as i32,
                         element: Some(proj.element),
                         direction: Vec3::ZERO,
@@ -107,14 +105,13 @@ fn damage_player(
 
             //i-frames
             commands
-            .entity(player_e)
-            .insert(Invincibility::new(player.invincibility_time));
-
+                .entity(player_e)
+                .insert(Invincibility::new(player.invincibility_time));
 
             // шлём ивент смерти
             if health.current <= 0 {
                 // события "поле смерти"
-                ev_death.send(PlayerDeathEvent (player_e));
+                ev_death.send(PlayerDeathEvent(player_e));
             }
         }
     }

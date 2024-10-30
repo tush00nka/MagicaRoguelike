@@ -1,5 +1,11 @@
 use avian2d::{prelude::PhysicsLayer, PhysicsPlugins};
-use bevy::{prelude::*, render::{settings::{WgpuFeatures, WgpuSettings}, RenderPlugin}};
+use bevy::{
+    prelude::*,
+    render::{
+        settings::{WgpuFeatures, WgpuSettings},
+        RenderPlugin,
+    },
+};
 
 mod player;
 use player::PlayerPlugin;
@@ -28,7 +34,6 @@ use elements::ElementsPlugin;
 mod hub_location;
 use hub_location::HubPlugin;
 
-
 mod projectile;
 use projectile::ProjectilePlugin;
 
@@ -49,8 +54,8 @@ use health_tank::HealthTankPlugin;
 mod pathfinding;
 use pathfinding::PathfindingPlugin;
 
-mod mob;
-use mob::MobPlugin;
+mod mobs;
+use mobs::{MobAnimationPlugin, MobMovementPlugin, MobPlugin, MobSpawnPlugin};
 
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
@@ -78,13 +83,8 @@ use item::ItemPlugin;
 
 mod ui;
 use ui::{
-    ElementsUIPlugin,
-    ExperienceUIPlugin,
-    HealthUIPlugin,
-    MainMenuPlugin,
-    ItemUIPlugin,
-    PauseUIPlguin,
-    LoadingScreenUIPlugin,
+    ElementsUIPlugin, ExperienceUIPlugin, HealthUIPlugin, ItemUIPlugin, LoadingScreenUIPlugin,
+    MainMenuPlugin, PauseUIPlguin,
 };
 
 mod loot;
@@ -92,6 +92,9 @@ use loot::LootPlugin;
 
 mod items;
 use items::ItemEffectsPlugin;
+
+mod obstacles;
+use obstacles::ObstaclePlugin;
 
 mod pause;
 use pause::PausePlugin;
@@ -114,22 +117,25 @@ pub enum GameLayer {
     Projectile,
     Wall,
     Interactable,
-    Shield
+    Shield,
 }
 
 fn main() {
-
     let mut wpgu_settings = WgpuSettings::default();
-    wpgu_settings.features.set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true,);
+    wpgu_settings
+        .features
+        .set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true);
 
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins
-            .set(ImagePlugin::default_nearest())
-            .set(RenderPlugin {
-                render_creation: wpgu_settings.into(),
-                synchronous_pipeline_compilation: false,
-            }))
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(RenderPlugin {
+                    render_creation: wpgu_settings.into(),
+                    synchronous_pipeline_compilation: false,
+                }),
+        )
         .add_plugins(PhysicsPlugins::default())
         .init_state::<GameState>()
         .add_plugins(MainMenuPlugin)
@@ -141,10 +147,20 @@ fn main() {
         .add_plugins((ElementsPlugin, ElementsUIPlugin))
         .add_plugins((ShieldSpellPlugin, BlackHolePlugin))
         .add_plugins(ProjectilePlugin)
-        .add_plugins((ExperiencePlugin, ExperienceUIPlugin, ExpOrbPlugin, ExpTankPlugin))
+        .add_plugins((
+            ExperiencePlugin,
+            ExperienceUIPlugin,
+            ExpOrbPlugin,
+            ExpTankPlugin,
+        ))
         .add_plugins((HealthTankPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
-        .add_plugins(MobPlugin)
+        .add_plugins((
+            MobPlugin,
+            MobAnimationPlugin,
+            MobSpawnPlugin,
+            MobMovementPlugin,
+        ))
         .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)
         .add_plugins(HitPlayerPlugin)
@@ -155,5 +171,6 @@ fn main() {
         .add_plugins(LootPlugin)
         .add_plugins((PausePlugin, PauseUIPlguin))
         .add_plugins(LoadingScreenUIPlugin)
+        .add_plugins(ObstaclePlugin)
         .run();
 }
