@@ -61,47 +61,39 @@ fn debug_tank(
 
 fn break_tank(
     mut commands: Commands,
-    mut collision_event_reader: EventReader<Collision>,
-    player_query: Query<&Player>,
+
     player_experience: Res<PlayerExperience>,
-    tank_query: Query<(&Transform, &ExpTank, Entity)>,
+
+    player_query: Query<&CollidingEntities, With<Player>>,
+    tank_query: Query<(Entity, &Transform, &ExpTank)>,
+
     mut ev_spawn: EventWriter<SpawnExpOrbEvent>,
 ) {
-    for Collision(contacts) in collision_event_reader.read() {
-        let tank_e: Option<Entity>;
+    let Ok(colliding_e) = player_query.get_single() else {
+        return;
+    };
 
-        if tank_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            tank_e = Some(contacts.entity2);
-        }
-        else if tank_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
-            tank_e = Some(contacts.entity1);
-        }
-        else {
-            tank_e = None;
-        }
-
-        for (tank_transform, tank, candidate_e) in tank_query.iter() {
+    for (tank_e, tank_transform, tank) in tank_query.iter() {
+        if colliding_e.contains(&tank_e) {
 
             let orbs_count = tank.orbs + player_experience.orb_bonus;
+            let offset = (2.0*PI)/orbs_count as f32;
 
-            if tank_e.is_some() && tank_e.unwrap() == candidate_e {
-                let offset = (2.0*PI)/orbs_count as f32;
+            for i in 0..orbs_count {
+                // считаем точки, куда будем выбрасывать частицы опыта
+                let angle = offset * i as f32;
+                let direction = Vec2::from_angle(angle) * 16.0;
+                let destination = Vec3::new(tank_transform.translation.x + direction.x,
+                                                  tank_transform.translation.y + direction.y,
+                                                    tank_transform.translation.z);
 
-                for i in 0..orbs_count {
-    
-                    // считаем точки, куда будем выбрасывать частицы опыта
-                    let angle = offset * i as f32;
-                    let direction = Vec2::from_angle(angle) * 16.0;
-                    let destination = Vec3::new(tank_transform.translation.x + direction.x, tank_transform.translation.y + direction.y, tank_transform.translation.z);
-    
-                    ev_spawn.send(SpawnExpOrbEvent {
-                        pos: tank_transform.translation,
-                        destination,
-                    });
-                }
-
-                commands.get_entity(tank_e.unwrap()).unwrap().despawn();
+                ev_spawn.send(SpawnExpOrbEvent {
+                    pos: tank_transform.translation,
+                    destination,
+                });
             }
+
+            commands.entity(tank_e).despawn();
         }
     }
 }
