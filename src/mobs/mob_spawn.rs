@@ -51,6 +51,7 @@ pub struct SpawnKit<'a> {
     fps: u8,
     rotation_entity: bool,
     rotation_path: &'a str,
+    can_flip: bool,
     has_animation: bool,
     pixel_size: u32,
 }
@@ -63,6 +64,7 @@ impl Default for SpawnKit<'_> {
             fps: 12,
             rotation_entity: false,
             rotation_path: "",
+            can_flip: false,
             has_animation: true,
             pixel_size: 16,
         }
@@ -114,6 +116,7 @@ impl SpawnKit<'_> {
             fps: 12,
             texture_path: "textures/mobs/necromancer.png",
             pixel_size: 24,
+            can_flip:true,
             ..default()
         }
     }
@@ -229,6 +232,9 @@ pub fn spawn_mob(
                     index: animation_config.first_sprite_index,
                 })
                 .insert(animation_config);
+        }
+        if spawn_kit.can_flip{
+            commands.entity(mob).insert(FlipEntity);
         }
         match ev.mob_type {
             MobType::Knight => {

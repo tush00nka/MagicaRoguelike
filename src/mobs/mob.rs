@@ -141,6 +141,8 @@ pub struct RunawayRush;
 #[derive(Component)]
 pub struct RotationEntity;
 
+#[derive(Component)]
+pub struct FlipEntity;
 /// Corpse flag, which shows that necromancer is trying to raise mob from this grave
 #[derive(Component)]
 pub struct BusyRaising;

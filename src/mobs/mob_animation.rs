@@ -1,6 +1,7 @@
+use avian2d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
-use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState};
+use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState,pathfinding::Pathfinder};
 
 pub struct MobAnimationPlugin;
 
@@ -58,4 +59,21 @@ fn rotate_mobs(
         }
     }
 }
-fn mob_flip() {}
+fn mob_flip(
+    mut mob_query: Query <(&mut Transform,&LinearVelocity),  (With<FlipEntity>, With<Pathfinder>)>,
+    time: Res<Time>,
+) {
+    for (mut transform,lin_vel) in mob_query.iter_mut() {
+        if lin_vel.x > 0. {
+            transform.scale.x = transform
+                .scale
+                .x
+                .lerp(-1.0, 10.0 * time.delta_seconds());
+        } else {
+            transform.scale.x = transform
+                .scale
+                .x
+                .lerp(1.0, 10.0 * time.delta_seconds());
+        }
+    }
+}
