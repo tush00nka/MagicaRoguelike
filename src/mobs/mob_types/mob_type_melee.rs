@@ -1,17 +1,17 @@
 //bundle for melee only mobs
+use bevy::prelude::*;
+use {rand::Rng, std::time::Duration};
 
-use {bevy::prelude::TimerMode, rand::Rng, std::time::Duration};
-
-use crate::{mobs::mob::*, pathfinding::Pathfinder, Bundle, Timer};
+use crate::{mobs::mob::*, pathfinding::Pathfinder, Timer};
 
 #[derive(Bundle)]
-pub struct MeleeMobBundle {
+pub struct MeleeMobBundle<T: Component> {
     mob_bundle: MobBundle,
     path_finder: Pathfinder,
-    target: MobTarget,
+    target: T,
 }
 
-impl MeleeMobBundle {
+impl MeleeMobBundle<PlayerRush> {
     pub fn knight() -> Self {
         Self {
             mob_bundle: MobBundle::knight(),
@@ -23,7 +23,7 @@ impl MeleeMobBundle {
                 ),
                 speed: 2000.,
             },
-            target: MobTarget::Player,
+            target: PlayerRush,
         }
     }
 
@@ -38,7 +38,7 @@ impl MeleeMobBundle {
                 ),
                 speed: 2500.,
             },
-            target: MobTarget::Player,
+            target: PlayerRush,
         }
     }
 }

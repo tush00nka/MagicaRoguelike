@@ -1,17 +1,18 @@
 //bundle for spawning mobs(like necromancer)
-use {bevy::prelude::TimerMode, rand::Rng, std::time::Duration};
+use {bevy::prelude::{TimerMode, Component}, rand::Rng, std::time::Duration};
 
 use crate::{mobs::mob::*, pathfinding::Pathfinder, Bundle, Timer};
 
 #[derive(Bundle)]
-pub struct SpawnerBundle {
+
+pub struct SpawnerBundle<T: Component> {
     mob_bundle: MobBundle,
     summoning_ability: Summoning,
     path_finder: Pathfinder,
-    target: MobTarget,
+    target: T,
 }
 
-impl SpawnerBundle {
+impl SpawnerBundle<RunawayRush> {
     pub fn necromancer() -> Self {
         Self {
             mob_bundle: MobBundle::necromancer(),
@@ -30,7 +31,7 @@ impl SpawnerBundle {
                 ),
                 speed: 3800.,
             },
-            target: MobTarget::Corpse,
+            target: RunawayRush,
         }
     }
 }
