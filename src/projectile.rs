@@ -134,34 +134,28 @@ fn move_projectile(
 
 fn hit_shield(
     mut commands: Commands,
-    mut ev_collision: EventReader<Collision>,
-    projectile_query: Query<Entity, (With<Projectile>, With<Hostile>)>,
+    projectile_query: Query<(Entity, &CollidingEntities), (With<Projectile>, With<Hostile>)>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
-        if projectile_query.contains(contacts.entity2) && shield_query.contains(contacts.entity1) {
-            commands.get_entity(contacts.entity2).unwrap().despawn();
-        }
-
-        if projectile_query.contains(contacts.entity1) && shield_query.contains(contacts.entity2) {
-            commands.get_entity(contacts.entity1).unwrap().despawn();
+    for (proj_e, colliding_e) in projectile_query.iter() {
+        for shield_e in shield_query.iter() {
+            if colliding_e.contains(&shield_e) {
+                commands.entity(proj_e).despawn();
+            }
         }
     }
 }
 
 fn hit_walls(
     mut commands: Commands,
-    mut ev_collision: EventReader<Collision>,
-    projectile_query: Query<Entity, With<Projectile>>,
+    projectile_query: Query<(Entity, &CollidingEntities), With<Projectile>>,
     wall_query: Query<Entity, With<Wall>>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
-        if projectile_query.contains(contacts.entity2) && wall_query.contains(contacts.entity1) {
-            commands.get_entity(contacts.entity2).unwrap().despawn();
-        }
-
-        if projectile_query.contains(contacts.entity1) && wall_query.contains(contacts.entity2) {
-            commands.get_entity(contacts.entity1).unwrap().despawn();
+    for (proj_e, colliding_e) in projectile_query.iter() {
+        for wall_e in wall_query.iter() {
+            if colliding_e.contains(&wall_e) {
+                commands.entity(proj_e).despawn();
+            }
         }
     }
 }

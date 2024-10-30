@@ -917,6 +917,7 @@ fn corpse_collision(
         }
     }
 }
+
 fn hit_projectiles(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,

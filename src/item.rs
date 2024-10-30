@@ -132,33 +132,23 @@ fn debug_spawn_random_item(
 
 fn pick_up_item(
     mut commands: Commands,
-    mut ev_collision: EventReader<Collision>,
+
     item_query: Query<(Entity, &Item)>,
-    player_query: Query<Entity, With<Player>>,
+    player_query: Query<&CollidingEntities, With<Player>>,
+
     mut ev_item_picked_up: EventWriter<ItemPickedUpEvent>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
-        let item_e: Option<Entity>;
+    let Ok(colliding_e) = player_query.get_single() else {
+        return;
+    };
 
-        if item_query.contains(contacts.entity2) && player_query.contains(contacts.entity1) {
-            item_e = Some(contacts.entity2);
-        }
-        else if item_query.contains(contacts.entity1) && player_query.contains(contacts.entity2) {
-            item_e = Some(contacts.entity1);
-        }
-        else {
-            item_e = None;
-        }
-
-        for (candidate_e, item) in item_query.iter() {
-
-            if item_e.is_some() && item_e.unwrap() == candidate_e {
-                ev_item_picked_up.send(ItemPickedUpEvent {
-                    item_type: item.item_type,
-                    texture_path: item.item_type.get_texture_path().to_string(),
-                });
-                commands.entity(item_e.unwrap()).despawn();
-            }
+    for (item_e, item) in item_query.iter() {
+        if colliding_e.contains(&item_e) {
+            ev_item_picked_up.send(ItemPickedUpEvent {
+                item_type: item.item_type,
+                texture_path: item.item_type.get_texture_path().to_string(),
+            });
+            commands.entity(item_e).despawn();
         }
     }
 }

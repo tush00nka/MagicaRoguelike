@@ -86,7 +86,7 @@ fn pull_mobs(
 fn despawn_black_hole_on_timer(
     mut commands: Commands,
     mut black_hole_query: Query<(Entity, &mut BlackHole)>,
-    // mut mob_query: Query<(Entity, &mut LinearVelocity), With<Mob>>,
+    mut mob_query: Query<&mut ExternalForce, With<Mob>>,
     time: Res<Time>,
 ) {
     for (entity, mut black_hole) in black_hole_query.iter_mut() {
@@ -94,13 +94,9 @@ fn despawn_black_hole_on_timer(
 
         if black_hole.timer.just_finished() {
 
-            // // обнуляем скорость для моба
-            // // (нужно, чтобы мобы, которые обычно не ходят, не улетали)
-            // for (mob_e, mut linvel) in mob_query.iter_mut() {
-            //     if black_hole.affected_mobs.contains(&mob_e) {
-            //         linvel.0 = Vec2::ZERO;
-            //     }
-            // }
+            for mut external_force in mob_query.iter_mut() {
+                external_force.clear();
+            }
 
             commands.entity(entity).despawn();
         }

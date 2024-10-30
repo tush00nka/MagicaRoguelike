@@ -44,34 +44,16 @@ fn spawn_health_tank(
 fn pick_up_health(
     mut commands: Commands,
     tank_query: Query<(Entity, &HealthTank)>,
-    mut player_hp_query: Query<(&Player, &mut Health)>,
-    mut ev_collision: EventReader<Collision>,
+    mut player_hp_query: Query<(&CollidingEntities, &mut Health), With<Player>>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
+    let Ok((colliding_e, mut health)) = player_hp_query.get_single_mut() else {
+        return;
+    };
 
-        let tank_e: Option<Entity>;
-
-        if tank_query.contains(contacts.entity2) && player_hp_query.contains(contacts.entity1) {
-            tank_e = Some(contacts.entity2);
-        }
-        else if tank_query.contains(contacts.entity1) && player_hp_query.contains(contacts.entity2) {
-            tank_e = Some(contacts.entity1);
-        }
-        else {
-            tank_e = None;
-        }
-
-        for (candiate_e, tank) in tank_query.iter() {
-
-            let (_player, health) = player_hp_query.single();
-
-            if tank_e.is_some() && tank_e.unwrap() == candiate_e
-            && health.current != health.max {
-                for (_player, mut health) in player_hp_query.iter_mut() {
-                    health.heal(tank.hp);
-                }
-                commands.entity(tank_e.unwrap()).despawn();
-            }
+    for (tank_e, tank) in tank_query.iter() {
+        if colliding_e.contains(&tank_e) && health.current < health.max {
+            health.heal(tank.hp);
+            commands.entity(tank_e).despawn();
         }
     }
 }
