@@ -108,6 +108,43 @@ pub struct Mob {
     pub damage: i32,
 }
 
+/// Struct for convenient mob sight handling 
+#[derive(Debug)]
+pub struct Ray {
+    pub direction: Vec2,
+    pub weight: f32,
+}
+
+/// Component for mobs that pursue player
+#[derive(Component)]
+pub struct SearchAndPursue {
+    pub speed: f32,
+    pub pursue_radius: f32,
+    pub last_player_dir: Vec2,
+    pub rays: Vec<Ray>,
+}
+
+impl Default for SearchAndPursue {
+    fn default() -> Self {
+
+        let mut rays: Vec<Ray> = vec![];
+
+        for i in 0..16 {
+            rays.push(Ray {
+                direction: Vec2::from_angle(i as f32 * PI/8.),
+                weight: 0.0
+            })
+        }
+
+        Self {
+            speed: 2000.0,
+            pursue_radius: 256.0,
+            last_player_dir: Vec2::ZERO,
+            rays
+        }
+    }
+}
+
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -144,6 +181,14 @@ pub struct RotationEntity;
 /// Corpse flag, which shows that necromancer is trying to raise mob from this grave
 #[derive(Component)]
 pub struct BusyRaising;
+
+/// This state should be applied to mob entity if it doesn't need to do anything in particular
+#[derive(Component)]
+pub struct Idle;
+
+/// This state should be applied to mob entity if it need to be following player
+#[derive(Component)]
+pub struct PursuePlayer;
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),

@@ -2,7 +2,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{
-    gamemap::ROOM_SIZE, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun,
+    gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun,
     GameState,
 };
 
@@ -15,8 +15,11 @@ impl Plugin for MobMovementPlugin {
                 FixedUpdate,
                 (move_mobs, runaway_mob).run_if(in_state(GameState::InGame)),
             );
+        
+        app.add_systems(FixedUpdate, (idle, pursue_player, update_weights));
     }
 }
+
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.place_to_teleport.len() > 0 {
@@ -29,6 +32,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<S
         }
     }
 }
+
 fn runaway_mob(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
@@ -54,10 +58,11 @@ fn runaway_mob(
         }
     }
 }
+
 fn move_mobs(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
-        (Without<Stun>, Without<Teleport>, Without<Raising>),
+        (Without<Stun>, Without<Teleport>, Without<Raising>, Without<SearchAndPursue>),
     >,
     time: Res<Time>,
 ) {
@@ -81,4 +86,88 @@ fn move_mobs(
             }
         }
     }
+}
+
+fn idle(
+    mut commands: Commands,
+    mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue)>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    for (mob_e, mob_transform, mut mob) in mob_query.iter_mut() {
+        if player_transform.translation.distance(mob_transform.translation) <= mob.pursue_radius {
+            commands.entity(mob_e).remove::<Idle>();
+            commands.entity(mob_e).insert(PursuePlayer);
+        }
+        else {
+            commands.entity(mob_e).remove::<PursuePlayer>();
+            commands.entity(mob_e).insert(Idle);
+            commands.entity(mob_e).insert(LinearVelocity::ZERO);
+            mob.last_player_dir = Vec2::ZERO;
+        }
+    }
+}
+
+fn pursue_player(
+    mut mob_query: Query<(&mut LinearVelocity, &Transform, &mut SearchAndPursue, &mut RayCaster, &RayHits), With<PursuePlayer>>,
+    player_query: Query<(Entity, &Transform), With<crate::player::Player>>,
+    time: Res<Time>,
+) {
+    let Ok((player_e, player_transform)) = player_query.get_single() else {
+        return;
+    };
+
+    for (mut linvel, mob_transform, mut mob, mut raycaster, ray_hits) in mob_query.iter_mut() {
+        let direction = (player_transform.translation - mob_transform.translation).truncate().normalize();
+        raycaster.direction = Dir2::new_unchecked(direction);
+       
+        let hits = ray_hits.iter_sorted().collect::<Vec<RayHitData>>();
+    
+        if !hits.is_empty() {
+            if hits[0].entity == player_e {
+                mob.last_player_dir = direction;
+            }
+        }
+    
+        let mut desire_direction = Vec2::ZERO;
+    
+        for ray in mob.rays.iter() {
+            desire_direction += ray.direction * ray.weight;
+        }
+    
+        linvel.0 = (mob.last_player_dir + desire_direction) * mob.speed * time.delta_seconds();
+    }
+}
+
+fn update_weights(
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(&Transform, &mut SearchAndPursue), With<PursuePlayer>>,
+    avoid_query: Query<Entity, With<Wall>>,
+) {
+    for (mob_transform, mut mob) in mob_query.iter_mut() {
+        for i in 0..16 {
+            mob.rays[i].weight = 0.0;
+    
+            let offset = std::f32::consts::PI/8.0;
+            let Some(first_hit) = spatial_query.cast_ray_predicate(
+                mob_transform.translation.truncate(),
+                Dir2::new_unchecked(Vec2::from_angle(i as f32 * offset)),
+                128.,
+                true,
+                SpatialQueryFilter::default(),
+                &|entity| {
+                    avoid_query.contains(entity)
+                })
+            else {
+                continue;
+            };
+    
+            if first_hit.time_of_impact < 16. {
+                mob.rays[i].weight = -1.0;
+            }
+        }
+    };
 }

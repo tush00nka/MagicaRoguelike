@@ -224,7 +224,7 @@ fn cast_spell(
                     spawn_pos: wand_transform.translation.with_z(0.9),
                     target_pos: mouse_coords.0.extend(0.9),
                     lifetime: 1.5 * bar.len() as f32, // seconds
-                    strength: 10_000. * bar.len() as f32,
+                    strength: 1_000. * bar.len() as f32,
                 });
             } else {
                 
