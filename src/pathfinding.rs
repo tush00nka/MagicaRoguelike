@@ -1,13 +1,16 @@
+//A* Pathfinding for enemies
+use bevy::prelude::*;
+
 use std::collections::{HashMap, LinkedList};
 
-//A* Pathfinding for enemies
 use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
-    mob::{BusyRaising, Corpse, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
+    mobs::{BusyRaising, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
+    obstacles::Corpse,
     player::Player,
     GameState,
 };
-use bevy::prelude::*;
+
 pub struct PathfindingPlugin;
 
 impl Plugin for PathfindingPlugin {
@@ -20,8 +23,7 @@ impl Plugin for PathfindingPlugin {
         )
         .add_systems(
             Update,
-            pathfinding_with_tp
-                .run_if(in_state(GameState::InGame)),
+            pathfinding_with_tp.run_if(in_state(GameState::InGame)),
         )
         .add_systems(
             Update,
@@ -101,7 +103,7 @@ fn change_target_appeared<
     Filter1: Component,
     Filter2: Component,
 >(
-    mut mob_query: Query<Entity, (With<Before>, With<Pathfinder>,With<Filter2>)>,
+    mut mob_query: Query<Entity, (With<Before>, With<Pathfinder>, With<Filter2>)>,
     _target_query: Query<Entity, (Changed<Filter1>, With<Filter1>)>,
     mut commands: Commands,
 ) {
@@ -373,11 +375,21 @@ fn pathfinding_with_tp(
     }
 }
 //система Pathifinding-а, самописный A* используя средства беви, перекидываю граф, очереди мобов и игрока, после чего ищу от позиций мобов путь до игрока
-fn a_pathfinding<T: Component, P: Component, FilterTarget: Component, FilterPathfinder: Component>(
+fn a_pathfinding<
+    T: Component,
+    P: Component,
+    FilterTarget: Component,
+    FilterPathfinder: Component,
+>(
     target_query: Query<&Transform, (With<T>, Without<FilterTarget>, Without<P>)>, //don't use globalTransform, please
     mut pathfinder_query: Query<
         (&Transform, &mut Pathfinder),
-        (Without<T>, Without<Teleport>, With<P>, Without<FilterPathfinder>),
+        (
+            Without<T>,
+            Without<Teleport>,
+            With<P>,
+            Without<FilterPathfinder>,
+        ),
     >,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
@@ -389,9 +401,14 @@ fn a_pathfinding<T: Component, P: Component, FilterTarget: Component, FilterPath
             if target_query.iter().len() != 0 {
                 let mut target: Transform = pathfinder_transform.clone();
                 let mut dist: f32 = f32::MAX;
-                for temp_pos in target_query.iter(){
-                    let temp_dist: f32 = (pathfinder_transform.translation - temp_pos.translation).x.powf(2.) + (pathfinder_transform.translation - temp_pos.translation).y.powf(2.);
-                    if dist > temp_dist{
+                for temp_pos in target_query.iter() {
+                    let temp_dist: f32 = (pathfinder_transform.translation - temp_pos.translation)
+                        .x
+                        .powf(2.)
+                        + (pathfinder_transform.translation - temp_pos.translation)
+                            .y
+                            .powf(2.);
+                    if dist > temp_dist {
                         dist = temp_dist;
                         target = *temp_pos;
                     }

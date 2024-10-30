@@ -8,7 +8,7 @@ use crate::{
         ItemType,
         SpawnItemEvent
     },
-    mob::MobDeathEvent
+    mobs::MobDeathEvent
 };
 
 pub struct LootPlugin;
