@@ -3,8 +3,9 @@ use bevy::window::PrimaryWindow;
 
 use crate::camera::InGameCamera;
 
+/// Ресурс, содержащий текущую позицию мыши в мире
 #[derive(Resource, Default)]
-pub struct MouseCoords(pub Vec2); // ресурс, где всегда будет текущая позиция мыши в мире
+pub struct MouseCoords(pub Vec2); 
 
 pub struct MousePositionPlugin;
 

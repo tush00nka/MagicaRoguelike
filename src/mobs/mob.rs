@@ -125,23 +125,23 @@ pub struct MobLoot {
 }
 
 //Flags===========================================================================================================================================
-//flag to pathfinding: rush to player
+/// Flag to pathfinding: rush to player
 #[derive(Component, Default)]
 pub struct PlayerRush;
 
-//flag to pathfinding: rush to corpse
+/// Flag to pathfinding: rush to corpse
 #[derive(Component, Default)]
 pub struct CorpseRush;
 
-//flag to pathfinding: try to run away
+/// Flag to pathfinding: try to run away
 #[derive(Component, Default)]
 pub struct RunawayRush;
 
-//flag for entities with rotation parts
+/// Flag for entities with rotation parts
 #[derive(Component)]
 pub struct RotationEntity;
 
-//Corpse flag, which shows that necromancer is trying to raise mob from this grave
+/// Corpse flag, which shows that necromancer is trying to raise mob from this grave
 #[derive(Component)]
 pub struct BusyRaising;
 
