@@ -76,9 +76,7 @@ fn pull_mobs(
                 let direction = (hole_tf.translation - mob_tf.translation)
                     .truncate()
                     .normalize_or_zero();
-                force.apply_force(direction * hole.strength);
-            } else {
-                force.clear();
+                force.apply_force(direction * hole.strength).with_persistence(false);
             }
         }
     }
@@ -87,7 +85,7 @@ fn pull_mobs(
 fn despawn_black_hole_on_timer(
     mut commands: Commands,
     mut black_hole_query: Query<(Entity, &mut BlackHole)>,
-    mut mob_query: Query<&mut ExternalForce, With<Mob>>,
+    // mut mob_query: Query<&mut ExternalForce, With<Mob>>,
     time: Res<Time>,
 ) {
     for (entity, mut black_hole) in black_hole_query.iter_mut() {
@@ -95,9 +93,9 @@ fn despawn_black_hole_on_timer(
 
         if black_hole.timer.just_finished() {
 
-            for mut external_force in mob_query.iter_mut() {
-                external_force.clear();
-            }
+            // for mut external_force in mob_query.iter_mut() {
+            //     external_force.clear();
+            // }
 
             commands.entity(entity).despawn();
         }

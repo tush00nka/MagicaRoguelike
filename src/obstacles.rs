@@ -86,49 +86,31 @@ fn hit_obstacles<T: Component>(
     //TODO: ADD LOOT DROP FROM OBSTACLES IDK, MAYBE ADD LOOT TO THEM
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(Entity, &mut Health, &Transform), With<T>>,
-    mut ev_collision: EventReader<Collision>,
+    mut obstacle_query: Query<(&CollidingEntities, &mut Health, &Transform), With<T>>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
-        let mut proj_e = Entity::PLACEHOLDER;
-        let mut obstacle_e = Entity::PLACEHOLDER;
+    for (colliding_e, mut health, obstacle_transform) in obstacle_query.iter_mut() {
+        for (proj_e, projectile, projectile_transform) in projectile_query.iter() {
+            if colliding_e.contains(&proj_e) {
+                // урон
+                let damage = projectile.damage as i32;
 
-        if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
-            proj_e = contacts.entity2;
-            obstacle_e = contacts.entity1;
-        } else if projectile_query.contains(contacts.entity1)
-            && mob_query.contains(contacts.entity2)
-        {
-            proj_e = contacts.entity1;
-            obstacle_e = contacts.entity2;
-        }
+                // направление выстрела
+                let shot_dir =
+                    (obstacle_transform.translation - projectile_transform.translation).normalize();
 
-        for (candidate_e, mut health, transform) in mob_query.iter_mut() {
-            if obstacle_e == candidate_e {
-                for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
-                {
-                    if proj_e == proj_candidate_e {
-                        // считаем урон с учётом сопротивления к элементам
-                        let damage = projectile.damage as i32;
+                // пушим в очередь попадание
+                health.hit_queue.push(Hit {
+                    damage,
+                    element: Some(projectile.element),
+                    direction: shot_dir,
+                });
 
-                        // направление выстрела
-                        let shot_dir =
-                            (transform.translation - projectile_transform.translation).normalize();
-
-                        // пушим в очередь попадание
-                        health.hit_queue.push(Hit {
-                            damage,
-                            element: Some(projectile.element),
-                            direction: shot_dir,
-                        });
-
-                        // деспавним снаряд
-                        commands.entity(proj_e).despawn();
-                    }
-                }
+                // деспавним снаряд
+                commands.entity(proj_e).despawn();
             }
         }
     }
+
 }
 
 fn damage_obstacles<T: Component>(
@@ -142,7 +124,6 @@ fn damage_obstacles<T: Component>(
             // наносим урон
             health.damage(hit.damage);
 
-            // шлём ивент смерти
             if health.current <= 0 {
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
@@ -203,6 +184,7 @@ fn spawn_corpse(
             .insert(Health::new(40))
             .insert(Obstacle)
             .id();
+
         if can_be_spawned {
             commands.entity(grave).insert(Corpse {
                 mob_type: ev.mob_type.clone(),

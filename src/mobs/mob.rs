@@ -345,47 +345,28 @@ fn mob_shoot(
 fn hit_projectiles(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(Entity, &mut Health, &Mob, &Transform, &ElementResistance), With<Mob>>,
-    mut ev_collision: EventReader<Collision>,
+    mut mob_query: Query<(&CollidingEntities, &mut Health, &Transform, &ElementResistance), With<Mob>>,
 ) {
-    for Collision(contacts) in ev_collision.read() {
-        let mut proj_e = Entity::PLACEHOLDER;
-        let mut mob_e = Entity::PLACEHOLDER;
+    for (colliding_e, mut health, mob_transform, resistance) in mob_query.iter_mut() {
+        for (proj_e, projectile, projectile_transform) in projectile_query.iter() {
+            if colliding_e.contains(&proj_e) {
+                // считаем урон с учётом сопротивления к элементам
+                let mut damage = projectile.damage as i32;
+                resistance.calculate_for(&mut damage, Some(projectile.element));
 
-        if projectile_query.contains(contacts.entity2) && mob_query.contains(contacts.entity1) {
-            proj_e = contacts.entity2;
-            mob_e = contacts.entity1;
-        } else if projectile_query.contains(contacts.entity1)
-            && mob_query.contains(contacts.entity2)
-        {
-            proj_e = contacts.entity1;
-            mob_e = contacts.entity2;
-        }
+                // направление выстрела
+                let shot_dir =
+                    (mob_transform.translation - projectile_transform.translation).normalize();
 
-        for (candidate_e, mut health, _mob, transform, resistance) in mob_query.iter_mut() {
-            if mob_e == candidate_e {
-                for (proj_candidate_e, projectile, projectile_transform) in projectile_query.iter()
-                {
-                    if proj_e == proj_candidate_e {
-                        // считаем урон с учётом сопротивления к элементам
-                        let mut damage = projectile.damage as i32;
-                        resistance.calculate_for(&mut damage, Some(projectile.element));
+                // пушим в очередь попадание
+                health.hit_queue.push( Hit {
+                    damage,
+                    element: Some(projectile.element),
+                    direction: shot_dir,
+                });
 
-                        // направление выстрела
-                        let shot_dir =
-                            (transform.translation - projectile_transform.translation).normalize();
-
-                        // пушим в очередь попадание
-                        health.hit_queue.push(Hit {
-                            damage,
-                            element: Some(projectile.element),
-                            direction: shot_dir,
-                        });
-
-                        // деспавним снаряд
-                        commands.entity(proj_e).despawn();
-                    }
-                }
+                // деспавним снаряд
+                commands.entity(proj_e).despawn();
             }
         }
     }
@@ -421,12 +402,13 @@ fn damage_mobs(
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
-                // события "поле смерти"
+                // события "поcле смерти"
                 ev_death.send(MobDeathEvent {
                     orbs: loot.orbs,
                     pos: transform.translation,
                     dir: hit.direction,
                 });
+
                 // спавним труп на месте смерти моба
                 ev_corpse.send(CorpseSpawnEvent {
                     mob_type: mob_type.clone(),
