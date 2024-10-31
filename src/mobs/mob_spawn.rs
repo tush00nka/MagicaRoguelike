@@ -243,6 +243,7 @@ pub fn spawn_mob(
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map
@@ -255,6 +256,7 @@ pub fn spawn_mob(
             }
             MobType::WaterMage => {
                 commands.entity(mob).insert(MageBundle::water_mage());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map
@@ -264,6 +266,7 @@ pub fn spawn_mob(
             }
             MobType::JungleTurret => {
                 commands.entity(mob).insert(TurretBundle::jungle_turret());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map

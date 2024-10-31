@@ -339,49 +339,56 @@ impl MobBundle {
 //actual code==============================================================================================================================
 fn mob_shoot(
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(&Transform, &mut ShootAbility), Without<Stun>>,
-    mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
+    mut mob_query: Query<(&Transform, &mut ShootAbility, &mut RayCaster, &RayHits), Without<Stun>>,
+    mut player_query: Query<(Entity, &Transform), (With<Player>, Without<Mob>)>,
     time: Res<Time>,
 ) {
-    for (&transform, mut can_shoot) in mob_query.iter_mut() {
-        if let Ok(player) = player_query.get_single_mut() {
+    for (&transform, mut can_shoot, mut raycaster, ray_hits) in mob_query.iter_mut() {
+        if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
+            let dir = (player_transform.translation.truncate() - transform.translation.truncate())
+                .normalize_or_zero();
+            raycaster.direction = Dir2::new_unchecked(dir);
+       
+            let hits = ray_hits.iter_sorted().collect::<Vec<RayHitData>>();
+
             can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished() {
-                let dir = (player.translation.truncate() - transform.translation.truncate())
-                    .normalize_or_zero();
-                let angle = dir.y.atan2(dir.x); //math
-                let texture_path: String;
-                let damage: u32;
+            if can_shoot.time_to_shoot.just_finished()
+            && !hits.is_empty() {
+                if hits[0].entity == player_e {
+                    let angle = dir.y.atan2(dir.x); //math
+                    let texture_path: String;
+                    let damage: u32;
 
-                match can_shoot.proj_type {
-                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                    ProjectileType::Circle => {
-                        texture_path = "textures/earthquake.png".to_string();
-                        damage = 20;
+                    match can_shoot.proj_type {
+                        //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
+                        ProjectileType::Circle => {
+                            texture_path = "textures/earthquake.png".to_string();
+                            damage = 20;
+                        }
+                        ProjectileType::Missile => {
+                            texture_path = "textures/fireball.png".to_string();
+                            damage = 25;
+                        }
+                        ProjectileType::Gatling => {
+                            texture_path = "textures/small_fire.png".to_string();
+                            damage = 10;
+                        }
                     }
-                    ProjectileType::Missile => {
-                        texture_path = "textures/fireball.png".to_string();
-                        damage = 25;
-                    }
-                    ProjectileType::Gatling => {
-                        texture_path = "textures/small_fire.png".to_string();
-                        damage = 10;
-                    }
+
+                    let color = can_shoot.element.color();
+
+                    ev_shoot.send(SpawnProjectileEvent {
+                        texture_path,
+                        color, //todo: change this fragment, that we could spawn different types of projectiles.
+                        translation: transform.translation,
+                        angle,
+                        radius: 8.0,
+                        speed: 150.,
+                        damage,
+                        element: can_shoot.element,
+                        is_friendly: false,
+                    });
                 }
-
-                let color = can_shoot.element.color();
-
-                ev_shoot.send(SpawnProjectileEvent {
-                    texture_path,
-                    color, //todo: change this fragment, that we could spawn different types of projectiles.
-                    translation: transform.translation,
-                    angle,
-                    radius: 8.0,
-                    speed: 150.,
-                    damage,
-                    element: can_shoot.element,
-                    is_friendly: false,
-                });
             }
         }
     }
