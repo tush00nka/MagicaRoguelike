@@ -11,7 +11,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    obstacles::CorpseSpawnEvent,
+    obstacles::{CorpseSpawnEvent, Corpse},
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
@@ -338,57 +338,67 @@ impl MobBundle {
 
 //actual code==============================================================================================================================
 fn mob_shoot(
+    spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(&Transform, &mut ShootAbility, &mut RayCaster, &RayHits), Without<Stun>>,
+    mut mob_query: Query<(Entity, &Transform, &mut ShootAbility), Without<Stun>>,
     mut player_query: Query<(Entity, &Transform), (With<Player>, Without<Mob>)>,
     time: Res<Time>,
+    avoid_query: Query<Entity, With<Corpse>>,
 ) {
-    for (&transform, mut can_shoot, mut raycaster, ray_hits) in mob_query.iter_mut() {
+    for (mob_e, &mob_transform, mut can_shoot) in mob_query.iter_mut() {
         if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
-            let dir = (player_transform.translation.truncate() - transform.translation.truncate())
+            let dir = (player_transform.translation.truncate() - mob_transform.translation.truncate())
                 .normalize_or_zero();
-            raycaster.direction = Dir2::new_unchecked(dir);
-       
-            let hits = ray_hits.iter_sorted().collect::<Vec<RayHitData>>();
+
+            let Some(first_hit) = spatial_query.cast_ray_predicate(
+                mob_transform.translation.truncate(),
+                Dir2::new_unchecked(dir),
+                256.,
+                true,
+                SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
+                &|entity| {
+                    entity != mob_e
+                } )
+            else {
+                continue;
+            };
 
             can_shoot.time_to_shoot.tick(time.delta());
             if can_shoot.time_to_shoot.just_finished()
-            && !hits.is_empty() {
-                if hits[0].entity == player_e {
-                    let angle = dir.y.atan2(dir.x); //math
-                    let texture_path: String;
-                    let damage: u32;
+            && first_hit.entity == player_e {
+                let angle = dir.y.atan2(dir.x); //math
+                let texture_path: String;
+                let damage: u32;
 
-                    match can_shoot.proj_type {
-                        //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                        ProjectileType::Circle => {
-                            texture_path = "textures/earthquake.png".to_string();
-                            damage = 20;
-                        }
-                        ProjectileType::Missile => {
-                            texture_path = "textures/fireball.png".to_string();
-                            damage = 25;
-                        }
-                        ProjectileType::Gatling => {
-                            texture_path = "textures/small_fire.png".to_string();
-                            damage = 10;
-                        }
+                match can_shoot.proj_type {
+                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
+                    ProjectileType::Circle => {
+                        texture_path = "textures/earthquake.png".to_string();
+                        damage = 20;
                     }
-
-                    let color = can_shoot.element.color();
-
-                    ev_shoot.send(SpawnProjectileEvent {
-                        texture_path,
-                        color, //todo: change this fragment, that we could spawn different types of projectiles.
-                        translation: transform.translation,
-                        angle,
-                        radius: 8.0,
-                        speed: 150.,
-                        damage,
-                        element: can_shoot.element,
-                        is_friendly: false,
-                    });
+                    ProjectileType::Missile => {
+                        texture_path = "textures/fireball.png".to_string();
+                        damage = 25;
+                    }
+                    ProjectileType::Gatling => {
+                        texture_path = "textures/small_fire.png".to_string();
+                        damage = 10;
+                    }
                 }
+
+                let color = can_shoot.element.color();
+
+                ev_shoot.send(SpawnProjectileEvent {
+                    texture_path,
+                    color, //todo: change this fragment, that we could spawn different types of projectiles.
+                    translation: mob_transform.translation,
+                    angle,
+                    radius: 8.0,
+                    speed: 150.,
+                    damage,
+                    element: can_shoot.element,
+                    is_friendly: false,
+                });
             }
         }
     }
