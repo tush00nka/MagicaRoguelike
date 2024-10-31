@@ -353,7 +353,7 @@ fn mob_shoot(
             let Some(first_hit) = spatial_query.cast_ray_predicate(
                 mob_transform.translation.truncate(),
                 Dir2::new_unchecked(dir),
-                256.,
+                512.,
                 true,
                 SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
                 &|entity| {
