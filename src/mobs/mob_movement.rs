@@ -165,8 +165,8 @@ fn update_weights(
                 continue;
             };
     
-            if first_hit.time_of_impact < 16. {
-                mob.rays[i].weight = -1.0;
+            if first_hit.time_of_impact < 24. {
+                mob.rays[i].weight = -1. / first_hit.time_of_impact;
             }
         }
     };

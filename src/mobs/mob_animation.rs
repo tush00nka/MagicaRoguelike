@@ -1,4 +1,4 @@
-use avian2d::prelude::LinearVelocity;
+use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
 use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState,pathfinding::Pathfinder};
@@ -44,18 +44,16 @@ fn rotate_mobs(
     >,
     time: Res<Time>,
 ) {
-    for (global_rotation, mut rotation_en) in &mut rotation_query {
+    for (global_transform, mut rotation_en) in &mut rotation_query {
         if let Ok(player_transform) = player_query.get_single() {
-            let translation = global_rotation.translation();
-            let diff = Vec3::new(
-                player_transform.translation.x,
-                player_transform.translation.y,
-                translation.z,
-            ) - translation;
-            let angle = diff.y.atan2(diff.x);
+            let translation = global_transform.translation();
+            let diff = (player_transform.translation - translation).truncate().normalize_or_zero();
+
+            let angle = diff.to_angle();
+
             rotation_en.rotation = rotation_en
-                .rotation
-                .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
+            .rotation
+            .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
         }
     }
 }
