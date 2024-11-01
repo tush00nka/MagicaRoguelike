@@ -1,5 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::{
     gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun,
@@ -92,6 +93,7 @@ fn idle(
     mut commands: Commands,
     mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue, &mut RayCaster, &RayHits), With<Idle>>,
     player_query: Query<(Entity, &Transform), With<Player>>,
+    time: Res<Time>,
 ) {
     let Ok((player_e, player_transform)) = player_query.get_single() else {
         return;
@@ -99,10 +101,21 @@ fn idle(
 
     for (mob_e, mob_transform, mut mob, mut ray, hits) in mob_query.iter_mut() {
 
+        mob.wander_timer.tick(time.delta());
+
+        if mob.wander_timer.elapsed_secs() == mob.wander_timer.remaining_secs() {
+            let directions: Vec<Vec2> = mob.rays.iter().map(|ray| ray.direction).collect();
+            let direction = directions[rand::thread_rng().gen_range(0..directions.len())];
+
+            commands.entity(mob_e).insert(LinearVelocity(direction * mob.speed * time.delta_seconds()));
+        }
+        
+        if mob.wander_timer.just_finished() {
+            commands.entity(mob_e).insert(LinearVelocity::ZERO);
+        }
+
         ray.direction = Dir2::new_unchecked((player_transform.translation - mob_transform.translation).truncate().normalize());
-
         let hits_data = hits.iter_sorted().collect::<Vec<RayHitData>>();
-
         if player_transform.translation.distance(mob_transform.translation) <= mob.pursue_radius {
             if !hits_data.is_empty() && hits_data[0].entity == player_e {
                 commands.entity(mob_e).remove::<Idle>();

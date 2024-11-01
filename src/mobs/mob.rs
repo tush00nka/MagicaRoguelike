@@ -120,6 +120,7 @@ pub struct Ray {
 pub struct SearchAndPursue {
     pub speed: f32,
     pub search_time: Timer,
+    pub wander_timer: Timer,
     pub pursue_radius: f32,
     pub last_player_dir: Vec2,
     pub rays: Vec<Ray>,
@@ -140,6 +141,7 @@ impl Default for SearchAndPursue {
         Self {
             speed: 2000.0,
             search_time: Timer::from_seconds(5., TimerMode::Once),
+            wander_timer: Timer::from_seconds(3., TimerMode::Repeating),
             pursue_radius: 256.0,
             last_player_dir: Vec2::ZERO,
             rays
