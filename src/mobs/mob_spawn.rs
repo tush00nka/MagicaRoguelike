@@ -240,11 +240,13 @@ pub fn spawn_mob(
             MobType::Knight => {
                 commands.entity(mob).insert(MeleeMobBundle::knight());
                 commands.entity(mob).insert(SearchAndPursue::default());
+                commands.entity(mob).insert(Idle);
                 commands.entity(mob).insert(RayCaster::default());
             }
             MobType::Mossling => {
                 commands.entity(mob).insert(MeleeMobBundle::mossling());
                 commands.entity(mob).insert(SearchAndPursue::default());
+                commands.entity(mob).insert(Idle);
                 commands.entity(mob).insert(RayCaster::default());
             }
             MobType::FireMage => {

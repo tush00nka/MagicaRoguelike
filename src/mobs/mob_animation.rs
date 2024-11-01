@@ -1,4 +1,4 @@
-use avian2d::{math::PI, prelude::*};
+use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState,pathfinding::Pathfinder};
