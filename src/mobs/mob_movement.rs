@@ -3,8 +3,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun,
-    GameState,
+    alert::SpawnAlertEvent, gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun, GameState
 };
 
 pub struct MobMovementPlugin;
@@ -94,6 +93,7 @@ fn idle(
     mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue, &mut RayCaster, &RayHits), With<Idle>>,
     player_query: Query<(Entity, &Transform), With<Player>>,
     time: Res<Time>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
 ) {
     let Ok((player_e, player_transform)) = player_query.get_single() else {
         return;
@@ -121,6 +121,10 @@ fn idle(
                 commands.entity(mob_e).remove::<Idle>();
                 commands.entity(mob_e).insert(PursuePlayer);
                 mob.search_time.reset();
+
+                ev_spawn_alert.send(SpawnAlertEvent {
+                    position: mob_transform.translation.truncate().with_y(mob_transform.translation.y + 16.),
+                });
             }
         }
     }
