@@ -99,6 +99,9 @@ use obstacles::ObstaclePlugin;
 mod pause;
 use pause::PausePlugin;
 
+mod alert;
+use alert::AlertPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -160,6 +163,7 @@ fn main() {
             MobAnimationPlugin,
             MobSpawnPlugin,
             MobMovementPlugin,
+            AlertPlugin,
         ))
         .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)
