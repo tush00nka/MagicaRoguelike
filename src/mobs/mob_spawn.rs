@@ -239,12 +239,17 @@ pub fn spawn_mob(
         match ev.mob_type {
             MobType::Knight => {
                 commands.entity(mob).insert(MeleeMobBundle::knight());
+                commands.entity(mob).insert(SearchAndPursue::default());
+                commands.entity(mob).insert(RayCaster::default());
             }
             MobType::Mossling => {
                 commands.entity(mob).insert(MeleeMobBundle::mossling());
+                commands.entity(mob).insert(SearchAndPursue::default());
+                commands.entity(mob).insert(RayCaster::default());
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map
@@ -257,6 +262,7 @@ pub fn spawn_mob(
             }
             MobType::WaterMage => {
                 commands.entity(mob).insert(MageBundle::water_mage());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map
@@ -266,6 +272,7 @@ pub fn spawn_mob(
             }
             MobType::JungleTurret => {
                 commands.entity(mob).insert(TurretBundle::jungle_turret());
+                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map

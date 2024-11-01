@@ -11,7 +11,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    obstacles::CorpseSpawnEvent,
+    obstacles::{CorpseSpawnEvent, Corpse},
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
@@ -108,6 +108,43 @@ pub struct Mob {
     pub damage: i32,
 }
 
+/// Struct for convenient mob sight handling 
+#[derive(Debug)]
+pub struct Ray {
+    pub direction: Vec2,
+    pub weight: f32,
+}
+
+/// Component for mobs that pursue player
+#[derive(Component)]
+pub struct SearchAndPursue {
+    pub speed: f32,
+    pub pursue_radius: f32,
+    pub last_player_dir: Vec2,
+    pub rays: Vec<Ray>,
+}
+
+impl Default for SearchAndPursue {
+    fn default() -> Self {
+
+        let mut rays: Vec<Ray> = vec![];
+
+        for i in 0..16 {
+            rays.push(Ray {
+                direction: Vec2::from_angle(i as f32 * PI/8.),
+                weight: 0.0
+            })
+        }
+
+        Self {
+            speed: 2000.0,
+            pursue_radius: 256.0,
+            last_player_dir: Vec2::ZERO,
+            rays
+        }
+    }
+}
+
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -146,6 +183,14 @@ pub struct FlipEntity;
 /// Corpse flag, which shows that necromancer is trying to raise mob from this grave
 #[derive(Component)]
 pub struct BusyRaising;
+
+/// This state should be applied to mob entity if it doesn't need to do anything in particular
+#[derive(Component)]
+pub struct Idle;
+
+/// This state should be applied to mob entity if it need to be following player
+#[derive(Component)]
+pub struct PursuePlayer;
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),
@@ -295,17 +340,34 @@ impl MobBundle {
 
 //actual code==============================================================================================================================
 fn mob_shoot(
+    spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(&Transform, &mut ShootAbility), Without<Stun>>,
-    mut player_query: Query<&Transform, (With<Player>, Without<Mob>)>,
+    mut mob_query: Query<(Entity, &Transform, &mut ShootAbility), Without<Stun>>,
+    mut player_query: Query<(Entity, &Transform), (With<Player>, Without<Mob>)>,
     time: Res<Time>,
+    avoid_query: Query<Entity, With<Corpse>>,
 ) {
-    for (&transform, mut can_shoot) in mob_query.iter_mut() {
-        if let Ok(player) = player_query.get_single_mut() {
+    for (mob_e, &mob_transform, mut can_shoot) in mob_query.iter_mut() {
+        if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
+            let dir = (player_transform.translation.truncate() - mob_transform.translation.truncate())
+                .normalize_or_zero();
+
+            let Some(first_hit) = spatial_query.cast_ray_predicate(
+                mob_transform.translation.truncate(),
+                Dir2::new_unchecked(dir),
+                512.,
+                true,
+                SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
+                &|entity| {
+                    entity != mob_e
+                } )
+            else {
+                continue;
+            };
+
             can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished() {
-                let dir = (player.translation.truncate() - transform.translation.truncate())
-                    .normalize_or_zero();
+            if can_shoot.time_to_shoot.just_finished()
+            && first_hit.entity == player_e {
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
                 let damage: u32;
@@ -331,7 +393,7 @@ fn mob_shoot(
                 ev_shoot.send(SpawnProjectileEvent {
                     texture_path,
                     color, //todo: change this fragment, that we could spawn different types of projectiles.
-                    translation: transform.translation,
+                    translation: mob_transform.translation,
                     angle,
                     radius: 8.0,
                     speed: 150.,

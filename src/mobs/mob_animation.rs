@@ -15,7 +15,7 @@ impl Plugin for MobAnimationPlugin {
 }
 fn animate_mobs(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>)>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, Without<Idle>)>,
 ) {
     for (mut config, mut atlas) in &mut query {
         // we track how long the current sprite has been displayed for
