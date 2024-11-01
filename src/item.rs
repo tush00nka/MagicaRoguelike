@@ -20,7 +20,7 @@ impl Plugin for ItemPlugin {
 }
 
 #[allow(unused)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ItemType {
     Amulet,
     Bacon,
@@ -68,7 +68,6 @@ impl Distribution<ItemType> for Standard {
     }
 }
 
-#[allow(unused)]
 #[derive(Component)]
 pub struct Item {
     item_type: ItemType,
@@ -84,7 +83,6 @@ pub struct SpawnItemEvent {
 #[derive(Event)]
 pub struct ItemPickedUpEvent {
     pub item_type: ItemType,
-    pub texture_path: String,
 }
 
 fn spawn_item(
@@ -146,7 +144,6 @@ fn pick_up_item(
         if colliding_e.contains(&item_e) {
             ev_item_picked_up.send(ItemPickedUpEvent {
                 item_type: item.item_type,
-                texture_path: item.item_type.get_texture_path().to_string(),
             });
             commands.entity(item_e).despawn();
         }

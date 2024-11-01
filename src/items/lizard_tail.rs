@@ -6,7 +6,7 @@ use crate::{
         ItemPickedUpEvent,
         ItemType
     },
-    player::Player,
+    player::Player, ui::{ItemInventory, UpdateInventoryEvent},
 };
 
 pub struct LizardTailPlugin;
@@ -45,9 +45,15 @@ fn spawn_death_popup(
     asset_server: Res<AssetServer>,
     mut ev_player_death: EventReader<DeathAvoidPopupEvent>,
     player_query: Query<&Transform, With<Player>>,
+
+    mut inventory: ResMut<ItemInventory>,
+    mut ev_update_inventory: EventWriter<UpdateInventoryEvent>,
 ) {
     for _ev in ev_player_death.read() {
         if let Ok(player_transform) = player_query.get_single() {
+            inventory.remove(ItemType::LizardTail);
+            ev_update_inventory.send(UpdateInventoryEvent);
+
             commands.spawn(SpriteBundle {
                 texture: asset_server.load("textures/items/lizard_tail.png"),
                 transform: Transform {
