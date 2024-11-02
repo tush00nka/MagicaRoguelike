@@ -260,6 +260,7 @@ pub fn spawn_map(
     asset_server: Res<AssetServer>,
     mut map: ResMut<Map>,
     chapter_manager: Res<ChapterManager>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     room.start();
     let room_height = room.room_height;
@@ -270,18 +271,36 @@ pub fn spawn_map(
         for y in 0..room_height {
             match grid[x as usize][y as usize] {
                 TileType::Floor => {
+                    let texture = asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter()));
+                    let layout = TextureAtlasLayout::from_grid(UVec2::splat(32), 4, 1, None, None);
+                    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Floor, 0));
-                    commands
-                        .spawn(SpriteBundle {
-                            texture: asset_server.load(format!("textures/t_floor_{}.png", chapter_manager.get_current_chapter())),
+                    commands.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                flip_x: rand::random(),
+                                ..default()
+                            },
+                            texture,
                             transform: Transform::from_xyz(
-                            TILE_SIZE * x as f32,
-                            TILE_SIZE * y as f32,
-                            0.0,
-                        ),
+                                TILE_SIZE * x as f32,
+                                TILE_SIZE * y as f32,
+                                0.0,
+                                ),
                         ..default()
-                        })
-                        .insert(Floor);
+                        },
+                        TextureAtlas {
+                            layout: texture_atlas_layout,
+                            index: match rand::thread_rng().gen_range(0..10) {
+                                0..2 => 1,
+                                2..4 => 2,
+                                4 => 3,
+                                _=> 0,
+                            }
+                        }
+                    ))
+                    .insert(Floor);
                 },
                 TileType::Wall => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Wall, 0));
