@@ -164,7 +164,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::Necromancer => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/necromancer_corpse.png";
                 can_be_spawned = false;
             }
             MobType::Koldun => {

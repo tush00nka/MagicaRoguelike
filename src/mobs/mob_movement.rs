@@ -1,9 +1,9 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::{
-    gamemap::ROOM_SIZE, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun,
-    GameState,
+    alert::SpawnAlertEvent, blank_spell::Blank, gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, obstacles::Corpse, pathfinding::Pathfinder, player::Player, shield_spell::Shield, stun::Stun, GameState
 };
 
 pub struct MobMovementPlugin;
@@ -15,8 +15,11 @@ impl Plugin for MobMovementPlugin {
                 FixedUpdate,
                 (move_mobs, runaway_mob).run_if(in_state(GameState::InGame)),
             );
+        
+        app.add_systems(FixedUpdate, (idle, pursue_player, update_weights));
     }
 }
+
 fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {
     for (mut transform, mut mob) in mob_query.iter_mut() {
         if mob.place_to_teleport.len() > 0 {
@@ -29,6 +32,7 @@ fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<S
         }
     }
 }
+
 fn runaway_mob(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
@@ -54,10 +58,11 @@ fn runaway_mob(
         }
     }
 }
+
 fn move_mobs(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
-        (Without<Stun>, Without<Teleport>, Without<Raising>),
+        (Without<Stun>, Without<Teleport>, Without<Raising>, Without<SearchAndPursue>),
     >,
     time: Res<Time>,
 ) {
@@ -81,4 +86,142 @@ fn move_mobs(
             }
         }
     }
+}
+
+fn idle(
+    mut commands: Commands,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue), With<Idle>>,
+    player_query: Query<(Entity, &Transform), With<Player>>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
+    time: Res<Time>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
+) {
+    let Ok((player_e, player_transform)) = player_query.get_single() else {
+        return;
+    };
+
+    for (mob_e, mob_transform, mut mob) in mob_query.iter_mut() {
+        mob.wander_timer.tick(time.delta());
+
+        let dir = (player_transform.translation - mob_transform.translation).truncate().normalize();
+        
+        // получаем вектор, корректирующий направление моба,
+        // суммируя произведение вектора направления на его вес
+        let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
+
+        if mob.wander_timer.elapsed_secs() == mob.wander_timer.remaining_secs() {
+            let directions: Vec<Vec2> = mob.rays.iter().map(|ray| ray.direction).collect();
+            let direction = directions[rand::thread_rng().gen_range(0..directions.len())];
+
+            commands.entity(mob_e).insert(LinearVelocity((direction + ray_sum_dir) * mob.speed * time.delta_seconds()));
+        }
+        
+        if mob.wander_timer.just_finished() {
+            commands.entity(mob_e).insert(LinearVelocity::ZERO);
+        }
+
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked((dir+ray_sum_dir).normalize()),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
+
+        if player_transform.translation.distance(mob_transform.translation) <= mob.pursue_radius {
+            if first_hit.entity == player_e {
+                commands.entity(mob_e).remove::<Idle>();
+                commands.entity(mob_e).insert(PursuePlayer);
+                mob.search_time.reset();
+
+                ev_spawn_alert.send(SpawnAlertEvent {
+                    position: mob_transform.translation.truncate().with_y(mob_transform.translation.y + 16.),
+                });
+            }
+        }
+    }
+}
+
+fn pursue_player(
+    mut commands: Commands,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(Entity, &mut LinearVelocity, &Transform, &mut SearchAndPursue), With<PursuePlayer>>,
+    player_query: Query<(Entity, &Transform), With<crate::player::Player>>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
+    time: Res<Time>,
+) {
+    let Ok((player_e, player_transform)) = player_query.get_single() else {
+        return;
+    };
+
+    for (mob_e, mut linvel, mob_transform, mut mob) in mob_query.iter_mut() {
+
+        let direction = (player_transform.translation - mob_transform.translation).truncate().normalize();       
+        let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
+
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked((direction+ray_sum_dir).normalize()),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
+        
+        if first_hit.entity == player_e {
+            mob.last_player_dir = direction;
+        }
+    
+        linvel.0 = (mob.last_player_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
+
+        mob.search_time.tick(time.delta());
+
+        if player_transform.translation.distance(mob_transform.translation) > mob.pursue_radius
+        || mob.search_time.just_finished() {
+            commands.entity(mob_e).remove::<PursuePlayer>();
+            commands.entity(mob_e).insert(Idle);
+            linvel.0 = Vec2::ZERO;
+            mob.last_player_dir = Vec2::ZERO;
+        }
+    }
+}
+
+fn update_weights(
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(&Transform, &mut SearchAndPursue), With<PursuePlayer>>,
+    avoid_query: Query<Entity, With<Wall>>,
+) {
+    for (mob_transform, mut mob) in mob_query.iter_mut() {
+        for i in 0..16 {
+            mob.rays[i].weight = 0.0;
+    
+            let offset = std::f32::consts::PI/8.0;
+            let Some(first_hit) = spatial_query.cast_ray_predicate(
+                mob_transform.translation.truncate(),
+                Dir2::new_unchecked(Vec2::from_angle(i as f32 * offset)),
+                128.,
+                true,
+                SpatialQueryFilter::default(),
+                &|entity| {
+                    avoid_query.contains(entity)
+                })
+            else {
+                continue;
+            };
+    
+            if first_hit.time_of_impact < 24. {
+                mob.rays[i].weight = -1. / first_hit.time_of_impact;
+            }
+        }
+    };
 }

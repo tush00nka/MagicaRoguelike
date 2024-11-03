@@ -1,5 +1,5 @@
 //bundle for turrets(can shoot)
-use {bevy::prelude::TimerMode, rand::Rng, std::time::Duration};
+use {bevy::prelude::*, rand::Rng, std::time::Duration};
 
 use crate::{elements::ElementType, mobs::mob::*, Bundle, Timer};
 
@@ -12,6 +12,7 @@ pub struct TurretBundle {
 impl TurretBundle {
     pub fn jungle_turret() -> Self {
         let timer: u64 = rand::thread_rng().gen_range(1500..2000);
+        
         Self {
             mob_bundle: MobBundle::turret(),
             shoot_ability: ShootAbility {

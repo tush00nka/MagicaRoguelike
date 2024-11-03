@@ -281,7 +281,7 @@ fn pathfinding_with_tp(
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
 
-                let k: (u16, u16) = safe_get_pos(player.translation.truncate(), &mut graph_search);
+                let player_node: (u16, u16) = safe_get_pos(player.translation.truncate(), &mut graph_search);
                 let mob_pos = (
                     (transform.translation.x.floor() / 32.).floor() as u16,
                     (transform.translation.y.floor() / 32.).floor() as u16,
@@ -293,30 +293,30 @@ fn pathfinding_with_tp(
                 let mut padding_i_upper: u16 = 0;
                 let mut padding_j_upper: u16 = 0;
                 //смотрим только те клетки, которые не вылезают из диапазона
-                if mob.amount_of_tiles as u16 > k.0 {
-                    padding_i = mob.amount_of_tiles as u16 - k.0;
+                if mob.amount_of_tiles as u16 > player_node.0 {
+                    padding_i = mob.amount_of_tiles as u16 - player_node.0;
                 }
-                if mob.amount_of_tiles as u16 > k.1 {
-                    padding_j = mob.amount_of_tiles as u16 - k.1;
-                }
-
-                if mob.amount_of_tiles as u16 + k.0 + 1 > ROOM_SIZE as u16 {
-                    padding_i_upper = mob.amount_of_tiles as u16 + k.0 + 1 - ROOM_SIZE as u16;
-                }
-                if mob.amount_of_tiles as u16 + k.1 + 1 > ROOM_SIZE as u16 {
-                    padding_j_upper = mob.amount_of_tiles as u16 + k.1 + 1 - ROOM_SIZE as u16;
+                if mob.amount_of_tiles as u16 > player_node.1 {
+                    padding_j = mob.amount_of_tiles as u16 - player_node.1;
                 }
 
-                for i in k.0 + padding_i - mob.amount_of_tiles as u16
-                    ..k.0 + mob.amount_of_tiles as u16 + 1 - padding_i_upper
+                if mob.amount_of_tiles as u16 + player_node.0 + 1 > ROOM_SIZE as u16 {
+                    padding_i_upper = mob.amount_of_tiles as u16 + player_node.0 + 1 - ROOM_SIZE as u16;
+                }
+                if mob.amount_of_tiles as u16 + player_node.1 + 1 > ROOM_SIZE as u16 {
+                    padding_j_upper = mob.amount_of_tiles as u16 + player_node.1 + 1 - ROOM_SIZE as u16;
+                }
+
+                for i in player_node.0 + padding_i - mob.amount_of_tiles as u16
+                    ..player_node.0 + mob.amount_of_tiles as u16 + 1 - padding_i_upper
                 {
-                    for j in k.1 + padding_j - mob.amount_of_tiles as u16
-                        ..k.1 + mob.amount_of_tiles as u16 + 1 - padding_j_upper
+                    for j in player_node.1 + padding_j - mob.amount_of_tiles as u16
+                        ..player_node.1 + mob.amount_of_tiles as u16 + 1 - padding_j_upper
                     {
-                        if (i == k.0 + padding_i - mob.amount_of_tiles as u16
-                            || i == k.0 + mob.amount_of_tiles as u16 - padding_i_upper
-                            || j == k.1 + padding_j - mob.amount_of_tiles as u16
-                            || j == k.1 + mob.amount_of_tiles as u16 - padding_j_upper)
+                        if (i == player_node.0 + padding_i - mob.amount_of_tiles as u16
+                            || i == player_node.0 + mob.amount_of_tiles as u16 - padding_i_upper
+                            || j == player_node.1 + padding_j - mob.amount_of_tiles as u16
+                            || j == player_node.1 + mob.amount_of_tiles as u16 - padding_j_upper)
                             && !check
                         {
                             if !mob_map.map.contains_key(&(i, j))

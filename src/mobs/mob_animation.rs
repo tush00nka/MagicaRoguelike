@@ -1,4 +1,4 @@
-use avian2d::prelude::LinearVelocity;
+use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState,pathfinding::Pathfinder};
@@ -13,11 +13,13 @@ impl Plugin for MobAnimationPlugin {
         );
     }
 }
+
 fn animate_mobs(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>)>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, Without<SearchAndPursue>)>,
+    mut multistate_query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), With<SearchAndPursue>>,
 ) {
-    for (mut config, mut atlas) in &mut query {
+    fn animate(config: &mut AnimationConfig, atlas: &mut TextureAtlas, time: &Time) {
         // we track how long the current sprite has been displayed for
         config.frame_timer.tick(time.delta());
 
@@ -34,6 +36,16 @@ fn animate_mobs(
             }
         }
     }
+
+    for (mut config, mut atlas) in query.iter_mut() {
+        animate(&mut config, &mut atlas, &time);
+    }
+
+    for (mut config, mut atlas, linvel) in multistate_query.iter_mut() {
+        if linvel.0 != Vec2::ZERO {
+            animate(&mut config, &mut atlas, &time);
+        }
+    }   
 }
 
 fn rotate_mobs(
@@ -44,18 +56,16 @@ fn rotate_mobs(
     >,
     time: Res<Time>,
 ) {
-    for (global_rotation, mut rotation_en) in &mut rotation_query {
+    for (global_transform, mut rotation_en) in &mut rotation_query {
         if let Ok(player_transform) = player_query.get_single() {
-            let translation = global_rotation.translation();
-            let diff = Vec3::new(
-                player_transform.translation.x,
-                player_transform.translation.y,
-                translation.z,
-            ) - translation;
-            let angle = diff.y.atan2(diff.x);
+            let translation = global_transform.translation();
+            let diff = (player_transform.translation - translation).truncate().normalize_or_zero();
+
+            let angle = diff.to_angle();
+
             rotation_en.rotation = rotation_en
-                .rotation
-                .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
+            .rotation
+            .lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());
         }
     }
 }

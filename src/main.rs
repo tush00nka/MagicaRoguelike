@@ -102,6 +102,12 @@ use obstacles::ObstaclePlugin;
 mod pause;
 use pause::PausePlugin;
 
+mod alert;
+use alert::AlertPlugin;
+
+mod blank_spell;
+use blank_spell::BlankSpellPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -149,7 +155,7 @@ fn main() {
         .add_plugins(PlayerPlugin)
         .add_plugins(WandPlugin)
         .add_plugins((ElementsPlugin, ElementsUIPlugin))
-        .add_plugins((ShieldSpellPlugin, BlackHolePlugin))
+        .add_plugins((ShieldSpellPlugin, BlackHolePlugin, BlankSpellPlugin))
         .add_plugins(ProjectilePlugin)
         .add_plugins((
             ExperiencePlugin,
@@ -164,6 +170,7 @@ fn main() {
             MobAnimationPlugin,
             MobSpawnPlugin,
             MobMovementPlugin,
+            AlertPlugin,
         ))
         .add_plugins(GameOverPlugin)
         .add_plugins(LevelCompletionPlugin)

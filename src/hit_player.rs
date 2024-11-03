@@ -76,6 +76,11 @@ fn damage_player(
     };
 
     if !health.hit_queue.is_empty() {
+        //i-frames
+        commands
+        .entity(player_e)
+        .insert(Invincibility::new(player.invincibility_time));
+
         let hit = health.hit_queue.remove(0);
         health.hit_queue.clear();
 
@@ -85,12 +90,6 @@ fn damage_player(
 
         // наносим урон
         health.damage(damage);
-
-        //i-frames
-        commands
-        .entity(player_e)
-        .insert(Invincibility::new(player.invincibility_time));
-
 
         // шлём ивент смерти
         if health.current <= 0 {

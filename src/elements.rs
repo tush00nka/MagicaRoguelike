@@ -4,11 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent,
-    projectile::SpawnProjectileEvent,
-    shield_spell::SpawnShieldEvent,
-    wand::Wand,
-    GameState,
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -47,7 +43,7 @@ impl ElementType {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Copy, Clone)]
 pub struct ElementBar {
     pub fire: u8,
     pub water: u8,
@@ -159,21 +155,23 @@ fn cast_spell(
     wand_query: Query<&Transform, With<Wand>>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
+    mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
     mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
 
-    mut bar: ResMut<ElementBar>,
+    mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
 
     mouse: Res<ButtonInput<MouseButton>>,
 
     time: Res<Time<Virtual>>,
 ) {
-    if mouse.just_pressed(MouseButton::Left) && bar.len() > 0 && !time.is_paused() {
+    if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
         
         ev_bar_clear.send(ElementBarClear);
 
-        let mut spell_desc: String = "".to_string();
+        let bar = element_bar.clone();
+        element_bar.clear();
 
         let mut dmg = 0;
         dmg += bar.fire as u32 * 20;
@@ -213,7 +211,23 @@ fn cast_spell(
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
-                ev_spawn_shield.send(SpawnShieldEvent { duration: bar.earth as f32 * 2. });
+                ev_spawn_shield.send(SpawnShieldEvent {
+                    duration: bar.earth as f32 * 2.
+                });
+
+                return;
+            }
+
+            if bar.water == 1
+            && bar.air > 1
+            && bar.fire <= 0
+            && bar.earth <= 0 {
+                ev_spawn_blank.send(SpawnBlankEvent {
+                    range: bar.air as f32 * 2.,
+                    speed: 10.0,
+                });
+
+                return;
             }
 
             if bar.fire == bar.water
@@ -224,103 +238,90 @@ fn cast_spell(
                     spawn_pos: wand_transform.translation.with_z(0.9),
                     target_pos: mouse_coords.0.extend(0.9),
                     lifetime: 1.5 * bar.len() as f32, // seconds
-                    strength: 10_000. * bar.len() as f32,
+                    strength: 1_000. * bar.len() as f32,
                 });
-            } else {
-                
-                if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {
-                    spell_desc += "fire element\n";
-                    
-                    let offset = PI/12.0;
-                    for _i in 0..bar.fire*3 {
-                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
-                        ev_spawn_projectile.send(SpawnProjectileEvent {
-                            texture_path: "textures/small_fire.png".to_string(),
-                            color,
-                            translation: wand_transform.translation,
-                            angle,
-                            radius: 6.,
-                            speed: 150.0 + rng.gen_range(-25.0..25.0),
-                            damage: dmg / bar.fire as u32,
-                            element,
-                            is_friendly: true,
-                        });
-                    }
-                }
-            
-                if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
-                    spell_desc += "water element\n";
-    
-                    let offset = PI/12.0;
-                    for _i in 0..bar.water*3 {
-    
-                        let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                        let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-    
-                        ev_spawn_projectile.send(SpawnProjectileEvent {
-                            texture_path: "textures/small_fire.png".to_string(),
-                            color,
-                            translation: wand_transform.translation,
-                            angle,
-                            radius: 6.,
-                            speed: 150.0 + rng.gen_range(-25.0..25.0),
-                            damage: dmg / bar.water as u32,
-                            element,
-                            is_friendly: true,
-                        });
-                    }
-                }
-            
-                if bar.earth > 0
-                && bar.air <= 0
-                && (bar.water >= bar.earth || bar.water <= 0) {
-                    spell_desc += "AoE, e.g. earthquake\n";
-        
-                    let offset = (2.0*PI)/(bar.len()*3) as f32;
-                    for i in 0..bar.len()*3 {
-    
-                        let angle = offset * i as f32;
-    
-                        ev_spawn_projectile.send(SpawnProjectileEvent {
-                            texture_path: "textures/earthquake.png".to_string(),
-                            color,
-                            translation: wand_transform.translation,
-                            angle,
-                            radius: 12.,
-                            speed: 100.0,
-                            damage: dmg,
-                            element,
-                            is_friendly: true,
-                        });
-                    }
-                }
-            
-                if bar.air > 0 {
-                    spell_desc += "throwable, e.g. fireball\n";
-        
+
+                return;
+            }
+
+            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {                
+                let offset = PI/12.0;
+                for _i in 0..bar.fire*3 {
                     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                    let angle = dir.y.atan2(dir.x);
-    
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
                     ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/fireball.png".to_string(),
+                        texture_path: "textures/small_fire.png".to_string(),
                         color,
                         translation: wand_transform.translation,
                         angle,
-                        radius: 8.0,
-                        speed: 150.,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.fire as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            }
+        
+            if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
+                let offset = PI/12.0;
+                for _i in 0..bar.water*3 {
+
+                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: wand_transform.translation,
+                        angle,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.water as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            }
+        
+            if bar.earth > 0
+            && bar.air <= 0 {    
+                let offset = (2.0*PI)/(bar.len()*3) as f32;
+                for i in 0..bar.len()*3 {
+
+                    let angle = offset * i as f32;
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/earthquake.png".to_string(),
+                        color,
+                        translation: wand_transform.translation,
+                        angle,
+                        radius: 12.,
+                        speed: 100.0,
                         damage: dmg,
                         element,
                         is_friendly: true,
                     });
                 }
             }
+        
+            if bar.air > 0 {    
+                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                let angle = dir.y.atan2(dir.x);
+
+                ev_spawn_projectile.send(SpawnProjectileEvent {
+                    texture_path: "textures/fireball.png".to_string(),
+                    color,
+                    translation: wand_transform.translation,
+                    angle,
+                    radius: 8.0,
+                    speed: 150.,
+                    damage: dmg,
+                    element,
+                    is_friendly: true,
+                });
+            }
         }
-
-        // println!("[{}] ({} DMG)", spell_desc, dmg);
-        // println!("{:?}", bar.bar);
-
-        bar.clear();
     }
 }
