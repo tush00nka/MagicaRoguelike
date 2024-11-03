@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::{
     chapter::ChapterManager,
+    utils::get_random_tile_index,
     GameLayer,
     GameState
 };
@@ -292,12 +293,7 @@ pub fn spawn_map(
                         },
                         TextureAtlas {
                             layout: texture_atlas_layout,
-                            index: match rand::thread_rng().gen_range(0..10) {
-                                0..2 => 1,
-                                2..4 => 2,
-                                4 => 3,
-                                _=> 0,
-                            }
+                            index: get_random_tile_index(4)
                         }
                     ))
                     .insert(Floor);
