@@ -43,7 +43,7 @@ fn spawn_blank(
                     color: Color::srgb(1.0, 2.0, 1.0),
                     ..default()
                 },
-                texture: asset_server.load("textures/shield.png"),
+                texture: asset_server.load("textures/blank_spell.png"),
                 transform: Transform {
                     scale: Vec3::splat(0.1),
                     translation: player_transform.translation,
