@@ -1,5 +1,9 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{
+    distributions::WeightedIndex,
+    prelude::Distribution,
+    thread_rng
+};
 
 pub fn despawn_all_with<C: Component>(query: Query<Entity, With<C>>, mut commands: Commands) {
     for e in query.iter() {
@@ -17,11 +21,9 @@ pub fn pulsate<C: Component>(mut portal_query: Query<&mut Transform, With<C>>, t
     }
 }
 
-pub fn get_random_tile_index(amount: usize) -> usize {
-    match rand::thread_rng().gen_range(0..(2*amount+2)) {
-        0..2 => 1,
-        2..4 => 2,
-        4 => 3,
-        _=> 0
-    }
+pub fn get_random_index_with_weight(weights: Vec<usize>) -> usize {
+    let distribution = WeightedIndex::new(&weights).unwrap();
+    let mut rng = thread_rng();
+    
+    distribution.sample(&mut rng)
 }
