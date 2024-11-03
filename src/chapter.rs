@@ -22,8 +22,8 @@ pub struct ChapterManager {
 impl Default for ChapterManager {
     fn default() -> Self {
         Self {
-            current_level: 2,
-            current_chapter: 3,
+            current_level: 1,
+            current_chapter: 1,
             max_chapter: 4,
         }
     }
@@ -52,12 +52,17 @@ fn init_chapter(mut commands: Commands) {
 fn update_chapter(mut commands: Commands, mut chapter_manager: ResMut<ChapterManager>) {
     chapter_manager.current_level += 1;
 
-    if chapter_manager.current_level > 2 ||chapter_manager.current_chapter == chapter_manager.max_chapter{
+    if chapter_manager.current_chapter == chapter_manager.max_chapter {
+        chapter_manager.current_chapter = 1;
         chapter_manager.current_level = 1;
-        chapter_manager.current_chapter = (chapter_manager.current_chapter + 1) % (chapter_manager.max_chapter + 1); // +1 for boss
-
-        let bg_color = chapter_manager.get_current_color();
-
-        commands.insert_resource(ClearColor(bg_color));
     }
+
+    if chapter_manager.current_level > 2 {
+        chapter_manager.current_level = 1;
+        chapter_manager.current_chapter += 1;
+    }
+
+    let bg_color = chapter_manager.get_current_color();
+
+    commands.insert_resource(ClearColor(bg_color));
 }

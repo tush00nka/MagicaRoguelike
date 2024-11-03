@@ -399,7 +399,7 @@ fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), C
 fn boss_spawn(mut ev_spawn: EventWriter<MobSpawnEvent>, mut game_state: ResMut<NextState<GameState>>) {
     ev_spawn.send(MobSpawnEvent {
         mob_type: MobType::Koldun,
-        pos: Vec2::new((ROOM_SIZE / 2) as f32 * 32., (ROOM_SIZE / 2) as f32 * 32.),
+        pos: Vec2::new((ROOM_SIZE / 2) as f32 * 32., (ROOM_SIZE / 2 - 5) as f32 * 32.),
     });
     game_state.set(GameState::InGame);
 }
