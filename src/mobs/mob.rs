@@ -470,13 +470,13 @@ fn mob_death(
             (ev.pos.x.floor() / 32.).floor() as u16,
             (ev.pos.y.floor() / 32.).floor() as u16,
         );
-
+/*          //fix mob_map 
         mob_map
             .map
             .get_mut(&(mob_pos.0, mob_pos.1))
             .unwrap()
             .mob_count -= 1;
-
+*/
         if portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {
                 pos: portal_manager.get_pos(),
