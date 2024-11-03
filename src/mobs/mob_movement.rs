@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    alert::SpawnAlertEvent, gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, pathfinding::Pathfinder, player::Player, stun::Stun, GameState
+    alert::SpawnAlertEvent, blank_spell::Blank, gamemap::{Wall, ROOM_SIZE}, mobs::mob::*, obstacles::Corpse, pathfinding::Pathfinder, player::Player, shield_spell::Shield, stun::Stun, GameState
 };
 
 pub struct MobMovementPlugin;
@@ -90,34 +90,52 @@ fn move_mobs(
 
 fn idle(
     mut commands: Commands,
-    mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue, &mut RayCaster, &RayHits), With<Idle>>,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue), With<Idle>>,
     player_query: Query<(Entity, &Transform), With<Player>>,
-    time: Res<Time>,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
+    time: Res<Time>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
 ) {
     let Ok((player_e, player_transform)) = player_query.get_single() else {
         return;
     };
 
-    for (mob_e, mob_transform, mut mob, mut ray, hits) in mob_query.iter_mut() {
-
+    for (mob_e, mob_transform, mut mob) in mob_query.iter_mut() {
         mob.wander_timer.tick(time.delta());
+
+        let dir = (player_transform.translation - mob_transform.translation).truncate().normalize();
+        
+        // получаем вектор, корректирующий направление моба,
+        // суммируя произведение вектора направления на его вес
+        let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
 
         if mob.wander_timer.elapsed_secs() == mob.wander_timer.remaining_secs() {
             let directions: Vec<Vec2> = mob.rays.iter().map(|ray| ray.direction).collect();
             let direction = directions[rand::thread_rng().gen_range(0..directions.len())];
 
-            commands.entity(mob_e).insert(LinearVelocity(direction * mob.speed * time.delta_seconds()));
+            commands.entity(mob_e).insert(LinearVelocity((direction + ray_sum_dir) * mob.speed * time.delta_seconds()));
         }
         
         if mob.wander_timer.just_finished() {
             commands.entity(mob_e).insert(LinearVelocity::ZERO);
         }
 
-        ray.direction = Dir2::new_unchecked((player_transform.translation - mob_transform.translation).truncate().normalize());
-        let hits_data = hits.iter_sorted().collect::<Vec<RayHitData>>();
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked((dir+ray_sum_dir).normalize()),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
+
         if player_transform.translation.distance(mob_transform.translation) <= mob.pursue_radius {
-            if !hits_data.is_empty() && hits_data[0].entity == player_e {
+            if first_hit.entity == player_e {
                 commands.entity(mob_e).remove::<Idle>();
                 commands.entity(mob_e).insert(PursuePlayer);
                 mob.search_time.reset();
@@ -132,33 +150,39 @@ fn idle(
 
 fn pursue_player(
     mut commands: Commands,
-    mut mob_query: Query<(Entity, &mut LinearVelocity, &Transform, &mut SearchAndPursue, &mut RayCaster, &RayHits), With<PursuePlayer>>,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<(Entity, &mut LinearVelocity, &Transform, &mut SearchAndPursue), With<PursuePlayer>>,
     player_query: Query<(Entity, &Transform), With<crate::player::Player>>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
     time: Res<Time>,
 ) {
     let Ok((player_e, player_transform)) = player_query.get_single() else {
         return;
     };
 
-    for (mob_e, mut linvel, mob_transform, mut mob, mut ray, hits) in mob_query.iter_mut() {
-        let direction = (player_transform.translation - mob_transform.translation).truncate().normalize();
-        ray.direction = Dir2::new_unchecked(direction);
-       
-        let hits_data = hits.iter_sorted().collect::<Vec<RayHitData>>();
-    
-        if !hits_data.is_empty() {
-            if hits_data[0].entity == player_e {
-                mob.last_player_dir = direction;
-            }
+    for (mob_e, mut linvel, mob_transform, mut mob) in mob_query.iter_mut() {
+
+        let direction = (player_transform.translation - mob_transform.translation).truncate().normalize();       
+        let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
+
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked((direction+ray_sum_dir).normalize()),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
+        
+        if first_hit.entity == player_e {
+            mob.last_player_dir = direction;
         }
     
-        let mut desire_direction = Vec2::ZERO;
-    
-        for ray in mob.rays.iter() {
-            desire_direction += ray.direction * ray.weight;
-        }
-    
-        linvel.0 = (mob.last_player_dir + desire_direction) * mob.speed * time.delta_seconds();
+        linvel.0 = (mob.last_player_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
 
         mob.search_time.tick(time.delta());
 

@@ -18,6 +18,7 @@ impl Plugin for GameOverPlugin {
                     despawn_all_with::<crate::gamemap::Wall>,
                     despawn_all_with::<crate::exp_orb::ExpOrb>,
                     despawn_all_with::<crate::shield_spell::Shield>,
+                    despawn_all_with::<crate::blank_spell::Blank>,
                     despawn_all_with::<crate::black_hole::BlackHole>,
                     despawn_all_with::<crate::level_completion::Portal>,
                     despawn_all_with::<crate::mobs::Mob>,

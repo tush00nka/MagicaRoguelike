@@ -4,10 +4,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::{
-    elements::ElementType,
-    gamemap::Wall,
-    shield_spell::Shield,
-    GameLayer
+    blank_spell::Blank, elements::ElementType, gamemap::Wall, shield_spell::Shield, GameLayer
 };
 
 pub struct ProjectilePlugin;
@@ -135,7 +132,7 @@ fn move_projectile(
 fn hit_shield(
     mut commands: Commands,
     projectile_query: Query<(Entity, &CollidingEntities), (With<Projectile>, With<Hostile>)>,
-    shield_query: Query<Entity, With<Shield>>,
+    shield_query: Query<Entity, Or<(With<Shield>, With<Blank>)>>,
 ) {
     for (proj_e, colliding_e) in projectile_query.iter() {
         for shield_e in shield_query.iter() {

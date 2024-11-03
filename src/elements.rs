@@ -4,11 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent,
-    projectile::SpawnProjectileEvent,
-    shield_spell::SpawnShieldEvent,
-    wand::Wand,
-    GameState,
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -159,6 +155,7 @@ fn cast_spell(
     wand_query: Query<&Transform, With<Wand>>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
+    mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
     mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
 
@@ -213,7 +210,19 @@ fn cast_spell(
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
-                ev_spawn_shield.send(SpawnShieldEvent { duration: bar.earth as f32 * 2. });
+                ev_spawn_shield.send(SpawnShieldEvent {
+                    duration: bar.earth as f32 * 2.
+                });
+            }
+
+            if bar.water == 1
+            && bar.air > 1
+            && bar.fire <= 0
+            && bar.earth <= 0 {
+                ev_spawn_blank.send(SpawnBlankEvent {
+                    range: bar.air as f32 * 3.,
+                    speed: 10.0,
+                });
             }
 
             if bar.fire == bar.water
@@ -297,7 +306,8 @@ fn cast_spell(
                     }
                 }
             
-                if bar.air > 0 {
+                if bar.air > 0
+                && (bar.water > 1 || bar.water <= 0) {
                     spell_desc += "throwable, e.g. fireball\n";
         
                     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
