@@ -167,6 +167,10 @@ fn spawn_corpse(
                 texture_path = "textures/mobs/corpses/necromancer_corpse.png";
                 can_be_spawned = false;
             }
+            MobType::Koldun => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = false;//maybe true?
+            }
         }
         let texture = asset_server.load(texture_path);
         let grave = commands

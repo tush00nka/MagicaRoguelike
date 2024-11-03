@@ -1,7 +1,7 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
-use crate::{player::Player, utils::*, GameLayer, GameState};
+use crate::{player::Player, utils::*, GameLayer, GameState, chapter::ChapterManager,};
 
 pub struct LevelCompletionPlugin;
 
@@ -135,6 +135,7 @@ fn collision_portal(
     portal_query: Query<(&Transform, Entity), (With<Portal>, Without<Player>)>,
     mut game_state: ResMut<NextState<GameState>>,
     current_state: Res<State<GameState>>,
+    chapter_manager: Res<ChapterManager>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         if player_query.contains(contacts.entity2) && portal_query.contains(contacts.entity1)
@@ -145,7 +146,11 @@ fn collision_portal(
                     game_state.set(GameState::Hub);
                 }
                 GameState::Hub => {
-                    game_state.set(GameState::Loading);
+                    if chapter_manager.get_current_chapter() == 3 && chapter_manager.get_current_level() == 2 {
+                        game_state.set(GameState::LoadingBoss);
+                    } else {
+                        game_state.set(GameState::Loading);
+                    }
                 }
                 _ => {}
             }

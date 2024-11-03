@@ -3,6 +3,8 @@ use std::f32::consts::PI;
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
+///add mobs with kinematic body type
+const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
     elements::{ElementResistance, ElementType},
@@ -11,7 +13,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    obstacles::{CorpseSpawnEvent, Corpse},
+    obstacles::{Corpse, CorpseSpawnEvent},
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
     stun::Stun,
@@ -41,7 +43,7 @@ pub struct MobDeathEvent {
 
 //Enum components========================================================================================================================================
 //MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
-#[derive(Component, Clone)]
+#[derive(Component, Clone,PartialEq)]
 pub enum MobType {
     Knight,
     Mossling,
@@ -49,6 +51,7 @@ pub enum MobType {
     WaterMage,
     JungleTurret,
     Necromancer,
+    Koldun,
 }
 
 //projectile types
@@ -108,7 +111,7 @@ pub struct Mob {
     pub damage: i32,
 }
 
-/// Struct for convenient mob sight handling 
+/// Struct for convenient mob sight handling
 #[derive(Debug)]
 pub struct Ray {
     pub direction: Vec2,
@@ -128,13 +131,12 @@ pub struct SearchAndPursue {
 
 impl Default for SearchAndPursue {
     fn default() -> Self {
-
         let mut rays: Vec<Ray> = vec![];
 
         for i in 0..16 {
             rays.push(Ray {
-                direction: Vec2::from_angle(i as f32 * PI/8.),
-                weight: 0.0
+                direction: Vec2::from_angle(i as f32 * PI / 8.),
+                weight: 0.0,
             })
         }
 
@@ -144,7 +146,7 @@ impl Default for SearchAndPursue {
             wander_timer: Timer::from_seconds(3., TimerMode::Repeating),
             pursue_radius: 256.0,
             last_player_dir: Vec2::ZERO,
-            rays
+            rays,
         }
     }
 }
@@ -340,6 +342,28 @@ impl MobBundle {
             health: Health::new(140),
         }
     }
+    pub fn koldun() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle {
+                collider: Collider::circle(24.),
+                ..default()
+            },
+            resistance: ElementResistance {
+                elements: vec![
+                    ElementType::Earth,
+                    ElementType::Air,
+                    ElementType::Fire,
+                    ElementType::Water,
+                ],
+                resistance_percent: vec![20, 20, 20, 20, 20],
+            },
+            mob_type: (MobType::Koldun),
+            mob: Mob::new(40),
+            loot: MobLoot { orbs: 100 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(2000),
+        }
+    }
 }
 
 //actual code==============================================================================================================================
@@ -353,8 +377,9 @@ fn mob_shoot(
 ) {
     for (mob_e, &mob_transform, mut can_shoot) in mob_query.iter_mut() {
         if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
-            let dir = (player_transform.translation.truncate() - mob_transform.translation.truncate())
-                .normalize_or_zero();
+            let dir = (player_transform.translation.truncate()
+                - mob_transform.translation.truncate())
+            .normalize_or_zero();
 
             let Some(first_hit) = spatial_query.cast_ray_predicate(
                 mob_transform.translation.truncate(),
@@ -362,16 +387,13 @@ fn mob_shoot(
                 512.,
                 true,
                 SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
-                &|entity| {
-                    entity != mob_e
-                } )
-            else {
+                &|entity| entity != mob_e,
+            ) else {
                 continue;
             };
 
             can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished()
-            && first_hit.entity == player_e {
+            if can_shoot.time_to_shoot.just_finished() && first_hit.entity == player_e {
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
                 let damage: u32;
@@ -413,7 +435,15 @@ fn mob_shoot(
 fn hit_projectiles(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(&CollidingEntities, &mut Health, &Transform, &ElementResistance), With<Mob>>,
+    mut mob_query: Query<
+        (
+            &CollidingEntities,
+            &mut Health,
+            &Transform,
+            &ElementResistance,
+        ),
+        With<Mob>,
+    >,
 ) {
     for (colliding_e, mut health, mob_transform, resistance) in mob_query.iter_mut() {
         for (proj_e, projectile, projectile_transform) in projectile_query.iter() {
@@ -427,7 +457,7 @@ fn hit_projectiles(
                     (mob_transform.translation - projectile_transform.translation).normalize();
 
                 // пушим в очередь попадание
-                health.hit_queue.push( Hit {
+                health.hit_queue.push(Hit {
                     damage,
                     element: Some(projectile.element),
                     direction: shot_dir,
@@ -440,7 +470,7 @@ fn hit_projectiles(
     }
 }
 
-fn damage_mobs(
+pub fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
@@ -455,6 +485,7 @@ fn damage_mobs(
         ),
         With<Mob>,
     >,
+    mut mob_map: ResMut<Map>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -482,6 +513,23 @@ fn damage_mobs(
                     mob_type: mob_type.clone(),
                     pos: transform.translation.with_z(0.05),
                 });
+
+                for i in STATIC_MOBS {
+                    if mob_type == i {
+                        let mob_pos = (
+                            (transform.translation.x.floor() / 32.).floor() as u16,
+                            (transform.translation.y.floor() / 32.).floor() as u16,
+                        );
+
+                        mob_map
+                            .map
+                            .get_mut(&(mob_pos.0, mob_pos.1))
+                            .unwrap()
+                            .mob_count -= 1;
+                        
+                        break;
+                    }
+                }
             }
         }
     }
@@ -495,22 +543,10 @@ fn mob_death(
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
-
-    mut mob_map: ResMut<Map>,
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         portal_manager.pop_mob();
-        let mob_pos = (
-            (ev.pos.x.floor() / 32.).floor() as u16,
-            (ev.pos.y.floor() / 32.).floor() as u16,
-        );
-
-        mob_map
-            .map
-            .get_mut(&(mob_pos.0, mob_pos.1))
-            .unwrap()
-            .mob_count -= 1;
 
         if portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {

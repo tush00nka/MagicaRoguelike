@@ -9,3 +9,6 @@ pub use mob_type_spawner::*;
 
 mod mob_type_turret;
 pub use mob_type_turret::*;
+
+mod mob_type_boss;
+pub use mob_type_boss::*;
