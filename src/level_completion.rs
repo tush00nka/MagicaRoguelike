@@ -146,7 +146,7 @@ fn collision_portal(
                     game_state.set(GameState::Hub);
                 }
                 GameState::Hub => {
-                    if chapter_manager.get_current_chapter() == 3 {
+                    if chapter_manager.get_current_chapter() == 3 && chapter_manager.get_current_level() == 2 {
                         game_state.set(GameState::LoadingBoss);
                     } else {
                         game_state.set(GameState::Loading);

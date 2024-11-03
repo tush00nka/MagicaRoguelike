@@ -34,6 +34,10 @@ impl ChapterManager {
         self.current_chapter
     }
 
+    pub fn get_current_level(&self) -> u8{
+        self.current_level
+    }
+
     pub fn get_current_color(&self) -> Color {
         match self.current_chapter {
             1 => Color::srgb(69. / 255., 35. / 255., 13. / 255.),
@@ -52,7 +56,7 @@ fn init_chapter(mut commands: Commands) {
 fn update_chapter(mut commands: Commands, mut chapter_manager: ResMut<ChapterManager>) {
     chapter_manager.current_level += 1;
 
-    if chapter_manager.current_chapter == chapter_manager.max_chapter {
+    if chapter_manager.current_chapter == chapter_manager.max_chapter && chapter_manager.current_level == 2 {
         chapter_manager.current_chapter = 1;
         chapter_manager.current_level = 1;
     }

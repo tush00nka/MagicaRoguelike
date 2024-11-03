@@ -39,7 +39,7 @@ impl Plugin for MobSpawnPlugin {
 const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
 const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
 const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight];
-const BOSSES: &[MobType] = &[MobType::Koldun];
+//maybe add some minibosses? const BOSSES: &[MobType] = &[MobType::Koldun];
 
 //event to spawn mob with mob_type in pos
 #[derive(Event)]
