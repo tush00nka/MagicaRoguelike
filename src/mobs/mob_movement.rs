@@ -123,7 +123,7 @@ fn idle(
 
         let Some(first_hit) = spatial_query.cast_ray_predicate(
             mob_transform.translation.truncate(),
-            Dir2::new_unchecked((dir+ray_sum_dir).normalize()),
+            Dir2::new_unchecked(dir),
             512.,
             true,
             SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
@@ -167,7 +167,7 @@ fn pursue_player(
 
         let Some(first_hit) = spatial_query.cast_ray_predicate(
             mob_transform.translation.truncate(),
-            Dir2::new_unchecked((direction+ray_sum_dir).normalize()),
+            Dir2::new_unchecked(direction),
             512.,
             true,
             SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
