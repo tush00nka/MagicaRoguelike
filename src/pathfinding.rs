@@ -5,7 +5,7 @@ use std::collections::{HashMap, LinkedList};
 
 use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
-    mobs::{BusyRaising, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
+    mobs::{BusyRaising,damage_mobs, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
     obstacles::Corpse,
     player::Player,
     GameState,
@@ -28,8 +28,8 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             (
-                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>,
-                change_to_player::<Corpse, CorpseRush, RunawayRush>,
+                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>.after(damage_mobs),
+                change_to_player::<Corpse, CorpseRush, RunawayRush>.after(damage_mobs),
                 a_pathfinding::<Player, PlayerRush, PlayerRush, Player>,
                 a_pathfinding::<Corpse, CorpseRush, BusyRaising, Corpse>,
             )

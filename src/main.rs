@@ -81,6 +81,9 @@ use chapter::ChapterPlugin;
 mod item;
 use item::ItemPlugin;
 
+mod boss_room;
+use boss_room::BossRoomPlugin;
+
 mod ui;
 use ui::{
     ElementsUIPlugin, ExperienceUIPlugin, HealthUIPlugin, ItemUIPlugin, LoadingScreenUIPlugin,
@@ -108,6 +111,7 @@ pub enum GameState {
     Loading,
     GameOver,
     Hub,
+    LoadingBoss,
 }
 
 #[derive(PhysicsLayer)]
@@ -172,5 +176,6 @@ fn main() {
         .add_plugins((PausePlugin, PauseUIPlguin))
         .add_plugins(LoadingScreenUIPlugin)
         .add_plugins(ObstaclePlugin)
+        .add_plugins(BossRoomPlugin)
         .run();
 }

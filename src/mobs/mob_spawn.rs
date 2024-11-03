@@ -13,6 +13,7 @@ use crate::{
     pathfinding::create_new_graph,
     stun::Stun,
     GameState,
+    boss_room::spawn_boss_room,
 };
 
 pub struct MobSpawnPlugin;
@@ -30,12 +31,15 @@ impl Plugin for MobSpawnPlugin {
             .add_systems(
                 Update,
                 (spawn_mob, spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
-            );
+            )
+            .add_systems(OnEnter(GameState::LoadingBoss),(boss_spawn,spawn_mob).after(spawn_boss_room));
     }
 }
 
 const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
 const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
+const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight];
+const BOSSES: &[MobType] = &[MobType::Koldun];
 
 //event to spawn mob with mob_type in pos
 #[derive(Event)]
@@ -116,7 +120,18 @@ impl SpawnKit<'_> {
             fps: 12,
             texture_path: "textures/mobs/necromancer.png",
             pixel_size: 24,
-            can_flip:true,
+            can_flip: true,
+            ..default()
+        }
+    }
+    fn koldun() -> Self {
+        Self {
+            texture_path: "textures/mobs/koldun.png",
+            frame_count: 2,
+            fps: 3,
+            can_flip: true,
+            has_animation: true,
+            pixel_size: 48,
             ..default()
         }
     }
@@ -142,7 +157,9 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);
     let mut chance: f32;
-
+    if chapter_manager.get_current_chapter() % 4 == 0 {
+        mobs_amount = chapter_manager.get_current_chapter() as u16 / 4 as u16;
+    }
     while mobs_amount > 0 {
         for x in 1..ROOM_SIZE - 1 {
             for y in 1..ROOM_SIZE - 1 {
@@ -200,6 +217,9 @@ pub fn spawn_mob(
             MobType::Necromancer => {
                 spawn_kit = SpawnKit::necromancer();
             }
+            MobType::Koldun => {
+                spawn_kit = SpawnKit::koldun();
+            }
         }
 
         //get texture and layout
@@ -233,7 +253,7 @@ pub fn spawn_mob(
                 })
                 .insert(animation_config);
         }
-        if spawn_kit.can_flip{
+        if spawn_kit.can_flip {
             commands.entity(mob).insert(FlipEntity);
         }
         match ev.mob_type {
@@ -277,6 +297,9 @@ pub fn spawn_mob(
                 commands.entity(mob).insert(SpawnerBundle::necromancer());
                 //add necro bundles
             }
+            MobType::Koldun => {
+                commands.entity(mob).insert(BossBundle::koldun());
+            }
         }
 
         if spawn_kit.rotation_entity {
@@ -309,7 +332,8 @@ pub fn first_spawn_mobs(
                     .mob_count = 0;
 
                 let mob_type: MobType;
-                match chapter_manager.get_current_chapter() {
+                let chapter: u8 = chapter_manager.get_current_chapter() % 4;
+                match chapter {
                     1 => {
                         let mob_index = rand::thread_rng().gen_range(0..DESERT_MOBS.len());
                         mob_type = DESERT_MOBS[mob_index].clone();
@@ -317,6 +341,10 @@ pub fn first_spawn_mobs(
                     2 => {
                         let mob_index = rand::thread_rng().gen_range(0..JUNGLE_MOBS.len());
                         mob_type = JUNGLE_MOBS[mob_index].clone();
+                    }
+                    3 => {
+                        let mob_index = rand::thread_rng().gen_range(0..INFERNO_MOBS.len());
+                        mob_type = INFERNO_MOBS[mob_index].clone();
                     }
                     _ => {
                         mob_type = rand::random();
@@ -366,4 +394,12 @@ fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), C
         sprite.color = Color::srgb(1., 3., 3.);
         linvel.0 = Vec2::ZERO;
     }
+}
+
+fn boss_spawn(mut ev_spawn: EventWriter<MobSpawnEvent>, mut game_state: ResMut<NextState<GameState>>) {
+    ev_spawn.send(MobSpawnEvent {
+        mob_type: MobType::Koldun,
+        pos: Vec2::new((ROOM_SIZE / 2) as f32 * 32., (ROOM_SIZE / 2) as f32 * 32.),
+    });
+    game_state.set(GameState::InGame);
 }

@@ -49,6 +49,7 @@ pub enum MobType {
     WaterMage,
     JungleTurret,
     Necromancer,
+    Koldun,
 }
 
 //projectile types
@@ -291,6 +292,28 @@ impl MobBundle {
             health: Health::new(140),
         }
     }
+    pub fn koldun() -> Self {
+        Self {
+            phys_bundle: PhysicalBundle {
+                collider: Collider::circle(24.),
+                ..default()
+            },
+            resistance: ElementResistance {
+                elements: vec![
+                    ElementType::Earth,
+                    ElementType::Air,
+                    ElementType::Fire,
+                    ElementType::Water,
+                ],
+                resistance_percent: vec![20, 20, 20, 20, 20],
+            },
+            mob_type: (MobType::Koldun),
+            mob: Mob::new(40),
+            loot: MobLoot { orbs: 100 },
+            body_type: RigidBody::Dynamic,
+            health: Health::new(2000),
+        }
+    }
 }
 
 //actual code==============================================================================================================================
@@ -347,7 +370,15 @@ fn mob_shoot(
 fn hit_projectiles(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
-    mut mob_query: Query<(&CollidingEntities, &mut Health, &Transform, &ElementResistance), With<Mob>>,
+    mut mob_query: Query<
+        (
+            &CollidingEntities,
+            &mut Health,
+            &Transform,
+            &ElementResistance,
+        ),
+        With<Mob>,
+    >,
 ) {
     for (colliding_e, mut health, mob_transform, resistance) in mob_query.iter_mut() {
         for (proj_e, projectile, projectile_transform) in projectile_query.iter() {
@@ -361,7 +392,7 @@ fn hit_projectiles(
                     (mob_transform.translation - projectile_transform.translation).normalize();
 
                 // пушим в очередь попадание
-                health.hit_queue.push( Hit {
+                health.hit_queue.push(Hit {
                     damage,
                     element: Some(projectile.element),
                     direction: shot_dir,
@@ -374,7 +405,7 @@ fn hit_projectiles(
     }
 }
 
-fn damage_mobs(
+pub fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
