@@ -108,6 +108,9 @@ use alert::AlertPlugin;
 mod blank_spell;
 use blank_spell::BlankSpellPlugin;
 
+mod particles;
+use particles::ParticlesPlguin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -184,5 +187,6 @@ fn main() {
         .add_plugins(LoadingScreenUIPlugin)
         .add_plugins(ObstaclePlugin)
         .add_plugins(BossRoomPlugin)
+        .add_plugins(ParticlesPlguin)
         .run();
 }
