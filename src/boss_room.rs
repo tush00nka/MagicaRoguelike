@@ -15,7 +15,6 @@ impl Plugin for BossRoomPlugin {
 pub fn spawn_boss_room(asset_server: Res<AssetServer>, mut commands: Commands) {
     let lower = ROOM_SIZE / 2 - 8;
     let upper = ROOM_SIZE / 2 + 8;
-    println!("Room is spawning");
     commands.insert_resource(ClearColor(Color::srgb(69. / 255., 35. / 255., 13. / 255.)));
 
     for x in lower..=upper {

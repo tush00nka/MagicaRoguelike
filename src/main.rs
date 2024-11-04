@@ -55,7 +55,7 @@ mod pathfinding;
 use pathfinding::PathfindingPlugin;
 
 mod mobs;
-use mobs::{MobAnimationPlugin, MobMovementPlugin, MobPlugin, MobSpawnPlugin};
+use mobs::{BossBehavoiurPlugin, MobAnimationPlugin, MobMovementPlugin, MobPlugin, MobSpawnPlugin};
 
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
@@ -173,6 +173,7 @@ fn main() {
             MobAnimationPlugin,
             MobSpawnPlugin,
             MobMovementPlugin,
+            BossBehavoiurPlugin,
             AlertPlugin,
         ))
         .add_plugins(GameOverPlugin)
