@@ -3,21 +3,40 @@ use std::f32::consts::PI;
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 ///add mobs with kinematic body type
 const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
-    elements::{ElementResistance, ElementType},
+    elements::{
+        ElementResistance,
+        ElementType
+    },
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     gamemap::Map,
-    health::{Health, Hit},
-    level_completion::{PortalEvent, PortalManager},
-    obstacles::{Corpse, CorpseSpawnEvent},
+    health::{
+        Health,
+        Hit
+    },
+    level_completion::{
+        PortalEvent,
+        PortalManager
+    },
+    obstacles::{
+        Corpse,
+        CorpseSpawnEvent
+    },
+    particles::SpawnParticlesEvent,
     player::Player,
-    projectile::{Friendly, Projectile, SpawnProjectileEvent},
+    projectile::{
+        Friendly,
+        Projectile,
+        SpawnProjectileEvent
+    },
     stun::Stun,
-    GameLayer, GameState,
+    GameLayer,
+    GameState
 };
 
 pub struct MobPlugin;
@@ -444,6 +463,7 @@ fn hit_projectiles(
         ),
         With<Mob>,
     >,
+    mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 ) {
     for (colliding_e, mut health, mob_transform, resistance) in mob_query.iter_mut() {
         for (proj_e, projectile, projectile_transform) in projectile_query.iter() {
@@ -465,6 +485,20 @@ fn hit_projectiles(
 
                 // деспавним снаряд
                 commands.entity(proj_e).despawn();
+
+                // спавним партиклы
+                ev_spawn_particles.send(SpawnParticlesEvent {
+                    pattern: crate::particles::ParticlePattern::Burst {
+                        direction: -projectile.direction,
+                        distance: rand::thread_rng().gen_range(8.0..12.0),
+                        spread: PI/3.,
+                    },
+                    position: projectile_transform.translation,
+                    amount: 3,
+                    color: projectile.element.color(),
+                    speed: 10.,
+                    rotate: false,
+                });
             }
         }
     }
@@ -541,6 +575,7 @@ fn mob_death(
 
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_orb: EventWriter<SpawnExpOrbEvent>,
+    mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
 ) {
@@ -569,5 +604,17 @@ fn mob_death(
                 destination,
             });
         }
+
+        // спавним партиклы
+        ev_spawn_particles.send(SpawnParticlesEvent {
+            pattern: crate::particles::ParticlePattern::Circle {
+                radius: rand::thread_rng().gen_range(12.0..20.0),
+            },
+            position: ev.pos,
+            amount: rand::thread_rng().gen_range(6..10),
+            color: Color::hsl(10., 1., 0.5),
+            speed: 5.,
+            rotate: false,
+        });
     }
 }
