@@ -9,7 +9,11 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    mobs::{FlipEntity, MobDeathEvent, PhysicalBundle, RotationEntity, Mob, MobType, MobLoot, STATIC_MOBS},
+    mobs::{
+        MeleeMobBundle, SearchAndPursue, Idle,
+        FlipEntity, Mob, MobDeathEvent, MobLoot, MobType, PhysicalBundle, RotationEntity,
+        STATIC_MOBS,
+    },
     obstacles::{Corpse, CorpseSpawnEvent},
     player::Player,
     projectile::{Friendly, Projectile, SpawnProjectileEvent},
@@ -150,7 +154,7 @@ fn friend_spawn(
                 spawn_kit = SpawnFriendKit::clay_golem();
             }
             FriendType::Zombie => {
-                spawn_kit = SpawnFriendKit::zombie("textures/mobs/fire_mage.png");
+                spawn_kit = SpawnFriendKit::zombie("textures/mobs/mossling.png");
             }
         }
 
@@ -203,13 +207,9 @@ fn friend_spawn(
                     .insert(Friend::default());
             }
             FriendType::Zombie => {
-                commands
-                    .entity(mob)
-                    .insert(crate::mobs::MageBundle::fire_mage());
-                //commands
-                //    .entity(mob)
-                //     .insert(crate::mobs::::default());
-                //commands.entity(mob).insert(crate::mobs::Idle);
+                commands.entity(mob).insert(MeleeMobBundle::mossling());
+                commands.entity(mob).insert(SearchAndPursue::default());
+                commands.entity(mob).insert(Idle);
                 commands
                     .entity(mob)
                     .insert(RayCaster::default())
@@ -232,22 +232,22 @@ fn friend_spawn(
 }
 
 fn friend_damage_mob(
-    mut friend_query: Query<(&CollidingEntities,
-        &mut Health, &Mob),
+    mut friend_query: Query<
+        (&CollidingEntities, &mut Health, &Mob),
         (With<Friend>, Without<Player>, With<Mob>),
     >,
-    mut mob_query: Query<(Entity,&mut Health, &Mob),(With<Mob>, Without<Friend>)>
+    mut mob_query: Query<(Entity, &mut Health, &Mob), (With<Mob>, Without<Friend>)>,
 ) {
     for (friend_e, mut health_f, mob_f) in friend_query.iter_mut() {
         for (mob_e, mut health_m, mob_m) in mob_query.iter_mut() {
             if friend_e.contains(&mob_e) {
-                health_f.hit_queue.push( Hit {
+                health_f.hit_queue.push(Hit {
                     damage: mob_m.damage as i32,
                     element: Some(ElementType::Earth),
                     direction: Vec3::ZERO,
                 });
-            
-                health_m.hit_queue.push( Hit {
+
+                health_m.hit_queue.push(Hit {
                     damage: mob_f.damage as i32,
                     element: Some(ElementType::Earth),
                     direction: Vec3::ZERO,
@@ -261,14 +261,8 @@ pub fn damage_friends(
     mut commands: Commands,
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
     mut mob_query: Query<
-        (
-            Entity,
-            &mut Health,
-            &mut Mob,
-            &Transform,
-            &MobType,
-        ),
-        (With<Mob>, With<Friend>)
+        (Entity, &mut Health, &mut Mob, &Transform, &MobType),
+        (With<Mob>, With<Friend>),
     >,
     mut mob_map: ResMut<Map>,
 ) {
@@ -285,14 +279,14 @@ pub fn damage_friends(
             if health.current <= 0 {
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
-                /* 
-                // события "поcле смерти"
-                ev_death.send(MobDeathEvent {
-                    orbs: loot.orbs,
-                    pos: transform.translation,
-                    dir: hit.direction,
-                });
-*/
+                /*
+                                // события "поcле смерти"
+                                ev_death.send(MobDeathEvent {
+                                    orbs: loot.orbs,
+                                    pos: transform.translation,
+                                    dir: hit.direction,
+                                });
+                */
                 // спавним труп на месте смерти моба
                 ev_corpse.send(CorpseSpawnEvent {
                     mob_type: mob_type.clone(),
