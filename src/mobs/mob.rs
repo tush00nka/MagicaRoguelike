@@ -8,36 +8,19 @@ use rand::Rng;
 pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
-    elements::{
-        ElementResistance,
-        ElementType
-    },
+    elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     friend::Friend,
     gamemap::Map,
-    health::{
-        Health,
-        Hit
-    },
-    level_completion::{
-        PortalEvent,
-        PortalManager
-    },
-    obstacles::{
-        Corpse,
-        CorpseSpawnEvent
-    },
+    health::{Health, Hit},
+    level_completion::{PortalEvent, PortalManager},
+    obstacles::{Corpse, CorpseSpawnEvent},
     particles::SpawnParticlesEvent,
     player::Player,
-    projectile::{
-        Friendly,
-        Projectile,
-        SpawnProjectileEvent
-    },
+    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent,},
     stun::Stun,
-    GameLayer,
-    GameState
+    GameLayer, GameState,
 };
 
 pub struct MobPlugin;
@@ -453,7 +436,7 @@ fn mob_shoot<
                 continue;
             };
             let mut friendly_proj: bool = false;
-            
+
             if std::any::type_name::<ProjType>() == std::any::type_name::<Friendly>() {
                 friendly_proj = true;
             }
@@ -537,7 +520,7 @@ fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
                     pattern: crate::particles::ParticlePattern::Burst {
                         direction: -projectile.direction,
                         distance: rand::thread_rng().gen_range(8.0..12.0),
-                        spread: PI/3.,
+                        spread: PI / 3.,
                     },
                     position: projectile_transform.translation,
                     amount: 3,

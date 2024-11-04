@@ -107,7 +107,7 @@ fn idle(
     mut commands: Commands,
     spatial_query: SpatialQuery,
     mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue), (With<Idle>, Without<Friend>)>,
-    target_query: Query<(Entity, &Transform), With<Friend>>,
+    target_query: Query<(Entity, &Transform), (With<Friend>, Without<Player>)>,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     time: Res<Time>,
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
@@ -199,7 +199,7 @@ fn pursue_player(
         ),
         (With<PursueFriends>, Without<Friend>),
     >,
-    target_query: Query<(Entity, &Transform), With<Friend>>,
+    target_query: Query<(Entity, &Transform), (With<Friend>, Without<Player>)>,
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
     time: Res<Time>,
 ) {
@@ -239,11 +239,11 @@ fn pursue_player(
             continue;
         };
         
-        if first_hit.entity == player_e {
-            mob.last_player_dir = direction;
+        if first_hit.entity == target_e {
+            mob.last_target_dir = direction;
         }
     
-        linvel.0 = (mob.last_player_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
+        linvel.0 = (mob.last_target_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
 
             mob.search_time.tick(time.delta());
 
