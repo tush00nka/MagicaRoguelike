@@ -1,33 +1,20 @@
-use {bevy::prelude::*, rand::Rng, std::time::Duration};
+use bevy::prelude::*;
 
-use crate::{elements::ElementType, mobs::mob::*, pathfinding::Pathfinder, Bundle, Timer, mobs::ProjectileType::Gatling};
+use crate::{mobs::{mob::*, Boss}, Bundle, Timer};
 
 #[derive(Bundle)]
-pub struct BossBundle<T: Component> {
+pub struct BossBundle{
     pub mob_bundle: MobBundle,
-    pub path_finder: Pathfinder,
-    pub shoot_ability: ShootAbility,
-    pub target: T,
+    pub boss: Boss,
 }
 
-impl BossBundle<RunawayRush> {
+impl BossBundle {
     pub fn koldun() -> Self {
         Self {
             mob_bundle: MobBundle::koldun(),
-            path_finder: Pathfinder {
-                path: vec![],
-                update_path_timer: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
-                    TimerMode::Repeating,
-                ),
-                speed: 4000.,
+            boss: Boss {
+                attack_cooldown: Timer::from_seconds(5.0, TimerMode::Repeating),
             },
-            shoot_ability: ShootAbility{
-                time_to_shoot: Timer::new(Duration::from_millis(rand::thread_rng().gen_range(1000..1500)), TimerMode::Repeating,),
-                element: ElementType::Steam,
-                proj_type: Gatling,
-            },
-            target: RunawayRush,
         }
     }
 }

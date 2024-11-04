@@ -152,16 +152,18 @@ fn idle(
                 commands.entity(mob_e).insert(LinearVelocity::ZERO);
             }
 
-            let Some(first_hit) = spatial_query.cast_ray_predicate(
-                mob_transform.translation.truncate(),
-                Dir2::new_unchecked((dir + ray_sum_dir).normalize()),
-                512.,
-                true,
-                SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
-                &|entity| entity != mob_e,
-            ) else {
-                continue;
-            };
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked(dir),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
 
             if target_transform
                 .translation
@@ -224,22 +226,24 @@ fn pursue_player(
                 .normalize();
             let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
 
-            let Some(first_hit) = spatial_query.cast_ray_predicate(
-                mob_transform.translation.truncate(),
-                Dir2::new_unchecked((direction + ray_sum_dir).normalize()),
-                512.,
-                true,
-                SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
-                &|entity| entity != mob_e,
-            ) else {
-                continue;
-            };
-
-            if first_hit.entity == target_e {
-                mob.last_target_dir = direction;
-            }
-
-            linvel.0 = (mob.last_target_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked(direction),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| {
+                entity != mob_e
+            } )
+        else {
+            continue;
+        };
+        
+        if first_hit.entity == player_e {
+            mob.last_player_dir = direction;
+        }
+    
+        linvel.0 = (mob.last_player_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
 
             mob.search_time.tick(time.delta());
 

@@ -55,7 +55,7 @@ mod pathfinding;
 use pathfinding::PathfindingPlugin;
 
 mod mobs;
-use mobs::{MobAnimationPlugin, MobMovementPlugin, MobPlugin, MobSpawnPlugin};
+use mobs::{BossBehavoiurPlugin, MobAnimationPlugin, MobMovementPlugin, MobPlugin, MobSpawnPlugin};
 
 mod shield_spell;
 use shield_spell::ShieldSpellPlugin;
@@ -110,6 +110,9 @@ use alert::AlertPlugin;
 
 mod blank_spell;
 use blank_spell::BlankSpellPlugin;
+
+mod particles;
+use particles::ParticlesPlguin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
@@ -174,6 +177,7 @@ fn main() {
             MobAnimationPlugin,
             MobSpawnPlugin,
             MobMovementPlugin,
+            BossBehavoiurPlugin,
             AlertPlugin,
         ))
         .add_plugins(GameOverPlugin)
@@ -189,5 +193,6 @@ fn main() {
         .add_plugins(ObstaclePlugin)
         .add_plugins(BossRoomPlugin)
         .add_plugins(FriendPlugin)
+        .add_plugins(ParticlesPlguin)
         .run();
 }

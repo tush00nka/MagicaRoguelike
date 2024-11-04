@@ -1,10 +1,12 @@
 use core::f32;
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use avian2d::prelude::*;
+use rand::Rng;
 
 use crate::{
-    blank_spell::Blank, elements::ElementType, gamemap::Wall, shield_spell::Shield, GameLayer
+    blank_spell::Blank, elements::ElementType, gamemap::Wall, particles::SpawnParticlesEvent, shield_spell::Shield, GameLayer
 };
 
 pub struct ProjectilePlugin;
@@ -132,13 +134,27 @@ fn move_projectile(
 
 fn hit_shield(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &CollidingEntities), (With<Projectile>, With<Hostile>)>,
+    projectile_query: Query<(Entity, &CollidingEntities, &Projectile, &Transform), With<Hostile>>,
     shield_query: Query<Entity, Or<(With<Shield>, With<Blank>)>>,
+    mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 ) {
-    for (proj_e, colliding_e) in projectile_query.iter() {
+    for (proj_e, colliding_e, projectile, transform) in projectile_query.iter() {
         for shield_e in shield_query.iter() {
             if colliding_e.contains(&shield_e) {
                 commands.entity(proj_e).despawn();
+
+                ev_spawn_particles.send(SpawnParticlesEvent {
+                    pattern: crate::particles::ParticlePattern::Burst {
+                        direction: -projectile.direction,
+                        distance: rand::thread_rng().gen_range(8.0..12.0),
+                        spread: PI/3.,
+                    },
+                    position: transform.translation,
+                    amount: 3,
+                    color: projectile.element.color(),
+                    speed: 10.,
+                    rotate: false,
+                });
             }
         }
     }
@@ -146,13 +162,27 @@ fn hit_shield(
 
 fn hit_walls(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &CollidingEntities), With<Projectile>>,
+    projectile_query: Query<(Entity, &CollidingEntities, &Projectile, &Transform)>,
     wall_query: Query<Entity, With<Wall>>,
+    mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 ) {
-    for (proj_e, colliding_e) in projectile_query.iter() {
+    for (proj_e, colliding_e, projectile, transform) in projectile_query.iter() {
         for wall_e in wall_query.iter() {
             if colliding_e.contains(&wall_e) {
                 commands.entity(proj_e).despawn();
+
+                ev_spawn_particles.send(SpawnParticlesEvent {
+                    pattern: crate::particles::ParticlePattern::Burst {
+                        direction: -projectile.direction,
+                        distance: rand::thread_rng().gen_range(8.0..12.0),
+                        spread: PI/3.,
+                    },
+                    position: transform.translation,
+                    amount: 3,
+                    color: projectile.element.color(),
+                    speed: 10.,
+                    rotate: false,
+                });
             }
         }
     }

@@ -11,4 +11,7 @@ mod mob_spawn;
 pub use mob_spawn::*;
 
 mod mob_types;
+
+mod boss_behaviour;
+pub use  boss_behaviour::*;
 pub use mob_types::*;
