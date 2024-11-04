@@ -40,6 +40,14 @@ impl Plugin for GameOverPlugin {
 pub struct GameOverUI;
 
 fn spawn_gameover_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let slicer = TextureSlicer {
+        border: BorderRect::square(8.0),
+        center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
+        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
+        max_corner_scale: 0.2,
+        ..default()
+    };
+
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -65,9 +73,13 @@ fn spawn_gameover_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         margin: UiRect::top(Val::Px(4.0)),
                         ..default()
                     },
-                    background_color: Color::WHITE.into(),
+                    image: UiImage {
+                        texture: asset_server.load("textures/ui/button.png"),
+                        ..default()
+                    },
                     ..default()
                 })
+                .insert(ImageScaleMode::Sliced(slicer.clone()))
                 .insert(MainMenuButton::MAIN_MENU)
                 .with_children(|button| {
                     button.spawn(TextBundle::from_section(
@@ -91,9 +103,13 @@ fn spawn_gameover_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         margin: UiRect::top(Val::Px(4.0)),
                         ..default()
                     },
-                    background_color: Color::WHITE.into(),
+                    image: UiImage {
+                        texture: asset_server.load("textures/ui/button.png"),
+                        ..default()
+                    },
                     ..default()
                 })
+                .insert(ImageScaleMode::Sliced(slicer.clone()))
                 .insert(MainMenuButton::QUIT)
                 .with_children(|button| {
                     button.spawn(TextBundle::from_section(

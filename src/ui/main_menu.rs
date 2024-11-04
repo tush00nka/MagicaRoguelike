@@ -25,14 +25,24 @@ pub enum ButtonType {
 }
 
 #[derive(Component)]
-pub struct MainMenuButton(pub ButtonType);
+pub struct MainMenuButton {
+    pub button: ButtonType,
+}
 
 #[allow(unused)]
 impl MainMenuButton {
-    pub const NEW_RUN: Self = Self(ButtonType::NewRun);
-    pub const SETTINGS: Self = Self(ButtonType::Settings);
-    pub const QUIT: Self = Self(ButtonType::Quit);
-    pub const MAIN_MENU: Self = Self(ButtonType::MainMenu);
+    pub const NEW_RUN: Self = Self {
+        button: ButtonType::NewRun,
+    };
+    pub const SETTINGS: Self = Self {
+        button: ButtonType::Settings,
+    };
+    pub const QUIT: Self = Self {
+        button: ButtonType::Quit,
+    };
+    pub const MAIN_MENU: Self = Self {
+        button: ButtonType::MainMenu,
+    };
 }
 
 fn spawn_ui(
@@ -67,6 +77,14 @@ fn spawn_ui(
         });
     });
 
+    let slicer = TextureSlicer {
+        border: BorderRect::square(8.0),
+        center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
+        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
+        max_corner_scale: 0.2,
+        ..default()
+    };
+
     commands.spawn(NodeBundle {
         style: Style {
             width: Val::Px(40.0),
@@ -81,6 +99,7 @@ fn spawn_ui(
     })
     .insert(MainMenuUI)
     .with_children(|parent| {
+
         parent.spawn(ButtonBundle {
             style: Style {
                 width: Val::Px(512.0),
@@ -90,9 +109,13 @@ fn spawn_ui(
                 margin: UiRect::top(Val::Px(4.0)),
                 ..default()
             },
-            background_color: Color::WHITE.into(),
+            image: UiImage {
+                texture: asset_server.load("textures/ui/button.png"),
+                ..default()
+            },
             ..default()
         })
+        .insert(ImageScaleMode::Sliced(slicer.clone()))
         .insert(MainMenuButton::NEW_RUN)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
@@ -115,9 +138,13 @@ fn spawn_ui(
                 margin: UiRect::top(Val::Px(4.0)),
                 ..default()
             },
-            background_color: Color::WHITE.into(),
+            image: UiImage {
+                texture: asset_server.load("textures/ui/button.png"),
+                ..default()
+            },
             ..default()
         })
+        .insert(ImageScaleMode::Sliced(slicer.clone()))
         .insert(MainMenuButton::QUIT)
         .with_children(|button| {
             button.spawn(TextBundle::from_section(
@@ -141,11 +168,10 @@ pub fn handle_buttons(
     for (interaction, button, mut style) in buttons_query.iter_mut() {
         match *interaction {
             Interaction::Hovered => {
-                style.width = Val::Px(512.0 * 1.1);
-                style.height = Val::Px(24.0 * 1.25);
+                style.height = Val::Px(32.0);
             }, // добавить анимации
             Interaction::Pressed => {
-                match button.0 {
+                match button.button {
                     ButtonType::NewRun => { game_state.set(GameState::Loading); }, // идём в загрузку
                     ButtonType::Settings => { game_state.set(GameState::Settings); }, // открываем настройки
                     ButtonType::Quit => { app_exit_events.send(AppExit::Success); }, // выходим из игры
@@ -153,7 +179,6 @@ pub fn handle_buttons(
                 }
             },
             Interaction::None => {
-                style.width = Val::Px(512.0);
                 style.height = Val::Px(24.0);
             }, // откатывать анимации
         }
