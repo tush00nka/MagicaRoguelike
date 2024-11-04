@@ -11,3 +11,4 @@ mod mob_spawn;
 pub use mob_spawn::*;
 
 mod mob_types;
+pub use mob_types::*;

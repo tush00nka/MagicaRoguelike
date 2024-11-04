@@ -4,13 +4,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{
-    elements::ElementResistance,
-    health::{Health, Hit},
-    invincibility::Invincibility,
-    mobs::Mob,
-    player::{Player, PlayerDeathEvent},
-    projectile::{Hostile, Projectile},
-    GameState,
+    elements::ElementResistance, friend::Friend, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent}, projectile::{Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -23,7 +17,7 @@ impl Plugin for HitPlayerPlugin {
 }
 //damage by collision with mob
 fn hit_player(
-    mob_query: Query<(Entity, &Mob), Without<Player>>,
+    mob_query: Query<(Entity, &Mob), (Without<Friend>, Without<Player>)>,
     mut player_query: Query<(&CollidingEntities, &mut Health), (With<Player>, Without<Invincibility>)>,
 ) {
     let Ok((colliding_e, mut health)) = player_query.get_single_mut() else {
@@ -69,7 +63,7 @@ fn proj_hit_player(
 fn damage_player(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), (With<Player>, Without<Invincibility>)>,
+    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), Without<Invincibility>>,
 ) {
     let Ok((player_e, mut health, player, resistance)) = player_query.get_single_mut() else {
         return;

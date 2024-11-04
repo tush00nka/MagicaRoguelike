@@ -4,18 +4,19 @@ use std::f32::consts::PI;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 ///add mobs with kinematic body type
-const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
+pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
     elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
+    friend::Friend,
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     obstacles::{Corpse, CorpseSpawnEvent},
     player::Player,
-    projectile::{Friendly, Projectile, SpawnProjectileEvent},
+    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
     stun::Stun,
     GameLayer, GameState,
 };
@@ -26,7 +27,14 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MobDeathEvent>().add_systems(
             Update,
-            (damage_mobs, mob_death, mob_shoot, hit_projectiles)
+            (
+                damage_mobs,
+                mob_death,
+                mob_shoot::<Friend, ShootAbility, Friend, Friendly, Hostile>,
+                mob_shoot::<Mob, Friend, Friendly, Friend, Friendly>,
+                hit_projectiles::<Player, Friend, Hostile>,
+                hit_projectiles::<Friend, Mob, Friendly>,
+            )
                 .run_if(in_state(GameState::InGame)),
         );
     }
@@ -43,7 +51,7 @@ pub struct MobDeathEvent {
 
 //Enum components========================================================================================================================================
 //MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
-#[derive(Component, Clone,PartialEq)]
+#[derive(Component, Clone, PartialEq)]
 pub enum MobType {
     Knight,
     Mossling,
@@ -204,11 +212,11 @@ pub struct PursuePlayer;
 // physical bundle with all physical stats
 #[derive(Bundle)]
 pub struct PhysicalBundle {
-    collider: Collider,
-    axes: LockedAxes,
-    gravity: GravityScale,
-    collision_layers: CollisionLayers,
-    linear_velocity: LinearVelocity,
+    pub collider: Collider,
+    pub axes: LockedAxes,
+    pub gravity: GravityScale,
+    pub collision_layers: CollisionLayers,
+    pub linear_velocity: LinearVelocity,
 }
 
 //bundle with all basic parameters of mob
@@ -246,6 +254,7 @@ impl Default for PhysicalBundle {
                     GameLayer::Wall,
                     GameLayer::Projectile,
                     GameLayer::Shield,
+                    GameLayer::Friend,
                     GameLayer::Enemy,
                     GameLayer::Player,
                 ],
@@ -367,17 +376,42 @@ impl MobBundle {
 }
 
 //actual code==============================================================================================================================
-fn mob_shoot(
+fn mob_shoot<
+    Target: Component,
+    Shoot: Component,
+    Filter1: Component,
+    Filter2: Component,
+    ProjType: Component,
+>(
     spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(Entity, &Transform, &mut ShootAbility), Without<Stun>>,
-    mut player_query: Query<(Entity, &Transform), (With<Player>, Without<Mob>)>,
+    mut shoot_query: Query<
+        (Entity, &Transform, &mut ShootAbility),
+        (With<Shoot>, Without<Stun>, Without<Filter1>),
+    >,
+    target_query: Query<(Entity, &Transform), (With<Target>, Without<Filter2>)>,
     time: Res<Time>,
     avoid_query: Query<Entity, With<Corpse>>,
 ) {
-    for (mob_e, &mob_transform, mut can_shoot) in mob_query.iter_mut() {
-        if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
-            let dir = (player_transform.translation.truncate()
+    for (mob_e, &mob_transform, mut can_shoot) in shoot_query.iter_mut() {
+        if target_query.iter().len() != 0 {
+            let mut target_transform: Transform = mob_transform.clone();
+            let mut target_e: Entity = mob_e;
+            let mut dist: f32 = f32::MAX;
+            for (temp_e, temp_pos) in target_query.iter() {
+                let temp_dist: f32 = (mob_transform.translation - temp_pos.translation)
+                    .x
+                    .powf(2.)
+                    + (mob_transform.translation - temp_pos.translation)
+                        .y
+                        .powf(2.);
+                if dist > temp_dist {
+                    dist = temp_dist;
+                    target_transform = *temp_pos;
+                    target_e = temp_e;
+                }
+            }
+            let dir = (target_transform.translation.truncate()
                 - mob_transform.translation.truncate())
             .normalize_or_zero();
 
@@ -391,13 +425,17 @@ fn mob_shoot(
             ) else {
                 continue;
             };
+            let mut friendly_proj: bool = false;
+            
+            if std::any::type_name::<ProjType>() == std::any::type_name::<Friendly>() {
+                friendly_proj = true;
+            }
 
             can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished() && first_hit.entity == player_e {
+            if can_shoot.time_to_shoot.just_finished() && first_hit.entity == target_e {
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
                 let damage: u32;
-
                 match can_shoot.proj_type {
                     //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
                     ProjectileType::Circle => {
@@ -425,16 +463,16 @@ fn mob_shoot(
                     speed: 150.,
                     damage,
                     element: can_shoot.element,
-                    is_friendly: false,
+                    is_friendly: friendly_proj,
                 });
             }
         }
     }
 }
 
-fn hit_projectiles(
+fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
+    projectile_query: Query<(Entity, &Projectile, &Transform), With<Side>>,
     mut mob_query: Query<
         (
             &CollidingEntities,
@@ -442,7 +480,7 @@ fn hit_projectiles(
             &Transform,
             &ElementResistance,
         ),
-        With<Mob>,
+        (With<Mob>, Without<Filter>, With<FilterTrue>),
     >,
 ) {
     for (colliding_e, mut health, mob_transform, resistance) in mob_query.iter_mut() {
@@ -483,7 +521,7 @@ pub fn damage_mobs(
             &MobLoot,
             &MobType,
         ),
-        With<Mob>,
+        (With<Mob>, Without<Friend>),
     >,
     mut mob_map: ResMut<Map>,
 ) {
@@ -526,7 +564,7 @@ pub fn damage_mobs(
                             .get_mut(&(mob_pos.0, mob_pos.1))
                             .unwrap()
                             .mob_count -= 1;
-                        
+
                         break;
                     }
                 }

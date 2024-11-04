@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
+use crate::friend::Friend;
 use crate::invincibility::Invincibility;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::elements::ElementResistance;
@@ -74,7 +75,8 @@ fn spawn_player(
         .insert(ElementResistance {
             elements: vec![],
             resistance_percent: vec![0, 0, 0, 0, 0],
-        });
+        })
+        .insert(Friend);
 }
 
 fn move_player(

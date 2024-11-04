@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState, friend::{FriendSpawnEvent,FriendType},
 };
 
 pub struct ElementsPlugin;
@@ -158,7 +158,7 @@ fn cast_spell(
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
     mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
-
+    mut ev_spawn_friend: EventWriter<FriendSpawnEvent>,
     mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
 
@@ -243,7 +243,15 @@ fn cast_spell(
 
                 return;
             }
-
+            //spawn zombie(test)
+            if bar.earth == 2 
+            && bar.air <= 0 
+            && bar.water >=1 
+            && bar.fire >=1 {
+                ev_spawn_friend.send(FriendSpawnEvent{friend_type: FriendType::Zombie, pos: mouse_coords.0 });
+                
+                return;
+            }
             if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {                
                 let offset = PI/12.0;
                 for _i in 0..bar.fire*3 {

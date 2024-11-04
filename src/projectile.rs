@@ -52,7 +52,7 @@ impl Default for ProjectileBundle {
                 element: ElementType::Air,
             },
             collider: Collider::circle(8.0),
-            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall]),
+            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall, GameLayer::Friend]),
             sensor: Sensor
         }
     }
@@ -113,7 +113,8 @@ fn spawn_projectile(
                         GameLayer::Enemy,
                         GameLayer::Player,
                         GameLayer::Wall,
-                        GameLayer::Shield
+                        GameLayer::Shield,
+                        GameLayer::Friend,
                     ]
                 ));
         }

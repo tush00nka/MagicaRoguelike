@@ -75,6 +75,9 @@ use stun::StunPlugin;
 mod animation;
 mod utils;
 
+mod friend;
+use friend::FriendPlugin;
+
 mod chapter;
 use chapter::ChapterPlugin;
 
@@ -128,6 +131,7 @@ pub enum GameLayer {
     Wall,
     Interactable,
     Shield,
+    Friend,
 }
 
 fn main() {
@@ -184,5 +188,6 @@ fn main() {
         .add_plugins(LoadingScreenUIPlugin)
         .add_plugins(ObstaclePlugin)
         .add_plugins(BossRoomPlugin)
+        .add_plugins(FriendPlugin)
         .run();
 }
