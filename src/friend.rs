@@ -122,7 +122,7 @@ impl Default for FriendBundle {
                 resistance_percent: vec![0, 0, 15, 0, 0],
             },
             friend_type: FriendType::Zombie,
-            friend: Friend::default(),
+            friend: Friend,
             body_type: RigidBody::Dynamic,
             health: Health::new(1),
         }
@@ -172,17 +172,14 @@ fn friend_spawn(
         let animation_config =
             AnimationConfig::new(0, spawn_kit.frame_count as usize - 1, spawn_kit.fps);
         //spawn mob with texture
-        let mob = commands
-            .spawn(SpriteBundle {
+        let mut mob = commands.spawn(SpriteBundle {
                 texture,
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
-            })
-            .id();
+            });
 
         if spawn_kit.has_animation {
-            commands
-                .entity(mob) //todo: change it that we could test mobs without animations
+            mob //todo: change it that we could test mobs without animations
                 .insert(TextureAtlas {
                     layout: texture_atlas_layout.clone(),
                     index: animation_config.first_sprite_index,
@@ -190,35 +187,27 @@ fn friend_spawn(
                 .insert(animation_config);
         }
         if spawn_kit.can_flip {
-            commands.entity(mob).insert(FlipEntity);
+            mob.insert(FlipEntity);
         }
         match ev.friend_type {
             FriendType::ClayGolem => {
-                commands
-                    .entity(mob)
-                    .insert(crate::mobs::MeleeMobBundle::knight());
-                commands
-                    .entity(mob)
-                    .insert(crate::mobs::SearchAndPursue::default());
-                commands.entity(mob).insert(crate::mobs::Idle);
-                commands
-                    .entity(mob)
-                    .insert(RayCaster::default())
-                    .insert(Friend::default());
+                mob
+                    .insert(crate::mobs::MeleeMobBundle::knight())
+                    .insert(crate::mobs::SearchAndPursue::default())
+                    .insert(Idle)
+                    .insert(Friend);
             }
             FriendType::Zombie => {
-                commands.entity(mob).insert(MeleeMobBundle::mossling());
-                commands.entity(mob).insert(SearchAndPursue::default());
-                commands.entity(mob).insert(Idle);
-                commands
-                    .entity(mob)
-                    .insert(RayCaster::default())
-                    .insert(Friend::default());
+                mob
+                    .insert(crate::mobs::MeleeMobBundle::mossling())
+                    .insert(crate::mobs::SearchAndPursue::default())
+                    .insert(Idle)
+                    .insert(Friend);
             }
         }
 
         if spawn_kit.rotation_entity {
-            commands.entity(mob).with_children(|parent| {
+            mob.with_children(|parent| {
                 parent
                     .spawn(SpriteBundle {
                         texture: asset_server.load(spawn_kit.rotation_path),
@@ -234,9 +223,10 @@ fn friend_spawn(
 fn friend_damage_mob(
     mut friend_query: Query<
         (&CollidingEntities, &mut Health, &Mob),
-        (With<Friend>, Without<Player>, With<Mob>),
+        (With<Friend>, Without<Player>),
     >,
-    mut mob_query: Query<(Entity, &mut Health, &Mob), (With<Mob>, Without<Friend>)>,
+    // если у нас моб берётся как референс, можно не писать With<Mob>, он и так будет с ним
+    mut mob_query: Query<(Entity, &mut Health, &Mob), Without<Friend>>, 
 ) {
     for (friend_e, mut health_f, mob_f) in friend_query.iter_mut() {
         for (mob_e, mut health_m, mob_m) in mob_query.iter_mut() {
@@ -262,7 +252,7 @@ pub fn damage_friends(
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
     mut mob_query: Query<
         (Entity, &mut Health, &mut Mob, &Transform, &MobType),
-        (With<Mob>, With<Friend>),
+        With<Friend>,
     >,
     mut mob_map: ResMut<Map>,
 ) {

@@ -242,6 +242,7 @@ pub fn spawn_mob(
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
+            .insert(Enemy)
             .id();
 
         if spawn_kit.has_animation {
@@ -258,20 +259,19 @@ pub fn spawn_mob(
         }
         match ev.mob_type {
             MobType::Knight => {
-                commands.entity(mob).insert(MeleeMobBundle::knight());
-                commands.entity(mob).insert(SearchAndPursue::default());
-                commands.entity(mob).insert(Idle);
-                commands.entity(mob).insert(RayCaster::default());
+                commands.entity(mob)
+                    .insert(MeleeMobBundle::knight())
+                    .insert(SearchAndPursue::default())
+                    .insert(Idle);
             }
             MobType::Mossling => {
-                commands.entity(mob).insert(MeleeMobBundle::mossling());
-                commands.entity(mob).insert(SearchAndPursue::default());
-                commands.entity(mob).insert(Idle);
-                commands.entity(mob).insert(RayCaster::default());
+                commands.entity(mob)
+                    .insert(MeleeMobBundle::mossling())
+                    .insert(SearchAndPursue::default())
+                    .insert(Idle);
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
-                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map
@@ -284,17 +284,17 @@ pub fn spawn_mob(
             }
             MobType::WaterMage => {
                 commands.entity(mob).insert(MageBundle::water_mage());
-                commands.entity(mob).insert(RayCaster::default());
-
                 mob_map
                     .map
-                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
+                    .get_mut(&(
+                        (x / ROOM_SIZE as f32) as u16,
+                        (y / ROOM_SIZE as f32) as u16
+                    ))
                     .unwrap()
                     .mob_count += 1;
             }
             MobType::JungleTurret => {
                 commands.entity(mob).insert(TurretBundle::jungle_turret());
-                commands.entity(mob).insert(RayCaster::default());
 
                 mob_map
                     .map

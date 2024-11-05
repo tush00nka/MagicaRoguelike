@@ -121,6 +121,10 @@ pub struct Mob {
     pub damage: i32,
 }
 
+/// Marks mob to be hostile towards player and friends
+#[derive(Component)]
+pub struct Enemy;
+
 /// Struct for convenient mob sight handling
 #[derive(Debug)]
 pub struct Ray {
@@ -204,17 +208,9 @@ pub struct BusyRaising;
 #[derive(Component)]
 pub struct Idle;
 
-/// This state should be applied to mob entity if it need to be following player and friends
+/// This state make mob search for target and follow it
 #[derive(Component)]
-pub struct PursueFriends;
-
-/// This state should be applied to mob entity if it need to be following ONLY friends
-//#[derive(Component)]
-//pub struct PursueFriendsOnly;
-
-/// This state should be applied to mob entity if it need to be following enemy mobs
-#[derive(Component)]
-pub struct PursueMobs;
+pub struct Pursue;
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),

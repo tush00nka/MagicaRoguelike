@@ -25,6 +25,7 @@ impl Plugin for LevelCompletionPlugin {
                     despawn_all_with::<crate::black_hole::BlackHole>,
                     despawn_all_with::<crate::item::Item>,
                     despawn_all_with::<crate::obstacles::Obstacle>,
+                    despawn_all_with::<crate::mobs::Mob>,
                     despawn_all_with::<Portal>,
                 ),
             )
@@ -40,6 +41,7 @@ impl Plugin for LevelCompletionPlugin {
                     despawn_all_with::<crate::black_hole::BlackHole>,
                     despawn_all_with::<crate::item::Item>,
                     despawn_all_with::<crate::obstacles::Obstacle>,
+                    despawn_all_with::<crate::mobs::Mob>,
                     despawn_all_with::<Portal>,
                 ),
             )
