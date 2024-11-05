@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, text::BreakLineOn};
 use avian2d::prelude::*;
 
 use rand::{
@@ -15,7 +15,8 @@ impl Plugin for ItemPlugin {
         app
             .add_event::<SpawnItemEvent>()
             .add_event::<ItemPickedUpEvent>()
-            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item));
+            .add_systems(Startup, spawn_item_hint)
+            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item, update_item_hint));
     }
 }
 
@@ -47,6 +48,34 @@ impl ItemType {
             ItemType::Glider => "textures/items/glider.png",
         }
     }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            ItemType::Amulet => "Амулет",
+            ItemType::Bacon => "Бекон",
+            ItemType::Heart => "Сердце",
+            ItemType::LizardTail => "Хвост Ящерицы",
+            ItemType::SpeedPotion => "Снадобье Скорости",
+            ItemType::WispInAJar => "Дух в Банке",
+            ItemType::WaterbendingScroll => "Свиток Магии Воды",
+            ItemType::Mineral => "Минерал",
+            ItemType::Glider => "Воздушный Руль",
+        }
+    }
+
+    pub fn get_description(&self) -> &str {
+        match self {
+            ItemType::Amulet => "Больше опыта от всех источников",
+            ItemType::Bacon => "Неуязвимость после получения урона длится дольше",
+            ItemType::Heart => "Больше максимального здоровья",
+            ItemType::LizardTail => "Вторая жизнь",
+            ItemType::SpeedPotion => "Больше скорость ходьбы",
+            ItemType::WispInAJar => "Сопротивление огню",
+            ItemType::WaterbendingScroll => "Сопротивление воде",
+            ItemType::Mineral => "Сопротивление земле",
+            ItemType::Glider => "Сопротивление воздуху",
+        }
+    }
 }
 
 // я не знаю, что это за волшебный код,
@@ -71,13 +100,20 @@ impl Distribution<ItemType> for Standard {
 #[derive(Component)]
 pub struct Item {
     item_type: ItemType,
+    name: String,
+    description: String,
 }
+
+#[derive(Component)]
+struct ItemHint;
 
 #[derive(Event)]
 pub struct SpawnItemEvent {
     pub pos: Vec3,
     pub item_type: ItemType,
     pub texture_path: String,
+    pub item_name: String,
+    pub item_description: String,
 }
 
 #[derive(Event)]
@@ -100,8 +136,45 @@ fn spawn_item(
         .insert(Sensor)
         .insert(Item {
             item_type: ev.item_type,
+            name: ev.item_name.clone(),
+            description: ev.item_description.clone(),
         });
     }
+}
+
+fn spawn_item_hint(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    commands.spawn(Text2dBundle {
+        text: Text::from_sections([
+            TextSection::new(
+                "item_name",
+                TextStyle {
+                    font: asset_server.load("fonts/ebbe_bold.ttf"),
+                    font_size: 24.0,
+                    color: Color::hsl(40.0, 1., 0.5),
+                }
+            ),
+            TextSection::new(
+                "item_description",
+                TextStyle {
+                    font: asset_server.load("fonts/ebbe_bold.ttf"),
+                    font_size: 16.0,
+                    color: Color::WHITE,
+                }
+            )
+        ]).with_justify(JustifyText::Center),
+        text_anchor: bevy::sprite::Anchor::Center,
+        transform: Transform {
+            translation: Vec3::ZERO.with_z(9.0),
+            scale: Vec3::splat(0.5),
+            ..default()
+        },
+        visibility: Visibility::Hidden,
+        ..default()
+    })
+    .insert(ItemHint);
 }
 
 fn debug_spawn_random_item(
@@ -110,20 +183,14 @@ fn debug_spawn_random_item(
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyI) {
-        let rand_item: ItemType = rand::random();
+        let rand_item: ItemType = rand::random::<ItemType>();
 
         ev_spawn_item.send(SpawnItemEvent {
             pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
             item_type: rand_item,
             texture_path: rand_item.get_texture_path().to_string(),
-        });
-    }
-
-    if keyboard.just_pressed(KeyCode::KeyF) {
-        ev_spawn_item.send(SpawnItemEvent {
-            pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
-            item_type: ItemType::WispInAJar,
-            texture_path: ItemType::WispInAJar.get_texture_path().to_string(),
+            item_name: rand_item.get_name().to_string(),
+            item_description: rand_item.get_description().to_string()
         });
     }
 }
@@ -147,5 +214,42 @@ fn pick_up_item(
             });
             commands.entity(item_e).despawn();
         }
+    }
+}
+
+fn update_item_hint(
+    mut hint_query: Query<(&mut Visibility, &mut Transform, &mut Text), (With<ItemHint>, Without<Player>, Without<Item>)>,
+    item_query: Query<(&Transform, &Item), (Without<Player>, Without<ItemHint>)>,
+    player_query: Query<&Transform, (With<Player>, Without<Item>, Without<ItemHint>)>,
+) {
+    let Ok((mut hint_visibility, mut hint_transform, mut hint_text)) = hint_query.get_single_mut() else {
+        return;
+    };
+
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    if item_query.is_empty() {
+        *hint_visibility = Visibility::Hidden;
+        return;
+    }
+
+    let sorted: Vec<(&Transform, &Item)> = item_query.iter().sort_by::<&Transform>(|t1, t2| {
+        t1.translation.distance(player_transform.translation)
+            .total_cmp(&t2.translation.distance(player_transform.translation))
+    }).collect();
+
+    let (item_trasform, item) = sorted[0];
+
+    if item_trasform.translation.distance(player_transform.translation) <= 64.0 {
+        *hint_visibility = Visibility::Visible;
+        hint_transform.translation.x = item_trasform.translation.x;
+        hint_transform.translation.y = item_trasform.translation.y + 32.0;
+        hint_text.sections[0].value = format!("{}\n", item.name);
+        hint_text.sections[1].value = item.description.to_string();
+    }
+    else {
+        *hint_visibility = Visibility::Hidden;
     }
 }

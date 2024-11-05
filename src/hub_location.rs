@@ -74,6 +74,8 @@ fn spawn_hub(
             pos: Vec3::new(i as f32 * TILE_SIZE, (upper - 3) as f32 * TILE_SIZE, 1.),
             item_type: random_item,
             texture_path: random_item.get_texture_path().to_string(),
+            item_name: random_item.get_name().to_string(),
+            item_description: random_item.get_description().to_string()
         });
     }
 
