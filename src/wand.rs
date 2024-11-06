@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::render::view::visibility;
 
 use crate::item::ItemPickupAnimation;
 use crate::mouse_position::MouseCoords;
@@ -40,6 +39,7 @@ fn move_rotate_wand(
 
         let Ok(player_transform) = player_query.get_single() else {
             *visibility = Visibility::Hidden;
+            return;
         };
 
         // двигаем за игроком
