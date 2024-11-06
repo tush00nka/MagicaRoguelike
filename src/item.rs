@@ -1,4 +1,4 @@
-use bevy::{prelude::*, text::BreakLineOn};
+use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use rand::{
@@ -16,7 +16,7 @@ impl Plugin for ItemPlugin {
             .add_event::<SpawnItemEvent>()
             .add_event::<ItemPickedUpEvent>()
             .add_systems(Startup, spawn_item_hint)
-            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item, update_item_hint));
+            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item, update_item_hint, item_pickup_animation));
     }
 }
 
@@ -121,6 +121,14 @@ pub struct ItemPickedUpEvent {
     pub item_type: ItemType,
 }
 
+#[derive(Component)]
+pub struct ItemPickupAnimation {
+    timer: Timer,
+}
+
+#[derive(Component)]
+struct HeldItem; 
+
 fn spawn_item(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -197,13 +205,14 @@ fn debug_spawn_random_item(
 
 fn pick_up_item(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 
     item_query: Query<(Entity, &Item)>,
-    player_query: Query<&CollidingEntities, With<Player>>,
+    player_query: Query<(Entity, &CollidingEntities), (With<Player>, Without<ItemPickupAnimation>)>,
 
     mut ev_item_picked_up: EventWriter<ItemPickedUpEvent>,
 ) {
-    let Ok(colliding_e) = player_query.get_single() else {
+    let Ok((player_e, colliding_e)) = player_query.get_single() else {
         return;
     };
 
@@ -212,6 +221,20 @@ fn pick_up_item(
             ev_item_picked_up.send(ItemPickedUpEvent {
                 item_type: item.item_type,
             });
+
+            commands.entity(player_e)
+                .insert(ItemPickupAnimation {
+                    timer: Timer::from_seconds(2.0, TimerMode::Once),
+                })
+                .with_children(|parent| {
+                    parent.spawn(SpriteBundle {
+                        texture: asset_server.load(item.item_type.get_texture_path().to_string()),
+                        transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
+                        ..default()
+                    }).insert(HeldItem);
+                });
+
+
             commands.entity(item_e).despawn();
         }
     }
@@ -245,11 +268,38 @@ fn update_item_hint(
     if item_trasform.translation.distance(player_transform.translation) <= 64.0 {
         *hint_visibility = Visibility::Visible;
         hint_transform.translation.x = item_trasform.translation.x;
-        hint_transform.translation.y = item_trasform.translation.y + 32.0;
+        hint_transform.translation.y = item_trasform.translation.y + 24.0;
         hint_text.sections[0].value = format!("{}\n", item.name);
         hint_text.sections[1].value = item.description.to_string();
     }
     else {
         *hint_visibility = Visibility::Hidden;
+    }
+}
+
+fn item_pickup_animation(
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &mut ItemPickupAnimation, &mut TextureAtlas), With<Player>>,
+    held_item_query: Query<Entity, With<HeldItem>>,
+    time: Res<Time>,
+) {
+    let Ok((entity, mut anim, mut atlas)) = player_query.get_single_mut() else {
+        return;
+    };
+
+    let Ok(held_e) = held_item_query.get_single() else {
+        return;
+    };
+
+    if anim.timer.elapsed_secs() <= time.delta_seconds() {
+        atlas.index = 8; // the sprite of player holding smth
+    }
+
+    anim.timer.tick(time.delta());
+
+    if anim.timer.just_finished() {
+        atlas.index = 0;
+        commands.entity(entity).remove::<ItemPickupAnimation>();
+        commands.entity(held_e).despawn();
     }
 }
