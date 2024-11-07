@@ -68,9 +68,17 @@ fn perform_attack(
     player_query: Query<&Transform, With<Player>>,
 ) {
     for ev in ev_boss_attack.read() {
+        let element: ElementType = rand::random();
+
         match ev.0 {
             BossAttackType::Wall(direction) => {
+                let to_skip = rand::thread_rng().gen_range((ROOM_SIZE/2-7)..(ROOM_SIZE/2+8));
+
                 for i in (ROOM_SIZE/2-7)..(ROOM_SIZE/2+8) {
+                    if i == to_skip {
+                        continue;
+                    }
+
                     let position = match direction {
                         Vec2::NEG_Y => Vec3::new(i as f32 * TILE_SIZE, (ROOM_SIZE/2+7) as f32 * TILE_SIZE, 1.0),
                         Vec2::Y => Vec3::new(i as f32 * TILE_SIZE, (ROOM_SIZE/2-7) as f32 * TILE_SIZE, 1.0),
@@ -81,13 +89,13 @@ fn perform_attack(
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
                         texture_path: "textures/earthquake.png".to_string(),
-                        color: ElementType::Fire.color(),
+                        color: element.color(),
                         translation: position,
                         angle: direction.to_angle(),
                         radius: 1.0,
-                        speed: 50.0,
+                        speed: 75.0,
                         damage: 20,
-                        element: ElementType::Fire,
+                        element,
                         is_friendly: false,
                     });
                 }
@@ -111,13 +119,13 @@ fn perform_attack(
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
                         texture_path: "textures/fireball.png".to_string(),
-                        color: ElementType::Fire.color(),
+                        color: element.color(),
                         translation: position,
                         angle: direction.to_angle(),
                         radius: 1.0,
                         speed: 50.0,
                         damage: 20,
-                        element: ElementType::Fire,
+                        element,
                         is_friendly: false,
                     });
                 }
