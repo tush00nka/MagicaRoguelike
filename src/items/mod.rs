@@ -18,6 +18,9 @@ use lizard_tail::LizardTailPlugin;
 pub mod resistance_items;
 use resistance_items::ResistanceItemsPlugin;
 
+pub mod ghost_in_the_shell;
+use ghost_in_the_shell::GhostInTheShellPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -27,7 +30,8 @@ impl Plugin for ItemEffectsPlugin {
             HeartPlugin,
             AmuletPlugin,
             LizardTailPlugin,
-            ResistanceItemsPlugin
+            ResistanceItemsPlugin,
+            GhostInTheShellPlugin
         ));
     }
 }

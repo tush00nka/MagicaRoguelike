@@ -2,9 +2,10 @@
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::{
-    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent}, projectile::{Hostile, Projectile}, GameState
+    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent}, projectile::{Friendly, Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -41,15 +42,24 @@ fn hit_player(
 fn proj_hit_player(
     //todo: change that we could add resistance mechanic
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Projectile), With<Hostile>>,
-    mut player_query: Query<(&CollidingEntities, &mut Health), (With<Player>, Without<Invincibility>)>,
+    mut projectile_query: Query<(Entity, &mut Projectile), With<Hostile>>,
+    mut player_query: Query<(&CollidingEntities, &mut Health, &Player), Without<Invincibility>>,
 ) {
-    let Ok((colliding_e, mut health)) = player_query.get_single_mut() else {
+    let Ok((colliding_e, mut health, player)) = player_query.get_single_mut() else {
         return;
     };
 
-    for (proj_e, projectile) in projectile_query.iter() {
+    for (proj_e, mut projectile) in projectile_query.iter_mut() {
         if colliding_e.contains(&proj_e) {
+            let deflect_check: f32 = rand::thread_rng().gen_range(0.0..1.0);
+
+            if deflect_check <= player.projectile_deflect_chance {
+                projectile.direction = -projectile.direction;
+                commands.entity(proj_e).remove::<Hostile>();
+                commands.entity(proj_e).insert(Friendly);
+                return;
+            }
+
             health.hit_queue.push( Hit {
                 damage: projectile.damage as i32,
                 element: Some(projectile.element),

@@ -128,6 +128,7 @@ fn move_projectile(
 ) {
     for (mut projectile_transform, projectile) in projectile_query.iter_mut() {
         projectile_transform.translation += Vec3::new(projectile.direction.x, projectile.direction.y, 0.0) * projectile.speed * time.delta_seconds();
+        projectile_transform.rotation = Quat::from_rotation_z(projectile.direction.to_angle());
     }
 }
 

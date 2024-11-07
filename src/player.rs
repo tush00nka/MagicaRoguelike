@@ -33,6 +33,7 @@ pub struct PlayerDeathEvent(pub Entity);
 pub struct Player {
     pub speed: f32,
     pub invincibility_time: f32,
+    pub projectile_deflect_chance: f32,
 }
 
 fn spawn_player(
@@ -70,6 +71,7 @@ fn spawn_player(
         .insert(Player {
             speed: 8000.0,
             invincibility_time: 1.0,
+            projectile_deflect_chance: 0.0,
         })
         .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]})
         .insert(ElementResistance {
