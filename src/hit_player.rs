@@ -4,13 +4,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{
-    elements::ElementResistance,
-    health::{Health, Hit},
-    invincibility::Invincibility,
-    mobs::Mob,
-    player::{Player, PlayerDeathEvent},
-    projectile::{Hostile, Projectile},
-    GameState,
+    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent}, projectile::{Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -37,6 +31,8 @@ fn hit_player(
                 element: None,
                 direction: Vec3::ZERO,
             });
+
+            return;
         }
     }
 
@@ -69,20 +65,24 @@ fn proj_hit_player(
 fn damage_player(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), (With<Player>, Without<Invincibility>)>,
+    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), With<Player>>,
+
+    mut ev_shake_camera: EventWriter<CameraShakeEvent>,
 ) {
     let Ok((player_e, mut health, player, resistance)) = player_query.get_single_mut() else {
         return;
     };
 
     if !health.hit_queue.is_empty() {
+        let hit = health.hit_queue.remove(0);
+        health.hit_queue.clear();
+
         //i-frames
         commands
         .entity(player_e)
         .insert(Invincibility::new(player.invincibility_time));
 
-        let hit = health.hit_queue.remove(0);
-        health.hit_queue.clear();
+        ev_shake_camera.send(CameraShakeEvent);
 
         // считаем сопротивление
         let mut damage = hit.damage;
