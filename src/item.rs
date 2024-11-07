@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
@@ -16,7 +18,14 @@ impl Plugin for ItemPlugin {
             .add_event::<SpawnItemEvent>()
             .add_event::<ItemPickedUpEvent>()
             .add_systems(Startup, spawn_item_hint)
-            .add_systems(Update, (debug_spawn_random_item, spawn_item, pick_up_item, update_item_hint, item_pickup_animation));
+            .add_systems(Update, (
+                debug_spawn_random_item,
+                spawn_item,
+                pick_up_item,
+                item_wobble,
+                update_item_hint,
+                item_pickup_animation
+            ));
     }
 }
 
@@ -103,6 +112,8 @@ pub struct Item {
     name: String,
     description: String,
 }
+
+const PLAYER_DETECTION_RADIUS: f32 = 64.0;
 
 #[derive(Component)]
 struct ItemHint;
@@ -224,7 +235,7 @@ fn pick_up_item(
 
             commands.entity(player_e)
                 .insert(ItemPickupAnimation {
-                    timer: Timer::from_seconds(2.0, TimerMode::Once),
+                    timer: Timer::from_seconds(1.0, TimerMode::Once),
                 })
                 .with_children(|parent| {
                     parent.spawn(SpriteBundle {
@@ -237,6 +248,46 @@ fn pick_up_item(
 
             commands.entity(item_e).despawn();
         }
+    }
+}
+
+fn item_wobble(
+    mut item_query: Query<&mut Transform, (With<Item>, Without<Player>)>,
+    player_query: Query<&Transform, (With<Player>, Without<Item>)>,
+    time: Res<Time>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    if item_query.is_empty() {
+        return;
+    }
+
+    let mut sorted: Vec<Mut<'_, Transform>> = item_query.iter_mut()
+        .sort_by::<&Transform>(|t1, t2| {
+            t1.translation.distance(player_transform.translation)
+                .total_cmp(&t2.translation.distance(player_transform.translation))
+        }).collect();
+
+    // делим массив на содержащий первый (ближайший) трансформ и на содержащий все остальные
+    let (split1, split2) = sorted.split_at_mut(1);
+
+    // берем этот ближайший странсформ из первого сплита
+    let item_transform = &mut split1[0];
+
+    // сбрасываем вращение у всех остальных
+    for i in 1..split2.len() {
+        split2[i].rotation = Quat::IDENTITY;
+    }
+
+    // вращаем ближайший
+    if item_transform.translation.distance(player_transform.translation) <= PLAYER_DETECTION_RADIUS {
+        let angle = (time.elapsed_seconds() * 10.0).sin() * PI / 12.0;
+        item_transform.rotation = Quat::from_rotation_z(angle);
+    }   
+    else {
+        item_transform.rotation = Quat::IDENTITY;
     }
 }
 
@@ -258,17 +309,18 @@ fn update_item_hint(
         return;
     }
 
-    let sorted: Vec<(&Transform, &Item)> = item_query.iter().sort_by::<&Transform>(|t1, t2| {
-        t1.translation.distance(player_transform.translation)
-            .total_cmp(&t2.translation.distance(player_transform.translation))
-    }).collect();
+    let sorted: Vec<(&Transform, &Item)> = item_query.iter()
+        .sort_by::<&Transform>(|t1, t2| {
+            t1.translation.distance(player_transform.translation)
+                .total_cmp(&t2.translation.distance(player_transform.translation))
+        }).collect();
 
-    let (item_trasform, item) = sorted[0];
+    let (item_transform, item) = sorted[0];
 
-    if item_trasform.translation.distance(player_transform.translation) <= 64.0 {
+    if item_transform.translation.distance(player_transform.translation) <= PLAYER_DETECTION_RADIUS {
         *hint_visibility = Visibility::Visible;
-        hint_transform.translation.x = item_trasform.translation.x;
-        hint_transform.translation.y = item_trasform.translation.y + 24.0;
+        hint_transform.translation.x = item_transform.translation.x;
+        hint_transform.translation.y = item_transform.translation.y + 24.0;
         hint_text.sections[0].value = format!("{}\n", item.name);
         hint_text.sections[1].value = item.description.to_string();
     }
