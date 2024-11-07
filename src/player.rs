@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::invincibility::Invincibility;
+use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::elements::ElementResistance;
 use crate::mouse_position::MouseCoords;
@@ -41,7 +42,7 @@ fn spawn_player(
 ) {
     let texture = asset_server.load("textures/player_walk_mantle.png");
 
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 8, 1, None, None);
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 8, 2, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
     let animation_config = AnimationConfig::new(0, 7, 24);
@@ -112,7 +113,7 @@ fn reset_player_position(
 
 fn animate_player(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), With<Player>>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), (With<Player>, Without<ItemPickupAnimation>)>,
 ) {
     for (mut config, mut atlas, linvel) in &mut query {
         if linvel.0 != Vec2::ZERO {
@@ -141,7 +142,7 @@ fn animate_player(
 }
 
 fn flip_towards_mouse(
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut player_query: Query<&mut Transform, (With<Player>, Without<ItemPickupAnimation>)>,
     mouse_coords: Res<MouseCoords>,
     time: Res<Time>,
 ) {

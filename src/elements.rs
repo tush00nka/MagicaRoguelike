@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, item::ItemPickupAnimation, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -153,6 +153,7 @@ fn cast_spell(
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
     wand_query: Query<&Transform, With<Wand>>,
+    player_query: Query<Entity, (With<Player>, Without<ItemPickupAnimation>)>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
@@ -167,7 +168,11 @@ fn cast_spell(
     time: Res<Time<Virtual>>,
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
-        
+
+        if let Err(_) = player_query.get_single() {
+            return;
+        }
+
         ev_bar_clear.send(ElementBarClear);
 
         let bar = element_bar.clone();
