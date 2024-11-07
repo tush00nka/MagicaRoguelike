@@ -4,10 +4,7 @@ use rand::Rng;
 use std::collections::HashMap;
 
 use crate::{
-    chapter::ChapterManager,
-    utils::get_random_index_with_weight,
-    GameLayer,
-    GameState
+    chapter::ChapterManager, health::Health, obstacles::Obstacle, utils::get_random_index_with_weight, GameLayer, GameState
 };
 
 pub const ROOM_SIZE: i32 = 32;
@@ -78,6 +75,8 @@ pub struct LevelGenerator {
     chance_walker_change_dir: f32,
     chance_walker_spawn: f32,
     chance_walker_destroy: f32,
+    chance_walker_spawn_obstacle: f32,
+    obstacles: Vec<(f32, f32)>,
     max_walkers: usize,
     percent_to_fill: f32,
 }
@@ -92,6 +91,8 @@ impl Default for LevelGenerator {
             chance_walker_change_dir: 0.5,
             chance_walker_spawn: 0.05,
             chance_walker_destroy: 0.05,
+            chance_walker_spawn_obstacle: 0.05,
+            obstacles: vec![],
             max_walkers: 16,
             percent_to_fill: 0.1,
         }
@@ -174,6 +175,13 @@ impl LevelGenerator {
                         pos: self.walkers[i].pos,
                     };
                     self.walkers.push(new_walker);
+                }
+            }
+
+            // chance: walker spawns an obstacle/prop
+            for walker in self.walkers.iter() {
+                if rng.gen::<f32>() < self.chance_walker_spawn_obstacle {
+                    self.obstacles.push(walker.pos);
                 }
             }
 
@@ -267,6 +275,7 @@ pub fn spawn_map(
     let room_height = room.room_height;
     let room_width = room.room_width;
     let grid = &room.grid;
+    let obstacles = &room.obstacles;
 
     for x in 0..room_width {
         for y in 0..room_height {
@@ -350,6 +359,20 @@ pub fn spawn_map(
                 }
             }
         }
+    }
+
+    for pos in obstacles.iter() {
+        commands.spawn(SpriteBundle {
+            texture: asset_server.load("textures/obstacles/claypot.png"),
+            transform: Transform::from_xyz(pos.0 * TILE_SIZE, pos.1 * TILE_SIZE, 0.1),
+            ..default()
+        })
+        .insert(Collider::circle(6.))
+        .insert(Sensor)
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile]))
+        .insert(Health::new(10))
+        .insert(Obstacle);
     }
 
 }

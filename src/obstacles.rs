@@ -182,9 +182,7 @@ fn spawn_corpse(
             .insert(Collider::circle(6.))
             .insert(Sensor)
             .insert(LockedAxes::ROTATION_LOCKED)
-            .insert(GravityScale(0.0))
             .insert(CollisionLayers::new(GameLayer::Enemy, [GameLayer::Enemy]))
-            .insert(RigidBody::Dynamic)
             .insert(Health::new(40))
             .insert(Obstacle)
             .id();
