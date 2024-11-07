@@ -277,7 +277,7 @@ pub fn spawn_map(
                     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Floor, 0));
-                    commands.spawn((
+                    let floor = commands.spawn((
                         SpriteBundle {
                             sprite: Sprite {
                                 flip_x: rand::random(),
@@ -288,7 +288,7 @@ pub fn spawn_map(
                                 TILE_SIZE * x as f32,
                                 TILE_SIZE * y as f32,
                                 0.0,
-                                ),
+                            ),
                         ..default()
                         },
                         TextureAtlas {
@@ -296,7 +296,24 @@ pub fn spawn_map(
                             index: get_random_index_with_weight(vec![10, 3, 2, 1])
                         }
                     ))
-                    .insert(Floor);
+                    .insert(Floor)
+                    .id();
+
+                if y < room_height
+                && grid[x as usize][y as usize + 1] == TileType::Wall {
+                    commands.entity(floor).with_children(|parent| {
+                        parent.spawn(SpriteBundle {
+                            texture: asset_server.load("textures/t_shadow.png"),
+                            transform: Transform::from_xyz(
+                                0.0, 
+                                0.0,
+                                0.1,
+                            ),
+                            ..default()
+                        });
+                    });
+                } 
+
                 },
                 TileType::Wall => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Wall, 0));
@@ -330,17 +347,6 @@ pub fn spawn_map(
                 },
                 TileType::Empty => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Empty, 0));
-
-                    commands.spawn(SpriteBundle {
-                        texture: asset_server.load(format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())),
-                        transform: Transform::from_xyz(
-                        TILE_SIZE * x as f32,
-                        TILE_SIZE * y as f32,
-                        0.0,
-                    ),
-                    ..default()
-                    })
-                    .insert(Wall);
                 }
             }
         }

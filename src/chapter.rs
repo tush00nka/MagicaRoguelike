@@ -40,7 +40,8 @@ impl ChapterManager {
 
     pub fn get_current_color(&self) -> Color {
         match self.current_chapter {
-            1 => Color::srgb(69. / 255., 35. / 255., 13. / 255.),
+            //1 => Color::srgb(69. / 255., 35. / 255., 13. / 255.),
+            1 => Color::srgb(57. / 255., 42. / 255., 28. / 255.),
             2 => Color::srgb(31. / 255., 36. / 255., 10. / 255.),
             3 => Color::srgb(48. / 255., 15. / 255., 10. / 255.),
             _ => Color::srgb(69. / 255., 35. / 255., 13. / 255.), //boss level
@@ -50,7 +51,7 @@ impl ChapterManager {
 
 fn init_chapter(mut commands: Commands) {
     commands.insert_resource(ChapterManager::default());
-    commands.insert_resource(ClearColor(Color::srgb(69. / 255., 35. / 255., 13. / 255.)));
+    commands.insert_resource(ClearColor(Color::srgb(57. / 255., 42. / 255., 28. / 255.)));
 }
 
 fn update_chapter(mut commands: Commands, mut chapter_manager: ResMut<ChapterManager>) {
