@@ -331,11 +331,11 @@ fn update_item_hint(
 
 fn item_pickup_animation(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut ItemPickupAnimation, &mut TextureAtlas), With<Player>>,
+    mut player_query: Query<(Entity, &mut Transform, &mut ItemPickupAnimation, &mut TextureAtlas), With<Player>>,
     held_item_query: Query<Entity, With<HeldItem>>,
     time: Res<Time>,
 ) {
-    let Ok((entity, mut anim, mut atlas)) = player_query.get_single_mut() else {
+    let Ok((entity, mut transform, mut anim, mut atlas)) = player_query.get_single_mut() else {
         return;
     };
 
@@ -345,6 +345,9 @@ fn item_pickup_animation(
 
     if anim.timer.elapsed_secs() <= time.delta_seconds() {
         atlas.index = 8; // the sprite of player holding smth
+
+         // фикс того, что в моменте подбора игрок может быть в состоянии поворота
+        transform.scale = Vec3::splat(1.0);
     }
 
     anim.timer.tick(time.delta());

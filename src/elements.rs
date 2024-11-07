@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
     black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, item::ItemPickupAnimation, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
@@ -29,17 +29,28 @@ pub enum ElementType {
     Steam,
 }
 
+impl Distribution<ElementType> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ElementType {
+        match rng.gen_range(0..5) {
+            0 => ElementType::Fire,
+            1 => ElementType::Water,
+            2 => ElementType::Earth,
+            3 => ElementType::Air,
+            4 => ElementType::Steam,
+            _ => ElementType::Fire,
+        }
+    }
+}
+
 impl ElementType {
     pub fn color(&self) -> Color {
-        let c = match self {
+    match self {
             ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
             ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
             ElementType::Earth => Color::srgb(0.45, 0.15, 0.15),
             ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
             ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
-        };
-
-        c
+        }
     }
 }
 
