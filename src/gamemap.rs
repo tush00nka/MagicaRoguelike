@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
+use noise::{NoiseFn, Perlin};
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -138,6 +139,8 @@ impl LevelGenerator {
 
         self.walkers = Vec::new();
         self.walkers.push(new_walker);
+
+        self.obstacles = Vec::new();
     }
 
     fn create_floors(&mut self) {
@@ -181,6 +184,10 @@ impl LevelGenerator {
             // chance: walker spawns an obstacle/prop
             for walker in self.walkers.iter() {
                 if rng.gen::<f32>() < self.chance_walker_spawn_obstacle {
+                    if self.obstacles.contains(&(walker.pos)) {
+                        continue;    
+                    }
+
                     self.obstacles.push(walker.pos);
                 }
             }
@@ -270,6 +277,7 @@ pub fn spawn_map(
     mut map: ResMut<Map>,
     chapter_manager: Res<ChapterManager>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    time: Res<Time>,
 ) {
     room.start();
     let room_height = room.room_height;
@@ -361,9 +369,18 @@ pub fn spawn_map(
         }
     }
 
+    let perlin = Perlin::new(time.elapsed_seconds().round() as u32);
+
     for pos in obstacles.iter() {
+        let height = perlin.get([pos.0 as f64 * 0.1, pos.1 as f64 * 0.1]);
+
+        let texture_path = {
+            if height >= 0.5 { "textures/obstacles/claypot.png" }
+            else { "textures/obstacles/crate.png"} 
+        };
+
         commands.spawn(SpriteBundle {
-            texture: asset_server.load("textures/obstacles/claypot.png"),
+            texture: asset_server.load(texture_path),
             transform: Transform::from_xyz(pos.0 * TILE_SIZE, pos.1 * TILE_SIZE, 0.1),
             ..default()
         })
@@ -373,6 +390,6 @@ pub fn spawn_map(
         .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile]))
         .insert(Health::new(10))
         .insert(Obstacle);
-    }
+    }   
 
 }
