@@ -35,6 +35,7 @@ pub struct PlayerStats {
     pub speed: f32,
     pub invincibility_time: f32,
     pub projectile_deflect_chance: f32,
+    pub vampirism: i32,
 }
 
 impl Default for PlayerStats {
@@ -43,6 +44,7 @@ impl Default for PlayerStats {
             speed: 8000.,
             invincibility_time: 1.0,
             projectile_deflect_chance: 0.0,
+            vampirism: 0,
         }
     }
 }

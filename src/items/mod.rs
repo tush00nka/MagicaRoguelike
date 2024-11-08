@@ -21,6 +21,9 @@ use resistance_items::ResistanceItemsPlugin;
 pub mod ghost_in_the_shell;
 use ghost_in_the_shell::GhostInTheShellPlugin;
 
+pub mod vampire_tooth;
+use vampire_tooth::VampireToothPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -31,7 +34,8 @@ impl Plugin for ItemEffectsPlugin {
             AmuletPlugin,
             LizardTailPlugin,
             ResistanceItemsPlugin,
-            GhostInTheShellPlugin
+            GhostInTheShellPlugin,
+            VampireToothPlugin
         ));
     }
 }

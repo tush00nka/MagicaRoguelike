@@ -42,6 +42,7 @@ pub enum ItemType {
     Mineral,
     Glider,
     GhostInTheShell,
+    VampireTooth,
 }
 
 impl ItemType {
@@ -57,6 +58,7 @@ impl ItemType {
             ItemType::Mineral => "textures/items/mineral.png",
             ItemType::Glider => "textures/items/glider.png",
             ItemType::GhostInTheShell => "textures/items/ghost_in_the_shell.png",
+            ItemType::VampireTooth => "textures/items/vampire_tooth.png"
         }
     }
 
@@ -72,6 +74,7 @@ impl ItemType {
             ItemType::Mineral => "Минерал",
             ItemType::Glider => "Воздушный Руль",
             ItemType::GhostInTheShell => "Призрак в ракушке",
+            ItemType::VampireTooth => "Клык вампира"
         }
     }
 
@@ -87,6 +90,7 @@ impl ItemType {
             ItemType::Mineral => "Сопротивление земле",
             ItemType::Glider => "Сопротивление воздуху",
             ItemType::GhostInTheShell => "Шанс отразить снаряд",
+            ItemType::VampireTooth => "Лечение при убийстве врагов",
         }
     }
 }
@@ -95,7 +99,7 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=10) {
+        match rng.gen_range(0..=11) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -106,6 +110,7 @@ impl Distribution<ItemType> for Standard {
             8 => ItemType::Mineral,
             9 => ItemType::Glider,
             10 => ItemType::GhostInTheShell,
+            11 => ItemType::VampireTooth,
             _ => ItemType::WispInAJar,
         }
     }
