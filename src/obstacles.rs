@@ -110,7 +110,6 @@ fn hit_obstacles<T: Component>(
             }
         }
     }
-
 }
 
 fn damage_obstacles<T: Component>(
@@ -169,7 +168,43 @@ fn spawn_corpse(
             }
             MobType::Koldun => {
                 texture_path = "textures/mob_corpse_placeholder.png";
-                can_be_spawned = false;//maybe true?
+                can_be_spawned = false; //maybe true?
+            }
+            MobType::EarthElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::FireElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::WaterElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::AirElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::ClayGolem => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletMage => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletWarrior => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletRanger => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::TankEater => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
         }
         let texture = asset_server.load(texture_path);

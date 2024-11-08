@@ -1,5 +1,6 @@
 //A* Pathfinding for enemies
 use bevy::prelude::*;
+use seldom_state::trigger::Done;
 
 use std::collections::{HashMap, LinkedList};
 
@@ -121,8 +122,7 @@ fn change_to_player<Check: Component, Before: Component, After: Component + Defa
     let len = check_query.iter().len();
     if len == 0 {
         for mob in mob_query.iter() {
-            commands.entity(mob).remove::<Before>();
-            commands.entity(mob).insert(After::default());
+            commands.entity(mob).insert(Done::Success);
         }
     }
 }

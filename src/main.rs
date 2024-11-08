@@ -99,6 +99,8 @@ use loot::LootPlugin;
 mod items;
 use items::ItemEffectsPlugin;
 
+use seldom_state::prelude::*;
+
 mod obstacles;
 use obstacles::ObstaclePlugin;
 
@@ -173,6 +175,7 @@ fn main() {
         .add_plugins((HealthTankPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
         .add_plugins((
+            StateMachinePlugin,
             MobPlugin,
             MobAnimationPlugin,
             MobSpawnPlugin,

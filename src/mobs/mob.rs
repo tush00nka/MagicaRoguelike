@@ -1,13 +1,15 @@
 //all things about mobs and their spawn/behaviour
-use std::f32::consts::PI;
 
-use avian2d::prelude::*;
-use bevy::prelude::*;
-use rand::Rng;
+use {
+    avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
+    std::f32::consts::PI, std::time::Duration,
+};
 ///add mobs with kinematic body type
 pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
+    alert::SpawnAlertEvent,
+    blank_spell::Blank,
     elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
@@ -18,7 +20,8 @@ use crate::{
     obstacles::{Corpse, CorpseSpawnEvent},
     particles::SpawnParticlesEvent,
     player::Player,
-    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent,},
+    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
+    shield_spell::Shield,
     stun::Stun,
     GameLayer, GameState,
 };
@@ -62,6 +65,15 @@ pub enum MobType {
     JungleTurret,
     Necromancer,
     Koldun,
+    ClayGolem,      //walking tank(like fat, not shooting, attacks around)
+    WaterElemental, //walking range mob
+    FireElemental,  //like ghost(melee mob with phasing)
+    SkeletWarrior,  //mechanics
+    SkeletMage,     //mechanics
+    SkeletRanger,   // add arrow texture
+    EarthElemental, //turret i guess?
+    AirElemental,   // just an orbital?
+    TankEater,
 }
 
 //projectile types
@@ -91,7 +103,7 @@ pub enum MobTarget {
 //Pure components=========================================================================================================================================
 //If you want to add something (create new mob, or add new component), first of all, add components there (and check, maybe it exists already)
 //ability to teleport, contains timer and range in tiles from target
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Teleport {
     //todo: change to just tuple? maybe not?
     pub amount_of_tiles: u8,
@@ -99,6 +111,16 @@ pub struct Teleport {
     pub time_to_teleport: Timer,
 }
 
+impl Default for Teleport {
+    fn default() -> Self {
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
+        Self {
+            amount_of_tiles: 4,
+            place_to_teleport: vec![],
+            time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+        }
+    }
+}
 //component to mob and structures who can spawn enemy.
 #[allow(dead_code)]
 #[derive(Component)]
@@ -108,7 +130,7 @@ pub struct Summoning {
 }
 
 //component to shoot, has timer, element and proj type according to enum ProjectileType
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ShootAbility {
     pub time_to_shoot: Timer,
     pub element: ElementType,
@@ -165,6 +187,17 @@ impl Default for SearchAndPursue {
     }
 }
 
+impl Default for ShootAbility {
+    fn default() -> Self {
+        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
+        Self {
+            time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+            element: ElementType::Fire,
+            proj_type: ProjectileType::Missile,
+        }
+    }
+}
+
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -172,7 +205,9 @@ pub struct Raising {
     pub mob_pos: Transform,
     pub corpse_id: Entity,
 }
-
+///TEMPORARY COMP FOR MOB AI
+#[derive(Component, Clone)]
+pub struct RaisingFlag;
 //mob loot(amount of exp)
 #[derive(Component)]
 pub struct MobLoot {
@@ -187,11 +222,11 @@ pub struct MobLoot {
 pub struct PlayerRush;
 
 /// Flag to pathfinding: rush to corpse
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct CorpseRush;
 
 /// Flag to pathfinding: try to run away
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct RunawayRush;
 
 /// Flag for entities with rotation parts
@@ -205,12 +240,16 @@ pub struct FlipEntity;
 pub struct BusyRaising;
 
 /// This state should be applied to mob entity if it doesn't need to do anything in particular
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Idle;
 
 /// This state make mob search for target and follow it
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Pursue;
+
+/// This state make mob attack in melee if he's near his range
+#[derive(Component, Clone)]
+pub struct Attack;
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),
@@ -380,7 +419,23 @@ impl MobBundle {
         }
     }
 }
-
+fn mob_attack<Who: Component>(
+    mut commands: Commands,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<
+        (
+            Entity,
+            &mut LinearVelocity,
+            &Transform,
+            &mut SearchAndPursue,
+        ),
+        (With<Pursue>, With<Who>),
+    >,
+) {
+    for (entity, _a, _b, _c) in mob_query.iter() {
+        commands.entity(entity).insert(Done::Success);
+    }
+}
 //actual code==============================================================================================================================
 fn mob_shoot<
     Target: Component,
@@ -643,3 +698,64 @@ fn mob_death(
         });
     }
 }
+
+/*
+    if target_query.iter().len() <= 0 {
+        return;
+    }
+    let sorted_targets: Vec<(Entity, &Transform)> = target_query
+        .iter()
+        .sort_by::<&Transform>(|item1, item2| {
+            if item1.translation.distance(mob_transform.translation)
+                < item2.translation.distance(mob_transform.translation)
+            {
+                return Ordering::Less;
+            } else if item1.translation.distance(mob_transform.translation)
+                > item2.translation.distance(mob_transform.translation)
+            {
+                return Ordering::Greater;
+            }
+
+            return Ordering::Equal;
+        })
+        .collect();
+
+    let (target_e, target_transform) = sorted_targets[0];
+
+    let dir = (target_transform.translation - mob_transform.translation)
+        .truncate()
+        .normalize();
+
+    let Some(first_hit) = spatial_query.cast_ray_predicate(
+        mob_transform.translation.truncate(),
+        Dir2::new_unchecked(dir),
+        512.,
+        true,
+        SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+        &|entity| entity != mob_e,
+    ) else {
+        continue;
+    };
+
+    if target_transform
+        .translation
+        .distance(mob_transform.translation)
+        <= mob.pursue_radius
+    {
+        if first_hit.entity == target_e {
+            commands.entity(mob_e).remove::<Idle>();
+            commands.entity(mob_e).insert(Pursue);
+            mob.search_time.reset();
+
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: mob_transform
+                    .translation
+                    .truncate()
+                    .with_y(mob_transform.translation.y + 16.),
+            });
+        }
+    }
+}
+///triger to check if there's target in attack range
+pub fn near_target() {}
+*/

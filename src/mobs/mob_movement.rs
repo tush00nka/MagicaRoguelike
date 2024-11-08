@@ -1,9 +1,9 @@
-use core::f32;
-use std::cmp::Ordering;
-
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use core::f32;
 use rand::Rng;
+use seldom_state::prelude::*;
+use std::cmp::Ordering;
 
 use crate::{
     alert::SpawnAlertEvent,
@@ -29,13 +29,16 @@ impl Plugin for MobMovementPlugin {
                 (move_mobs, runaway_mob).run_if(in_state(GameState::InGame)),
             );
 
-        app.add_systems(FixedUpdate, (
-            idle::<Enemy, Friend>, 
-            pursue::<Enemy, Friend>,
-            idle::<Friend, Enemy>, 
-            pursue::<Friend, Enemy>,
-            update_weights
-        ));
+        app.add_systems(
+            FixedUpdate,
+            (
+                idle::<Enemy, Friend>,
+                pursue::<Enemy, Friend>,
+                idle::<Friend, Enemy>,
+                pursue::<Friend, Enemy>,
+                update_weights,
+            ),
+        );
     }
 }
 
@@ -114,7 +117,10 @@ fn move_mobs(
 fn idle<Who: Component, Target: Component>(
     mut commands: Commands,
     spatial_query: SpatialQuery,
-    mut mob_query: Query<(Entity, &Transform, &mut SearchAndPursue), (With<Idle>, With<Who>, Without<Target>)>,
+    mut mob_query: Query<
+        (Entity, &Transform, &mut SearchAndPursue),
+        (With<Idle>, With<Who>, Without<Target>),
+    >,
     target_query: Query<(Entity, &Transform), With<Target>>,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
@@ -124,7 +130,7 @@ fn idle<Who: Component, Target: Component>(
         // --- Гуляем ---
 
         mob.wander_timer.tick(time.delta());
-        
+
         // получаем вектор, корректирующий направление моба,
         // суммируя произведение вектора направления на его вес
         let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
@@ -146,19 +152,22 @@ fn idle<Who: Component, Target: Component>(
         if target_query.iter().len() <= 0 {
             return;
         }
-        let sorted_targets: Vec<(Entity, &Transform)> = target_query.iter()
-            .sort_by::<&Transform>(|item1, item2| { 
-                if item1.translation.distance(mob_transform.translation) 
-                < item2.translation.distance(mob_transform.translation) {
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                if item1.translation.distance(mob_transform.translation)
+                    < item2.translation.distance(mob_transform.translation)
+                {
                     return Ordering::Less;
-                }
-                else if item1.translation.distance(mob_transform.translation) 
-                > item2.translation.distance(mob_transform.translation){
+                } else if item1.translation.distance(mob_transform.translation)
+                    > item2.translation.distance(mob_transform.translation)
+                {
                     return Ordering::Greater;
                 }
 
-                return Ordering::Equal
-        }).collect();
+                return Ordering::Equal;
+            })
+            .collect();
 
         let (target_e, target_transform) = sorted_targets[0];
 
@@ -172,19 +181,18 @@ fn idle<Who: Component, Target: Component>(
             512.,
             true,
             SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
-            &|entity| {
-                entity != mob_e
-            } )
-        else {
+            &|entity| entity != mob_e,
+        ) else {
             continue;
         };
 
-        // это что за хуйня, никита?? ты зачем на 100 строк разбил выражение
-        if target_transform.translation.distance(mob_transform.translation) <= mob.pursue_radius
+        if target_transform
+            .translation
+            .distance(mob_transform.translation)
+            <= mob.pursue_radius
         {
             if first_hit.entity == target_e {
-                commands.entity(mob_e).remove::<Idle>();
-                commands.entity(mob_e).insert(Pursue);
+                commands.entity(mob_e).insert(Done::Success);
                 mob.search_time.reset();
 
                 ev_spawn_alert.send(SpawnAlertEvent {
@@ -215,24 +223,27 @@ fn pursue<Who: Component, Target: Component>(
     time: Res<Time>,
 ) {
     for (mob_e, mut linvel, mob_transform, mut mob) in mob_query.iter_mut() {
-
         if target_query.iter().len() <= 0 {
+            commands.entity(mob_e).insert(Done::Failure);
             return;
         }
 
-        let sorted_targets: Vec<(Entity, &Transform)> = target_query.iter()
-            .sort_by::<&Transform>(|item1, item2| { 
-                if item1.translation.distance(mob_transform.translation) 
-                < item2.translation.distance(mob_transform.translation) {
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                if item1.translation.distance(mob_transform.translation)
+                    < item2.translation.distance(mob_transform.translation)
+                {
                     return Ordering::Less;
-                }
-                else if item1.translation.distance(mob_transform.translation) 
-                > item2.translation.distance(mob_transform.translation){
+                } else if item1.translation.distance(mob_transform.translation)
+                    > item2.translation.distance(mob_transform.translation)
+                {
                     return Ordering::Greater;
                 }
 
-                return Ordering::Equal
-        }).collect();
+                return Ordering::Equal;
+            })
+            .collect();
 
         let (target_e, target_transform) = sorted_targets[0];
 
@@ -247,17 +258,16 @@ fn pursue<Who: Component, Target: Component>(
             512.,
             true,
             SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
-            &|entity| {
-                entity != mob_e
-            } )
-        else {
+            &|entity| entity != mob_e,
+        ) else {
+            commands.entity(mob_e).insert(Done::Failure);
             continue;
         };
-        
+
         if first_hit.entity == target_e {
             mob.last_target_dir = direction;
         }
-    
+
         linvel.0 = (mob.last_target_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
 
         mob.search_time.tick(time.delta());
@@ -268,10 +278,16 @@ fn pursue<Who: Component, Target: Component>(
             > mob.pursue_radius
             || mob.search_time.just_finished()
         {
-            commands.entity(mob_e).remove::<Pursue>();
-            commands.entity(mob_e).insert(Idle);
+            commands.entity(mob_e).insert(Done::Failure);
             linvel.0 = Vec2::ZERO;
             mob.last_target_dir = Vec2::ZERO;
+        } else if target_transform
+            .translation
+            .distance(mob_transform.translation)
+            < 16.
+        //melee range idk
+        {
+            commands.entity(mob_e).insert(Done::Failure);
         }
     }
 }
