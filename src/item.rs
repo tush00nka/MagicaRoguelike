@@ -99,18 +99,18 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=11) {
+        match rng.gen_range(0..=10) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
-            3..5 => ItemType::LizardTail,
-            5 => ItemType::SpeedPotion,
-            6 => ItemType::WispInAJar,
-            7 => ItemType::WaterbendingScroll,
-            8 => ItemType::Mineral,
-            9 => ItemType::Glider,
-            10 => ItemType::GhostInTheShell,
-            11 => ItemType::VampireTooth,
+            3 => ItemType::LizardTail,
+            4 => ItemType::SpeedPotion,
+            5 => ItemType::WispInAJar,
+            6 => ItemType::WaterbendingScroll,
+            7 => ItemType::Mineral,
+            8 => ItemType::Glider,
+            9 => ItemType::GhostInTheShell,
+            10 => ItemType::VampireTooth,
             _ => ItemType::WispInAJar,
         }
     }
