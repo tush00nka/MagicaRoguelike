@@ -44,6 +44,7 @@ pub enum ItemType {
     GhostInTheShell,
     VampireTooth,
     BloodGoblet,
+    BlindRage,
 }
 
 impl ItemType {
@@ -60,7 +61,8 @@ impl ItemType {
             ItemType::Glider => "textures/items/glider.png",
             ItemType::GhostInTheShell => "textures/items/ghost_in_the_shell.png",
             ItemType::VampireTooth => "textures/items/vampire_tooth.png",
-            ItemType::BloodGoblet => "textures/items/blood_goblet.png"
+            ItemType::BloodGoblet => "textures/items/blood_goblet.png",
+            ItemType::BlindRage => "textures/items/blind_rage.png"
         }
     }
 
@@ -77,7 +79,8 @@ impl ItemType {
             ItemType::Glider => "Воздушный Руль",
             ItemType::GhostInTheShell => "Призрак в ракушке",
             ItemType::VampireTooth => "Клык вампира",
-            ItemType::BloodGoblet => "Кубок с кровью"
+            ItemType::BloodGoblet => "Кубок с кровью",
+            ItemType::BlindRage => "Слепая ярость"
         }
     }
 
@@ -94,7 +97,8 @@ impl ItemType {
             ItemType::Glider => "Сопротивление воздуху",
             ItemType::GhostInTheShell => "Шанс отразить снаряд",
             ItemType::VampireTooth => "Лечение при убийстве врагов",
-            ItemType::BloodGoblet => "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье"
+            ItemType::BloodGoblet => "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье",
+            ItemType::BlindRage => "Меньше здоровья - больше урона"
         }
     }
 }
@@ -103,7 +107,7 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=11) {
+        match rng.gen_range(0..=12) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -116,6 +120,7 @@ impl Distribution<ItemType> for Standard {
             9 => ItemType::GhostInTheShell,
             10 => ItemType::VampireTooth,
             11 => ItemType::BloodGoblet,
+            12 => ItemType::BlindRage,
             _ => ItemType::WispInAJar,
         }
     }

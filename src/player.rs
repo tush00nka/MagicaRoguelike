@@ -33,22 +33,32 @@ pub struct PlayerDeathEvent(pub Entity);
 #[derive(Resource)]
 pub struct PlayerStats {
     pub speed: f32,
+    pub damage: u32,
     pub invincibility_time: f32,
     pub projectile_deflect_chance: f32,
     pub vampirism: i32,
     pub health_regen: i32,
     pub spell_cast_hp_fee: i32,
+    pub blind_rage_bonus: u32,
+}
+
+impl PlayerStats {
+    pub fn get_bonused_damage(&self) -> u32 {
+        return self.damage + self.blind_rage_bonus;
+    }
 }
 
 impl Default for PlayerStats {
     fn default() -> Self {
         Self {
             speed: 8000.,
+            damage: 20,
             invincibility_time: 1.0,
             projectile_deflect_chance: 0.0,
             vampirism: 0,
             health_regen: 0,
             spell_cast_hp_fee: 0,
+            blind_rage_bonus: 0,
         }
     }
 }
@@ -61,6 +71,8 @@ fn spawn_player(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    commands.init_resource::<PlayerStats>();
+
     let texture = asset_server.load("textures/player_walk_mantle.png");
 
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 8, 2, None, None);

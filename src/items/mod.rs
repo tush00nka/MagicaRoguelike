@@ -27,6 +27,9 @@ use vampire_tooth::VampireToothPlugin;
 pub mod blood_goblet;
 use blood_goblet::BloodGobletPlugin;
 
+pub mod blind_rage;
+use blind_rage::BlindRagePlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -40,6 +43,7 @@ impl Plugin for ItemEffectsPlugin {
             GhostInTheShellPlugin,
             VampireToothPlugin,
             BloodGobletPlugin,
+            BlindRagePlugin,
         ));
     }
 }

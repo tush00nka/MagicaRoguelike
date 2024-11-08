@@ -200,11 +200,10 @@ fn cast_spell(
         let bar = element_bar.clone();
         element_bar.clear();
 
-        let mut dmg = 0;
-        dmg += bar.fire as u32 * 20;
-        dmg += bar.water as u32 * 20;
-        dmg += bar.earth as u32 * 20;
-        dmg += bar.air as u32 * 20;
+        let mut dmg = player_stats.get_bonused_damage();
+        dmg *= bar.len() as u32;
+
+        println!("{}", dmg);
 
         let mut rng = rand::thread_rng();
 
