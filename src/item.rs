@@ -43,6 +43,7 @@ pub enum ItemType {
     Glider,
     GhostInTheShell,
     VampireTooth,
+    BloodGoblet,
 }
 
 impl ItemType {
@@ -58,7 +59,8 @@ impl ItemType {
             ItemType::Mineral => "textures/items/mineral.png",
             ItemType::Glider => "textures/items/glider.png",
             ItemType::GhostInTheShell => "textures/items/ghost_in_the_shell.png",
-            ItemType::VampireTooth => "textures/items/vampire_tooth.png"
+            ItemType::VampireTooth => "textures/items/vampire_tooth.png",
+            ItemType::BloodGoblet => "textures/items/blood_goblet.png"
         }
     }
 
@@ -74,14 +76,15 @@ impl ItemType {
             ItemType::Mineral => "Минерал",
             ItemType::Glider => "Воздушный Руль",
             ItemType::GhostInTheShell => "Призрак в ракушке",
-            ItemType::VampireTooth => "Клык вампира"
+            ItemType::VampireTooth => "Клык вампира",
+            ItemType::BloodGoblet => "Кубок с кровью"
         }
     }
 
     pub fn get_description(&self) -> &str {
         match self {
             ItemType::Amulet => "Больше опыта от всех источников",
-            ItemType::Bacon => "Неуязвимость после получения урона длится дольше",
+            ItemType::Bacon => "Неуязвимость после получения\nурона длится дольше",
             ItemType::Heart => "Больше максимального здоровья",
             ItemType::LizardTail => "Вторая жизнь",
             ItemType::SpeedPotion => "Больше скорость ходьбы",
@@ -91,6 +94,7 @@ impl ItemType {
             ItemType::Glider => "Сопротивление воздуху",
             ItemType::GhostInTheShell => "Шанс отразить снаряд",
             ItemType::VampireTooth => "Лечение при убийстве врагов",
+            ItemType::BloodGoblet => "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье"
         }
     }
 }
@@ -99,7 +103,7 @@ impl ItemType {
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=10) {
+        match rng.gen_range(0..=11) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -111,6 +115,7 @@ impl Distribution<ItemType> for Standard {
             8 => ItemType::Glider,
             9 => ItemType::GhostInTheShell,
             10 => ItemType::VampireTooth,
+            11 => ItemType::BloodGoblet,
             _ => ItemType::WispInAJar,
         }
     }

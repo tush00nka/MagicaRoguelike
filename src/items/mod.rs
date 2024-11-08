@@ -24,6 +24,9 @@ use ghost_in_the_shell::GhostInTheShellPlugin;
 pub mod vampire_tooth;
 use vampire_tooth::VampireToothPlugin;
 
+pub mod blood_goblet;
+use blood_goblet::BloodGobletPlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -35,7 +38,8 @@ impl Plugin for ItemEffectsPlugin {
             LizardTailPlugin,
             ResistanceItemsPlugin,
             GhostInTheShellPlugin,
-            VampireToothPlugin
+            VampireToothPlugin,
+            BloodGobletPlugin,
         ));
     }
 }

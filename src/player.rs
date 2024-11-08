@@ -36,6 +36,8 @@ pub struct PlayerStats {
     pub invincibility_time: f32,
     pub projectile_deflect_chance: f32,
     pub vampirism: i32,
+    pub health_regen: i32,
+    pub spell_cast_hp_fee: i32,
 }
 
 impl Default for PlayerStats {
@@ -45,6 +47,8 @@ impl Default for PlayerStats {
             invincibility_time: 1.0,
             projectile_deflect_chance: 0.0,
             vampirism: 0,
+            health_regen: 0,
+            spell_cast_hp_fee: 0,
         }
     }
 }

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, item::ItemPickupAnimation, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::ItemPickupAnimation, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -161,10 +161,13 @@ fn fill_bar(
 }
 
 fn cast_spell(
-    mouse_coords: Res<crate::mouse_position::MouseCoords>,
+    mouse_coords: Res<MouseCoords>,
+    player_stats: Res<PlayerStats>,
 
     wand_query: Query<&Transform, With<Wand>>,
-    player_query: Query<Entity, (With<Player>, Without<ItemPickupAnimation>)>,
+    
+    mut player_query: Query<(&mut Health, Entity), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut ev_death: EventWriter<PlayerDeathEvent>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
@@ -180,8 +183,16 @@ fn cast_spell(
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
 
-        if let Err(_) = player_query.get_single() {
+        let Ok((mut player_health, player_e)) = player_query.get_single_mut() else {
             return;
+        };
+
+        // отнимаем хп, если предмет
+        if player_stats.spell_cast_hp_fee > 0 {
+            player_health.damage(player_stats.spell_cast_hp_fee);
+            if player_health.current <= 0 {
+                ev_death.send(PlayerDeathEvent (player_e));
+            }
         }
 
         ev_bar_clear.send(ElementBarClear);
