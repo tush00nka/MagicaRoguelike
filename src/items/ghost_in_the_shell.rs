@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    player::Player,
+    player::PlayerStats,
     item::{
         ItemPickedUpEvent,
         ItemType,
@@ -18,13 +18,11 @@ impl Plugin for GhostInTheShellPlugin {
 
 fn apply_effect(
     mut ev_item_picked_up: EventReader<ItemPickedUpEvent>,
-    mut player_query: Query<&mut Player>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
     for ev in ev_item_picked_up.read() {
         if ev.item_type == ItemType::GhostInTheShell {
-            if let Ok(mut player) = player_query.get_single_mut() {
-                player.projectile_deflect_chance += 0.1; // 5%
-            } 
+            player_stats.projectile_deflect_chance += 0.1; // 10%
         }   
     }
 }

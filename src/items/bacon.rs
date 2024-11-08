@@ -5,7 +5,7 @@ use crate::{
         ItemPickedUpEvent,
         ItemType
     },
-    player::Player
+    player::PlayerStats
 };
 
 pub struct BaconPlugin;
@@ -18,13 +18,11 @@ impl Plugin for BaconPlugin {
 
 fn apply_effect(
     mut ev_item_picked_up: EventReader<ItemPickedUpEvent>,
-    mut player_query: Query<&mut Player>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
-    if let Ok(mut player) = player_query.get_single_mut() {
-        for ev in ev_item_picked_up.read() {
-            if ev.item_type == ItemType::Bacon {
-                player.invincibility_time += 1.;
-            }   
-        }
-    } 
+    for ev in ev_item_picked_up.read() {
+        if ev.item_type == ItemType::Bacon {
+            player_stats.invincibility_time += 1.;
+        }   
+    }
 }

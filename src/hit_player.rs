@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent}, projectile::{Friendly, Hostile, Projectile}, GameState
+    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -43,9 +43,10 @@ fn proj_hit_player(
     //todo: change that we could add resistance mechanic
     mut commands: Commands,
     mut projectile_query: Query<(Entity, &mut Projectile), With<Hostile>>,
-    mut player_query: Query<(&CollidingEntities, &mut Health, &Player), Without<Invincibility>>,
+    mut player_query: Query<(&CollidingEntities, &mut Health), (With<Player>, Without<Invincibility>)>,
+    player_stats: Res<PlayerStats>,
 ) {
-    let Ok((colliding_e, mut health, player)) = player_query.get_single_mut() else {
+    let Ok((colliding_e, mut health)) = player_query.get_single_mut() else {
         return;
     };
 
@@ -53,7 +54,7 @@ fn proj_hit_player(
         if colliding_e.contains(&proj_e) {
             let deflect_check: f32 = rand::thread_rng().gen_range(0.0..1.0);
 
-            if deflect_check <= player.projectile_deflect_chance {
+            if deflect_check <= player_stats.projectile_deflect_chance {
                 projectile.direction = -projectile.direction;
                 commands.entity(proj_e).remove::<Hostile>();
                 commands.entity(proj_e).insert(Friendly);
@@ -75,11 +76,12 @@ fn proj_hit_player(
 fn damage_player(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    mut player_query: Query<(Entity, &mut Health, &Player, &ElementResistance), With<Player>>,
+    mut player_query: Query<(Entity, &mut Health, &ElementResistance), With<Player>>,
+    player_stats: Res<PlayerStats>,
 
     mut ev_shake_camera: EventWriter<CameraShakeEvent>,
 ) {
-    let Ok((player_e, mut health, player, resistance)) = player_query.get_single_mut() else {
+    let Ok((player_e, mut health, resistance)) = player_query.get_single_mut() else {
         return;
     };
 
@@ -90,7 +92,7 @@ fn damage_player(
         //i-frames
         commands
         .entity(player_e)
-        .insert(Invincibility::new(player.invincibility_time));
+        .insert(Invincibility::new(player_stats.invincibility_time));
 
         ev_shake_camera.send(CameraShakeEvent);
 

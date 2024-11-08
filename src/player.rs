@@ -18,6 +18,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<PlayerDeathEvent>()
+            .init_resource::<PlayerStats>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
             .add_systems(OnExit(GameState::InGame), reset_player_position)
@@ -29,12 +30,25 @@ impl Plugin for PlayerPlugin {
 #[derive(Event)]
 pub struct PlayerDeathEvent(pub Entity);
 
-#[derive(Component, Clone, Copy)]
-pub struct Player {
+#[derive(Resource)]
+pub struct PlayerStats {
     pub speed: f32,
     pub invincibility_time: f32,
     pub projectile_deflect_chance: f32,
 }
+
+impl Default for PlayerStats {
+    fn default() -> Self {
+        Self {
+            speed: 8000.,
+            invincibility_time: 1.0,
+            projectile_deflect_chance: 0.0,
+        }
+    }
+}
+
+#[derive(Component, Clone, Copy)]
+pub struct Player;
 
 fn spawn_player(
     mut commands: Commands,
@@ -68,11 +82,7 @@ fn spawn_player(
         .insert(Collider::circle(8.0))
         .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
-        .insert(Player {
-            speed: 8000.0,
-            invincibility_time: 1.0,
-            projectile_deflect_chance: 0.0,
-        })
+        .insert(Player)
         .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]})
         .insert(ElementResistance {
             elements: vec![],
@@ -81,11 +91,12 @@ fn spawn_player(
 }
 
 fn move_player(
-    mut player_query: Query<(&mut LinearVelocity, &Player)>,
+    player_stats: Res<PlayerStats>,
+    mut player_query: Query<&mut LinearVelocity, With<Player>>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Ok((mut player_velocity, &player)) = player_query.get_single_mut() {
+    if let Ok(mut player_velocity) = player_query.get_single_mut() {
         let mut direction = Vec2::ZERO;
 
         if keyboard.pressed(KeyCode::KeyA) {
@@ -101,7 +112,7 @@ fn move_player(
             direction.y += 1.0;
         }
 
-        player_velocity.0 = direction.normalize_or_zero() * player.speed * time.delta_seconds();
+        player_velocity.0 = direction.normalize_or_zero() * player_stats.speed * time.delta_seconds();
     }
 }
 
@@ -188,12 +199,13 @@ fn debug_take_damage(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut health_query: Query<(&mut Health, Entity, &Player), Without<Invincibility>>
+    mut health_query: Query<(&mut Health, Entity), (With<Player>, Without<Invincibility>)>,
+    player_stats: Res<PlayerStats>,
 ){
     if keyboard.just_pressed(KeyCode::KeyZ) {
-        if let Ok((mut health, ent, player)) = health_query.get_single_mut(){
+        if let Ok((mut health, ent)) = health_query.get_single_mut(){
             health.damage(25);
-            commands.entity(ent).insert(Invincibility::new(player.invincibility_time));
+            commands.entity(ent).insert(Invincibility::new(player_stats.invincibility_time));
             
             if health.current <= 0 {
                 ev_death.send(PlayerDeathEvent(ent));
