@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
+use crate::camera::YSort;
 use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
@@ -90,14 +91,15 @@ fn spawn_player(
             layout: texture_atlas_layout.clone(),
             index: animation_config.first_sprite_index,
         },
-        animation_config
+        animation_config,
+        YSort(9.0),
     )).id();
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Collider::circle(8.0))
+        .insert(Collider::circle(6.0))
         .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
         .insert(Player)

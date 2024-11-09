@@ -3,17 +3,7 @@ use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
 use crate::{
-    animation::AnimationConfig,
-    chapter::ChapterManager,
-    gamemap::{Map, TileType, ROOM_SIZE},
-    level_completion::PortalManager,
-    mobs::mob::*,
-    mobs::mob_types::*,
-    obstacles::Corpse,
-    pathfinding::create_new_graph,
-    stun::Stun,
-    GameState,
-    boss_room::spawn_boss_room,
+    animation::AnimationConfig, boss_room::spawn_boss_room, camera::YSort, chapter::ChapterManager, gamemap::{Map, TileType, ROOM_SIZE}, level_completion::PortalManager, mobs::{mob::*, mob_types::*}, obstacles::Corpse, pathfinding::create_new_graph, stun::Stun, GameState
 };
 
 pub struct MobSpawnPlugin;
@@ -242,6 +232,7 @@ pub fn spawn_mob(
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
+            .insert(YSort(spawn_kit.pixel_size as f32 / 2.))
             .id();
 
         if spawn_kit.has_animation {

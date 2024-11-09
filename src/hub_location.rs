@@ -1,4 +1,4 @@
-use crate::{chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
+use crate::{camera::YSort, chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -50,7 +50,8 @@ fn spawn_hub(
                     })
                     .insert(RigidBody::Static)
                     .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
-                    .insert(Wall);
+                    .insert(Wall)
+                    .insert(YSort(16.0));
             }
             else {
                 let floor = commands.spawn(SpriteBundle {
@@ -58,7 +59,7 @@ fn spawn_hub(
                         transform: Transform::from_xyz(
                             TILE_SIZE * x as f32,
                             TILE_SIZE * y as f32,
-                            0.0,
+                            -100.0,
                         ),
                         ..default()
                     })

@@ -16,7 +16,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, spawn_camera);
         app.add_systems(OnExit(GameState::Hub), reset_player_camera);
         app.add_systems(OnExit(GameState::InGame), reset_player_camera);
-        app.add_systems(Update, (sync_player_camera, init_shake_player_camera, shake_player_camera)
+        app.add_systems(Update, (sync_player_camera, init_shake_player_camera, shake_player_camera, y_sort)
             .run_if(in_state(GameState::InGame)
             .or_else(in_state(GameState::Hub))));
 
@@ -118,5 +118,18 @@ fn shake_player_camera(
 
     if projection.scale >= 0.5 {
         commands.entity(entity).remove::<Shake>();
+    }
+}
+
+/// Component to sort entities by their y position.
+/// Takes in a base value usually the sprite default Z with possibly a height offset.
+/// this value could be tweaked to implement virtual Z for jumping
+#[derive(Component)]
+pub struct YSort(pub f32);
+
+/// Applies the y-sorting to the entities Z position.
+pub fn y_sort(mut query: Query<(&mut Transform, &YSort)>) {
+    for (mut transform, ysort) in query.iter_mut() {
+        transform.translation.z = 0.01 * (ysort.0 - transform.translation.y);
     }
 }

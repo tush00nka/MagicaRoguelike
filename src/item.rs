@@ -8,7 +8,7 @@ use rand::{
     Rng,
 };
 
-use crate::{mouse_position::MouseCoords, player::Player};
+use crate::{camera::YSort, mouse_position::MouseCoords, player::Player};
 
 pub struct ItemPlugin;
 
@@ -177,7 +177,8 @@ fn spawn_item(
             item_type: ev.item_type,
             name: ev.item_name.clone(),
             description: ev.item_description.clone(),
-        });
+        })
+        .insert(YSort(8.0));
     }
 }
 

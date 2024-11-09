@@ -5,7 +5,7 @@ use rand::Rng;
 use std::collections::HashMap;
 
 use crate::{
-    chapter::ChapterManager, health::Health, obstacles::Obstacle, utils::get_random_index_with_weight, GameLayer, GameState
+    camera::YSort, chapter::ChapterManager, health::Health, obstacles::Obstacle, utils::get_random_index_with_weight, GameLayer, GameState
 };
 
 pub const ROOM_SIZE: i32 = 32;
@@ -304,7 +304,7 @@ pub fn spawn_map(
                             transform: Transform::from_xyz(
                                 TILE_SIZE * x as f32,
                                 TILE_SIZE * y as f32,
-                                0.0,
+                                -100.0,
                             ),
                         ..default()
                         },
@@ -360,7 +360,8 @@ pub fn spawn_map(
                         .insert(RigidBody::Static)
                         .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
-                        .insert(Wall);
+                        .insert(Wall)
+                        .insert(YSort(16.0));
                 },
                 TileType::Empty => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Empty, 0));
@@ -374,10 +375,17 @@ pub fn spawn_map(
     for pos in obstacles.iter() {
         let height = perlin.get([pos.0 as f64 * 0.1, pos.1 as f64 * 0.1]);
 
+        // --- hardcoded shit needs refactoring ---
         let texture_path = {
-            if height >= 0.5 { "textures/obstacles/claypot.png" }
+            if height >= 0.3 { "textures/obstacles/claypot.png" }
             else { "textures/obstacles/crate.png"} 
         };
+
+        let sorting_offset = {
+            if height >= 0.3 { 4.0 }
+            else { 0.0 } 
+        };
+        // end --- hardcoded shit needs refactoring --- end
 
         commands.spawn(SpriteBundle {
             texture: asset_server.load(texture_path),
@@ -389,7 +397,8 @@ pub fn spawn_map(
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile]))
         .insert(Health::new(10))
-        .insert(Obstacle);
+        .insert(Obstacle)
+        .insert(YSort(sorting_offset));
     }   
 
 }

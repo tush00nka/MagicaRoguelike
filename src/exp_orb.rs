@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    experience::{ExpGained, PlayerExperience},
-    player::Player,
+    camera::YSort, experience::{ExpGained, PlayerExperience}, player::Player
 };
 
 pub struct ExpOrbPlugin;
@@ -47,7 +46,8 @@ fn spawn_particles(
             ..default()
         })
         .insert(ExpOrb { exp: 5 })
-        .insert(ExpOrbDrop { drop_destination: ev.destination });
+        .insert(ExpOrbDrop { drop_destination: ev.destination })
+        .insert(YSort(8.0));
     }
 }
 
@@ -59,7 +59,7 @@ fn drop_particles( // грубо говоря, анимация вылетани
     for (mut orb_transform, orb, orb_e) in orb_query.iter_mut() {
         orb_transform.translation = orb_transform.translation.lerp(orb.drop_destination, time.delta_seconds() * 10.0);
 
-        if orb_transform.translation.distance(orb.drop_destination) <= 0.1 { // когда санимировалось, убираем компонент, который за это отвечает
+        if orb_transform.translation.truncate().distance(orb.drop_destination.truncate()) <= 0.1 { // когда санимировалось, убираем компонент, который за это отвечает
             commands.entity(orb_e).remove::<ExpOrbDrop>();
         }
     }
@@ -77,7 +77,7 @@ fn move_particles(
 
         for (mut orb_transform, orb, orb_e) in orb_query.iter_mut() {
 
-            let distance = orb_transform.translation.distance(player_transform.translation);
+            let distance = orb_transform.translation.truncate().distance(player_transform.translation.truncate());
 
             if distance <= 96.0 { // радиус, с которого опыт начинает притягиваться
 

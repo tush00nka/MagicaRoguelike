@@ -2,12 +2,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 
 use crate::{
-    health::{Health, Hit},
-    mobs::*,
-    pathfinding::Pathfinder,
-    projectile::{Friendly, Projectile},
-    stun::Stun,
-    GameLayer, GameState,
+    camera::YSort, health::{Health, Hit}, mobs::*, pathfinding::Pathfinder, projectile::{Friendly, Projectile}, stun::Stun, GameLayer, GameState
 };
 
 pub struct ObstaclePlugin;
@@ -185,6 +180,7 @@ fn spawn_corpse(
             .insert(CollisionLayers::new(GameLayer::Enemy, [GameLayer::Enemy]))
             .insert(Health::new(40))
             .insert(Obstacle)
+            .insert(YSort(8.0))
             .id();
 
         if can_be_spawned {

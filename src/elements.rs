@@ -203,8 +203,6 @@ fn cast_spell(
         let mut dmg = player_stats.get_bonused_damage();
         dmg *= bar.len() as u32;
 
-        println!("{}", dmg);
-
         let mut rng = rand::thread_rng();
 
         let mut element: ElementType;
