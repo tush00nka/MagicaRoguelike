@@ -42,15 +42,22 @@ impl Plugin for MobMovementPlugin {
     }
 }
 
-fn teleport_mobs(mut mob_query: Query<(&mut Transform, &mut Teleport), Without<Stun>>) {
-    for (mut transform, mut mob) in mob_query.iter_mut() {
-        if mob.place_to_teleport.len() > 0 {
+fn teleport_mobs(
+    // mut commands: Commands,
+    mut mob_query: Query<
+        (Entity, &mut Transform, &mut Teleport),
+        (Without<Stun>, With<TeleportFlag>),
+    >,
+) {
+    for (_mob, mut transform, mut tp) in mob_query.iter_mut() {
+        if tp.place_to_teleport.len() > 0 {
             transform.translation = Vec3::new(
-                mob.place_to_teleport[0].0 as f32 * ROOM_SIZE as f32,
-                mob.place_to_teleport[0].1 as f32 * ROOM_SIZE as f32,
+                tp.place_to_teleport[0].0 as f32 * ROOM_SIZE as f32,
+                tp.place_to_teleport[0].1 as f32 * ROOM_SIZE as f32,
                 1.0,
             );
-            mob.place_to_teleport.remove(0);
+            tp.place_to_teleport.remove(0);
+        //    commands.entity(mob).insert(Done::Success); maybe usefull for later? idk
         }
     }
 }
@@ -61,7 +68,7 @@ fn runaway_mob(
         (
             Without<Stun>,
             Without<Teleport>,
-            Without<Raising>,
+            Without<RaisingFlag>,
             With<RunawayRush>,
         ),
     >,
@@ -87,7 +94,7 @@ fn move_mobs(
         (
             Without<Stun>,
             Without<Teleport>,
-            Without<Raising>,
+            Without<RaisingFlag>,
             Without<SearchAndPursue>,
         ),
     >,
@@ -287,7 +294,7 @@ fn pursue<Who: Component, Target: Component>(
             < 16.
         //melee range idk
         {
-            commands.entity(mob_e).insert(Done::Failure);
+            commands.entity(mob_e).insert(Done::Success);
         }
     }
 }

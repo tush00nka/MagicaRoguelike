@@ -3,20 +3,17 @@ use bevy::prelude::*;
 use seldom_state::prelude::*;
 
 use rand::{thread_rng, Rng};
-use std::cmp::Ordering;
 
 use crate::{
-    alert::SpawnAlertEvent,
     animation::AnimationConfig,
-    blank_spell::Blank,
     boss_room::spawn_boss_room,
     chapter::ChapterManager,
+    friend::Friend,
     gamemap::{Map, TileType, ROOM_SIZE},
     level_completion::PortalManager,
     mobs::{mob::*, mob_types::*},
     obstacles::Corpse,
     pathfinding::create_new_graph,
-    shield_spell::Shield,
     stun::Stun,
     GameState,
 };
@@ -44,14 +41,8 @@ impl Plugin for MobSpawnPlugin {
     }
 }
 
-const DESERT_MOBS: &[MobType] = &[
-    MobType::Knight,
-    //MobType::FireMage
-];
-const JUNGLE_MOBS: &[MobType] = &[
-    MobType::Mossling,
-    //MobType::JungleTurret, MobType::WaterMage
-];
+const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
+const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
 const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight];
 //maybe add some minibosses? const BOSSES: &[MobType] = &[MobType::Koldun];
 
@@ -64,11 +55,13 @@ pub struct MobSpawnEvent {
 }
 //enum for types of AI
 //#[derive(Component)]
-pub enum Mob_AI {
+#[allow(dead_code)]
+pub enum MobAI {
     MeleeWithATK,
-    Range,
+    RangeMoving,
     RangeWithTP,
     Spawner,
+    Turret,
     //etc, add later
 }
 //structures for init=======================================================================================================================
@@ -82,7 +75,7 @@ pub struct SpawnKit<'a> {
     can_flip: bool,
     has_animation: bool,
     pixel_size: u32,
-    ai_type: Mob_AI,
+    ai_type: MobAI,
 }
 
 impl Default for SpawnKit<'_> {
@@ -96,7 +89,7 @@ impl Default for SpawnKit<'_> {
             can_flip: false,
             has_animation: true,
             pixel_size: 16,
-            ai_type: Mob_AI::MeleeWithATK,
+            ai_type: MobAI::MeleeWithATK,
         }
     }
 }
@@ -121,6 +114,7 @@ impl SpawnKit<'_> {
             rotation_entity: true,
             has_animation: false,
             pixel_size: 24,
+            ai_type: MobAI::Turret,
             ..default()
         }
     }
@@ -129,6 +123,7 @@ impl SpawnKit<'_> {
             frame_count: 2,
             fps: 3,
             texture_path: "textures/mobs/water_mage.png",
+            ai_type: MobAI::RangeWithTP,
             ..default()
         }
     }
@@ -137,6 +132,7 @@ impl SpawnKit<'_> {
             frame_count: 2,
             fps: 3,
             texture_path: "textures/mobs/fire_mage.png",
+            ai_type: MobAI::RangeWithTP,
             ..default()
         }
     }
@@ -219,6 +215,7 @@ impl SpawnKit<'_> {
             texture_path: "textures/mobs/necromancer.png",
             pixel_size: 24,
             can_flip: true,
+            ai_type: MobAI::Spawner,
             ..default()
         }
     }
@@ -364,9 +361,10 @@ pub fn spawn_mob(
 
         //spawn mob, add state machine to it
         let mob: Entity;
-        
+
         match spawn_kit.ai_type {
-            Mob_AI::MeleeWithATK =>
+            MobAI::MeleeWithATK => {
+                // done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -376,35 +374,38 @@ pub fn spawn_mob(
                             .trans::<Attack, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
-                    .insert(Enemy) //?????????????
-                    .id(),
+                    .id()
+            }
 
-            Mob_AI::Range =>
+            MobAI::RangeMoving => {
+                //need to create and fix later i guess
                 mob = commands
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), Attack)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), ShootFlag)
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<Attack, _>(done(Some(Done::Success)), Idle),
+                            .trans::<ShootFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
-                    .insert(Enemy) //?????????????
-                    .id(),
+                    .id()
+            }
 
-            Mob_AI::RangeWithTP =>
+            MobAI::RangeWithTP => {
+                //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<Teleport, _>(done(Some(Done::Success)), ShootAbility::default())
-                            .trans::<ShootAbility, _>(done(Some(Done::Success)), Teleport::default())
-                            .trans::<ShootAbility, _>(done(Some(Done::Failure)), Teleport::default()),
-                        Teleport::default(), //TODO: add impl for complex components w/ type of mobs, add
+                            .trans::<TeleportFlag, _>(done(Some(Done::Success)), ShootFlag)
+                            .trans::<ShootFlag, _>(done(Some(Done::Success)), TeleportFlag)
+                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), TeleportFlag),
+                        TeleportFlag, //TODO: add impl for complex components w/ type of mobs, add
                     ))
-                    .insert(Enemy) //?????????????
-                    .id(),
-            
-            Mob_AI::Spawner => 
+                    .id()
+            }
+
+            MobAI::Spawner => {
+                //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -414,10 +415,26 @@ pub fn spawn_mob(
                             .trans::<RaisingFlag, _>(done(Some(Done::Success)), CorpseRush),
                         RunawayRush,
                     ))
-                    .insert(Enemy) //?????????????
-                    .id(),
+                    .id()
+            }
+            MobAI::Turret => {
+                //done
+                mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<IdleStatic, _>(done(Some(Done::Success)), ShootFlag)
+                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), IdleStatic)
+                            .trans::<ShootFlag, _>(done(Some(Done::Success)), IdleStatic),
+                        IdleStatic, //TODO: add impl for complex components w/ type of mobs, add
+                    ))
+                    .id()
+            }
         }
-
+        if ev.is_friendly {
+            commands.entity(mob).insert(Friend);
+        } else {
+            commands.entity(mob).insert(Enemy);
+        }
         commands
             .entity(mob)
             .insert(SpriteBundle {
@@ -425,7 +442,7 @@ pub fn spawn_mob(
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
-            .insert(Enemy); //?????????????
+            .insert(Enemy);
 
         if spawn_kit.has_animation {
             commands
@@ -444,15 +461,13 @@ pub fn spawn_mob(
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::knight())
-                    .insert(SearchAndPursue::default())
-                    .insert(Idle);
+                    .insert(SearchAndPursue::default());
             }
             MobType::Mossling => {
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::mossling())
-                    .insert(SearchAndPursue::default())
-                    .insert(Idle);
+                    .insert(SearchAndPursue::default());
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
@@ -490,6 +505,7 @@ pub fn spawn_mob(
             MobType::Koldun => {
                 commands.entity(mob).insert(BossBundle::koldun());
             }
+
             MobType::EarthElemental => {}
             MobType::FireElemental => {}
             MobType::WaterElemental => {}
@@ -565,13 +581,18 @@ pub fn first_spawn_mobs(
 fn spawner_mob_spawn(
     mut commands: Commands,
     mut ev_spawn: EventWriter<MobSpawnEvent>,
-    mut summoner_query: Query<(Entity, &mut Summoning, &Raising, &mut Sprite), Without<Stun>>,
+    mut summoner_query: Query<
+        (Entity, &mut Summoning, &Raising, &mut Sprite),
+        (Without<Stun>, With<RaisingFlag>),
+    >,
     corpse_query: Query<Entity, (With<Corpse>, With<BusyRaising>)>,
     time: Res<Time>,
 ) {
     for (summoner, mut summoning, raising, mut sprite) in summoner_query.iter_mut() {
         if !corpse_query.contains(raising.corpse_id) {
-            commands.entity(summoner).remove::<Raising>();
+            commands
+                .entity(summoner)
+                .insert(Done::Success);
             sprite.color = Color::srgb(1., 1., 1.);
             continue;
         }
@@ -584,13 +605,15 @@ fn spawner_mob_spawn(
             });
 
             commands.entity(raising.corpse_id).despawn();
-            commands.entity(summoner).remove::<Raising>();
+            commands
+                .entity(summoner)
+                .insert(Done::Success);
             sprite.color = Color::srgb(1., 1., 1.);
         }
     }
 }
 
-fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<Raising>>) {
+fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<RaisingFlag>>) {
     for (mut sprite, mut linvel) in raising_query.iter_mut() {
         sprite.color = Color::srgb(1., 3., 3.);
         linvel.0 = Vec2::ZERO;

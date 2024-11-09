@@ -1,5 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use seldom_state::trigger::Done;
 
 use crate::{
     health::{Health, Hit},
@@ -47,7 +48,7 @@ fn corpse_collision(
     mut commands: Commands,
     mut summoner_query: Query<
         (Entity, &Transform, &mut Summoning, &Pathfinder),
-        (Without<Raising>, Without<Stun>),
+        (Without<RaisingFlag>, Without<Stun>),
     >,
     mut corpse_query: Query<(Entity, &Transform, &Corpse), Without<BusyRaising>>,
     mut ev_collision: EventReader<Collision>,
@@ -69,11 +70,14 @@ fn corpse_collision(
             if spawner_e == candidate_e {
                 for (corpse_candidate_e, transform, corpse) in corpse_query.iter_mut() {
                     if corpse_e == corpse_candidate_e {
-                        commands.entity(spawner_e).insert(Raising {
-                            mob_type: corpse.mob_type.clone(),
-                            mob_pos: *transform,
-                            corpse_id: corpse_e,
-                        });
+                        commands
+                            .entity(spawner_e)
+                            .insert(Raising {
+                                mob_type: corpse.mob_type.clone(),
+                                mob_pos: *transform,
+                                corpse_id: corpse_e,
+                            })
+                            .insert(Done::Success);
                         commands.entity(corpse_e).insert(BusyRaising);
                     }
                 }

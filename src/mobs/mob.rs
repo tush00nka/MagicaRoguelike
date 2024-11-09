@@ -1,5 +1,4 @@
 //all things about mobs and their spawn/behaviour
-
 use {
     avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
     std::f32::consts::PI, std::time::Duration,
@@ -8,8 +7,6 @@ use {
 pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
 
 use crate::{
-    alert::SpawnAlertEvent,
-    blank_spell::Blank,
     elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
@@ -21,7 +18,6 @@ use crate::{
     particles::SpawnParticlesEvent,
     player::Player,
     projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
-    shield_spell::Shield,
     stun::Stun,
     GameLayer, GameState,
 };
@@ -37,8 +33,11 @@ impl Plugin for MobPlugin {
                 mob_death,
                 mob_shoot::<Friend, ShootAbility, Friend, Friendly, Hostile>,
                 mob_shoot::<Mob, Friend, Friendly, Friend, Friendly>,
+                mob_attack::<Enemy>,
+                mob_attack::<Friend>,
                 hit_projectiles::<Player, Friend, Hostile>,
                 hit_projectiles::<Friend, Mob, Friendly>,
+                timer_shoot,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -110,6 +109,9 @@ pub struct Teleport {
     pub place_to_teleport: Vec<(u16, u16)>,
     pub time_to_teleport: Timer,
 }
+///Flag to teleport state
+#[derive(Component, Clone)]
+pub struct TeleportFlag;
 
 impl Default for Teleport {
     fn default() -> Self {
@@ -136,6 +138,9 @@ pub struct ShootAbility {
     pub element: ElementType,
     pub proj_type: ProjectileType,
 }
+///flag to state system
+#[derive(Component, Clone)]
+pub struct ShootFlag;
 
 //component to deal contact damage
 #[derive(Component)]
@@ -242,6 +247,10 @@ pub struct BusyRaising;
 /// This state should be applied to mob entity if it doesn't need to do anything in particular
 #[derive(Component, Clone)]
 pub struct Idle;
+
+/// This state should be applied to STATIC mob entity if it doesn't need to do anything in particular(for state machines)
+#[derive(Component, Clone)]
+pub struct IdleStatic;
 
 /// This state make mob search for target and follow it
 #[derive(Component, Clone)]
@@ -421,15 +430,15 @@ impl MobBundle {
 }
 fn mob_attack<Who: Component>(
     mut commands: Commands,
-    spatial_query: SpatialQuery,
-    mut mob_query: Query<
+    //    spatial_query: SpatialQuery,
+    mob_query: Query<
         (
             Entity,
             &mut LinearVelocity,
             &Transform,
             &mut SearchAndPursue,
         ),
-        (With<Pursue>, With<Who>),
+        (With<Attack>, With<Who>),
     >,
 ) {
     for (entity, _a, _b, _c) in mob_query.iter() {
@@ -444,17 +453,22 @@ fn mob_shoot<
     Filter2: Component,
     ProjType: Component,
 >(
+    mut commands: Commands,
     spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
     mut shoot_query: Query<
         (Entity, &Transform, &mut ShootAbility),
-        (With<Shoot>, Without<Stun>, Without<Filter1>),
+        (
+            With<Shoot>,
+            Without<Stun>,
+            Without<Filter1>,
+            With<ShootFlag>,
+        ),
     >,
     target_query: Query<(Entity, &Transform), (With<Target>, Without<Filter2>)>,
-    time: Res<Time>,
     avoid_query: Query<Entity, With<Corpse>>,
 ) {
-    for (mob_e, &mob_transform, mut can_shoot) in shoot_query.iter_mut() {
+    for (mob_e, &mob_transform, can_shoot) in shoot_query.iter_mut() {
         if target_query.iter().len() != 0 {
             let mut target_transform: Transform = mob_transform.clone();
             let mut target_e: Entity = mob_e;
@@ -484,6 +498,7 @@ fn mob_shoot<
                 SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
                 &|entity| entity != mob_e,
             ) else {
+                commands.entity(mob_e).insert(Done::Failure);
                 continue;
             };
             let mut friendly_proj: bool = false;
@@ -492,8 +507,7 @@ fn mob_shoot<
                 friendly_proj = true;
             }
 
-            can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished() && first_hit.entity == target_e {
+            if first_hit.entity == target_e {
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
                 let damage: u32;
@@ -526,6 +540,8 @@ fn mob_shoot<
                     element: can_shoot.element,
                     is_friendly: friendly_proj,
                 });
+            } else if first_hit.entity != target_e {
+                commands.entity(mob_e).insert(Done::Failure);
             }
         }
     }
@@ -698,7 +714,18 @@ fn mob_death(
         });
     }
 }
-
+pub fn timer_shoot(
+    mut shoot_query: Query<(Entity, &mut ShootAbility)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (mob_e,mut timer) in shoot_query.iter_mut() {
+        timer.time_to_shoot.tick(time.delta());
+        if timer.time_to_shoot.just_finished() {
+            commands.entity(mob_e).insert(Done::Success);
+        }
+    }
+}
 /*
     if target_query.iter().len() <= 0 {
         return;

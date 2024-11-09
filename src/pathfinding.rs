@@ -109,8 +109,7 @@ fn change_target_appeared<
     mut commands: Commands,
 ) {
     for mob in mob_query.iter_mut() {
-        commands.entity(mob).remove::<Before>();
-        commands.entity(mob).insert(After::default());
+        commands.entity(mob).insert(Done::Success);
     }
 }
 
@@ -122,7 +121,7 @@ fn change_to_player<Check: Component, Before: Component, After: Component + Defa
     let len = check_query.iter().len();
     if len == 0 {
         for mob in mob_query.iter() {
-            commands.entity(mob).insert(Done::Success);
+            commands.entity(mob).insert(Done::Failure);
         }
     }
 }
