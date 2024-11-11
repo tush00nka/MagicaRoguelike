@@ -122,11 +122,15 @@ pub fn air_elemental_movement<Side: Component>(
 }
 
 pub fn rotate_orbital<Side: Component>(
-    mut orbital_query: Query<(&Orbital, &mut Transform), (With<Side>, With<BusyOrbital>)>,
+    mut orbital_query: Query<(Entity,&mut Orbital, &mut Transform), (With<Side>, With<BusyOrbital>)>,
     parent_query: Query<&Transform, (With<Side>, Without<Orbital>)>,
     time: Res<Time>,
+    mut commands: Commands, 
 ) {
-    for (orbital, mut transform_orb) in orbital_query.iter_mut() {
+    for (orbital_e,mut orbital, mut transform_orb) in orbital_query.iter_mut() {
+        if !parent_query.contains(*(orbital.parent.clone().unwrap())){
+            orbital.parent = None;
+        }
         match &orbital.parent {
             Some(parent) => {
                 let pos_new = parent_query
@@ -139,7 +143,7 @@ pub fn rotate_orbital<Side: Component>(
                 transform_orb.translation = Vec3::new(pos_new.x, pos_new.y, 1.);
                 println!("Rotating");
             } // radius
-            None => continue,
+            None => {commands.entity(orbital_e).insert(Done::Success);}
         };
     }
 }
