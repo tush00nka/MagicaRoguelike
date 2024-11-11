@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, mobs::{MobSpawnEvent, MobType}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, mobs::{MobSpawnEvent, MobType}, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -153,6 +153,7 @@ fn cast_spell(
     mouse_coords: Res<crate::mouse_position::MouseCoords>,
 
     wand_query: Query<&Transform, With<Wand>>,
+    mut player_query: Query<&Transform, With<Player>>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
@@ -222,12 +223,16 @@ fn cast_spell(
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
+                if let Ok(spawn_pos) = player_query.get_single_mut(){
                 ev_spawn_blank.send(SpawnBlankEvent {
                     range: bar.air as f32 * 2.,
+                    position: spawn_pos.translation,
                     speed: 10.0,
+                    side: true,
                 });
 
                 return;
+            }
             }
 
             if bar.fire == bar.water
@@ -243,15 +248,42 @@ fn cast_spell(
 
                 return;
             }
-            //spawn zombie(test)
+            //spawn ClayGolem
+            if bar.earth == 2 
+            && bar.air <= 0 
+            && bar.water >=2 
+            && bar.fire >=2 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+
+            //spawn FireElemental
+            if bar.earth >= 1 
+            && bar.air <= 0 
+            && bar.water >=1 
+            && bar.fire == 2 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+            
+            //spawn EarthElemental
             if bar.earth == 2 
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire >=1 {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
-                
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
                 return;
             }
+
+            //spawn AirElemental
+            if bar.earth <= 0 
+            && bar.air == 2 
+            && bar.water >= 1 
+            && bar.fire >=1 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+
             if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {                
                 let offset = PI/12.0;
                 for _i in 0..bar.fire*3 {

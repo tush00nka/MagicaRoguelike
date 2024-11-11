@@ -6,7 +6,7 @@ use avian2d::prelude::*;
 use rand::Rng;
 
 use crate::{
-    blank_spell::Blank, elements::ElementType, gamemap::Wall, particles::SpawnParticlesEvent, shield_spell::Shield, GameLayer
+    blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy, particles::SpawnParticlesEvent, shield_spell::Shield, GameLayer
 };
 
 pub struct ProjectilePlugin;
@@ -15,7 +15,7 @@ impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnProjectileEvent>()
-            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield));
+            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield::<Enemy, Friendly>, hit_shield::<Friend, Hostile>));
     }
 }
 
@@ -132,10 +132,10 @@ fn move_projectile(
     }
 }
 
-fn hit_shield(
+fn hit_shield<Side: Component, ProjSide: Component>(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &CollidingEntities, &Projectile, &Transform), With<Hostile>>,
-    shield_query: Query<Entity, Or<(With<Shield>, With<Blank>)>>,
+    projectile_query: Query<(Entity, &CollidingEntities, &Projectile, &Transform), With<ProjSide>>,
+    shield_query: Query<Entity, (With<Side>, Or<(With<Shield>, With<Blank>)>)>,
     mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 ) {
     for (proj_e, colliding_e, projectile, transform) in projectile_query.iter() {

@@ -1,3 +1,4 @@
+use crate::blank_spell::SpawnBlankEvent;
 //all things about mobs and their spawn/behaviour
 ///add mobs with kinematic body type
 #[allow(unused)]
@@ -10,9 +11,8 @@ use crate::{
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     mobs::{
-        MeleeMobBundle, SearchAndPursue, Idle,
-        FlipEntity, Mob, MobDeathEvent, MobLoot, MobType, PhysicalBundle, RotationEntity,
-        STATIC_MOBS,
+        FlipEntity, Idle, MeleeMobBundle, Mob, MobDeathEvent, MobLoot, MobType, PhysicalBundle,
+        RotationEntity, SearchAndPursue, STATIC_MOBS,
     },
     obstacles::{Corpse, CorpseSpawnEvent},
     player::Player,
@@ -39,7 +39,6 @@ impl Plugin for FriendPlugin {
 pub struct Friend;
 ///maybe add contact damage or add some melee attacks?
 
-
 ///спавн именно особых энтити, не поднятие дохлых, дохлых поднимать можно через mob_spawn
 
 fn friend_damage_mob(
@@ -48,7 +47,7 @@ fn friend_damage_mob(
         (With<Friend>, Without<Player>),
     >,
     // если у нас моб берётся как референс, можно не писать With<Mob>, он и так будет с ним
-    mut mob_query: Query<(Entity, &mut Health, &Mob), Without<Friend>>, 
+    mut mob_query: Query<(Entity, &mut Health, &Mob), Without<Friend>>,
 ) {
     for (friend_e, mut health_f, mob_f) in friend_query.iter_mut() {
         for (mob_e, mut health_m, mob_m) in mob_query.iter_mut() {
@@ -72,11 +71,10 @@ fn friend_damage_mob(
 pub fn damage_friends(
     mut commands: Commands,
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
-    mut mob_query: Query<
-        (Entity, &mut Health, &mut Mob, &Transform, &MobType),
-        With<Friend>,
-    >,
+    mut mob_query: Query<(Entity, &mut Health, &mut Mob, &Transform, &MobType), With<Friend>>,
     mut mob_map: ResMut<Map>,
+
+    mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
 ) {
     for (entity, mut health, _mob, transform, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -104,6 +102,15 @@ pub fn damage_friends(
                     mob_type: mob_type.clone(),
                     pos: transform.translation.with_z(0.05),
                 });
+
+                if *mob_type == MobType::AirElemental {
+                    blank_spawn_ev.send(SpawnBlankEvent {
+                        range: 8.,
+                        position: transform.translation,
+                        speed: 10.,
+                        side: true,
+                    });
+                }
 
                 for i in STATIC_MOBS {
                     if mob_type == i {

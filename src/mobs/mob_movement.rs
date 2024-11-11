@@ -5,6 +5,7 @@ use rand::Rng;
 use seldom_state::prelude::*;
 use std::cmp::Ordering;
 
+use crate::mobs::air_elemental_movement;
 use crate::{
     alert::SpawnAlertEvent,
     blank_spell::Blank,
@@ -26,7 +27,15 @@ impl Plugin for MobMovementPlugin {
         app.add_systems(Update, teleport_mobs.run_if(in_state(GameState::InGame)))
             .add_systems(
                 FixedUpdate,
-                (move_mobs, runaway_mob).run_if(in_state(GameState::InGame)),
+                (
+                    move_mobs,
+                    runaway_mob,
+                    phasing_mob::<Enemy, Friend>,
+                    phasing_mob::<Friend, Enemy>,
+                    air_elemental_movement::<Friend>,
+                    air_elemental_movement::<Enemy>,
+                )
+                    .run_if(in_state(GameState::InGame)),
             );
 
         app.add_systems(
@@ -57,7 +66,7 @@ fn teleport_mobs(
                 1.0,
             );
             tp.place_to_teleport.remove(0);
-        //    commands.entity(mob).insert(Done::Success); maybe usefull for later? idk
+            //    commands.entity(mob).insert(Done::Success); maybe usefull for later? idk
         }
     }
 }
@@ -85,6 +94,54 @@ fn runaway_mob(
             .normalize();
             linvel.0 = direction * pathfinder.speed * time.delta_seconds();
         }
+    }
+}
+
+fn phasing_mob<Side: Component, Target: Component>(
+    mut side_query: Query<
+        (&mut LinearVelocity, &Transform, &Phasing),
+        (
+            Without<Stun>,
+            Without<Teleport>,
+            Without<RaisingFlag>,
+            With<PhasingFlag>,
+            With<Side>,
+            Without<Target>,
+        ),
+    >,
+    target_query: Query<&Transform, (With<Target>, Without<Side>)>,
+    time: Res<Time>,
+) {
+    for (mut linvel, transform, pathfinder) in side_query.iter_mut() {
+        if target_query.iter().len() <= 0 {
+            return;
+        }
+        let sorted_targets: Vec<&Transform> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                if item1.translation.distance(transform.translation)
+                    < item2.translation.distance(transform.translation)
+                {
+                    return Ordering::Less;
+                } else if item1.translation.distance(transform.translation)
+                    > item2.translation.distance(transform.translation)
+                {
+                    return Ordering::Greater;
+                }
+
+                return Ordering::Equal;
+            })
+            .collect();
+
+        let target_transform = sorted_targets[0];
+
+        let direction = Vec2::new(
+            target_transform.translation.x - transform.translation.x,
+            target_transform.translation.y - transform.translation.y,
+        )
+        .normalize();
+
+        linvel.0 = direction * pathfinder.speed * time.delta_seconds();
     }
 }
 

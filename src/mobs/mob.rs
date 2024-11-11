@@ -1,12 +1,14 @@
 //all things about mobs and their spawn/behaviour
 use {
     avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
-    std::f32::consts::PI, std::time::Duration,
+    std::f32::consts::PI,
 };
 ///add mobs with kinematic body type
-pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
+pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage, MobType::EarthElemental];
 
+use crate::mobs::rotate_orbital;
 use crate::{
+    blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
@@ -14,6 +16,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
+    mobs::timer_tick_orbital,
     obstacles::{Corpse, CorpseSpawnEvent},
     particles::SpawnParticlesEvent,
     player::Player,
@@ -21,7 +24,6 @@ use crate::{
     stun::Stun,
     GameLayer, GameState,
 };
-
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
@@ -38,6 +40,10 @@ impl Plugin for MobPlugin {
                 hit_projectiles::<Player, Friend, Hostile>,
                 hit_projectiles::<Friend, Mob, Friendly>,
                 timer_shoot,
+                rotate_orbital::<Friend>,
+                rotate_orbital::<Enemy>,
+                timer_tick_orbital::<Enemy>,
+                timer_tick_orbital::<Friend>,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -66,11 +72,11 @@ pub enum MobType {
     Koldun,
     ClayGolem,      //walking tank(like fat, not shooting, attacks around)
     WaterElemental, //walking range mob
-    FireElemental,  //like ghost(melee mob with phasing)
+    FireElemental,  //like ghost(melee mob with phasing) // done
     SkeletWarrior,  //mechanics
     SkeletMage,     //mechanics
     SkeletRanger,   // add arrow texture
-    EarthElemental, //turret i guess?
+    EarthElemental, //turret i guess? //done
     AirElemental,   // just an orbital?
     TankEater,
 }
@@ -113,16 +119,14 @@ pub struct Teleport {
 #[derive(Component, Clone)]
 pub struct TeleportFlag;
 
-impl Default for Teleport {
-    fn default() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
-        Self {
-            amount_of_tiles: 4,
-            place_to_teleport: vec![],
-            time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-        }
-    }
+///Flag to mobs with phasing
+#[derive(Component, Clone)]
+pub struct Phasing {
+    pub speed: f32,
 }
+#[derive(Component, Clone)]
+pub struct PhasingFlag;
+
 //component to mob and structures who can spawn enemy.
 #[allow(dead_code)]
 #[derive(Component)]
@@ -152,6 +156,13 @@ pub struct Mob {
 #[derive(Component)]
 pub struct Enemy;
 
+#[derive(Component)]
+pub struct Orbital {
+    pub time_to_live: Timer,
+    pub is_eternal: bool,
+    pub speed: f32,
+    pub parent: Option<Box<Entity>>,
+}
 /// Struct for convenient mob sight handling
 #[derive(Debug)]
 pub struct Ray {
@@ -191,18 +202,6 @@ impl Default for SearchAndPursue {
         }
     }
 }
-
-impl Default for ShootAbility {
-    fn default() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(3000..5000);
-        Self {
-            time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-            element: ElementType::Fire,
-            proj_type: ProjectileType::Missile,
-        }
-    }
-}
-
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -277,20 +276,20 @@ pub struct PhysicalBundle {
 #[derive(Bundle)]
 pub struct MobBundle {
     //contains mob stats
-    phys_bundle: PhysicalBundle,
-    resistance: ElementResistance,
-    mob_type: MobType,
-    mob: Mob,
-    loot: MobLoot,
-    body_type: RigidBody,
-    health: Health,
+    pub phys_bundle: PhysicalBundle,
+    pub resistance: ElementResistance,
+    pub mob_type: MobType,
+    pub mob: Mob,
+    pub loot: MobLoot,
+    pub body_type: RigidBody,
+    pub health: Health,
 }
 
 //implemenations
 //change it, only if you know what you're doing
 //add something there, and later go to spawn_mob
 impl Mob {
-    fn new(damage: i32) -> Self {
+    pub fn new(damage: i32) -> Self {
         Self { damage }
     }
 }
@@ -317,28 +316,13 @@ impl Default for PhysicalBundle {
         }
     }
 }
-
-impl MobBundle {
-    pub fn knight() -> Self {
+impl Default for MobBundle {
+    fn default() -> Self {
         Self {
             phys_bundle: PhysicalBundle::default(),
             resistance: ElementResistance {
                 elements: vec![],
                 resistance_percent: vec![0, 0, 0, 0, 0],
-            },
-            mob_type: MobType::Knight,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(100),
-        }
-    }
-    pub fn mossling() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 15, 15, 0, 0],
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
@@ -347,87 +331,8 @@ impl MobBundle {
             health: Health::new(100),
         }
     }
-    pub fn turret() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 60, 60, 0, 0],
-            },
-            mob_type: MobType::JungleTurret,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(200),
-        }
-    }
-    pub fn fire_mage() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Fire],
-                resistance_percent: vec![80, 0, 0, 0, 0],
-            },
-            mob_type: MobType::FireMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    pub fn water_mage() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Water],
-                resistance_percent: vec![0, 80, 0, 0, 0],
-            },
-            mob_type: MobType::WaterMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    pub fn necromancer() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
-                resistance_percent: vec![0, 0, 30, 0, 0],
-            },
-            mob_type: MobType::Necromancer,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 5 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(140),
-        }
-    }
-    pub fn koldun() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle {
-                collider: Collider::circle(24.),
-                ..default()
-            },
-            resistance: ElementResistance {
-                elements: vec![
-                    ElementType::Earth,
-                    ElementType::Air,
-                    ElementType::Fire,
-                    ElementType::Water,
-                ],
-                resistance_percent: vec![20, 20, 20, 20, 20],
-            },
-            mob_type: (MobType::Koldun),
-            mob: Mob::new(40),
-            loot: MobLoot { orbs: 100 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(2000),
-        }
-    }
 }
+
 fn mob_attack<Who: Component>(
     mut commands: Commands,
     //    spatial_query: SpatialQuery,
@@ -616,6 +521,7 @@ pub fn damage_mobs(
         (With<Mob>, Without<Friend>),
     >,
     mut mob_map: ResMut<Map>,
+    mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -643,6 +549,15 @@ pub fn damage_mobs(
                     mob_type: mob_type.clone(),
                     pos: transform.translation.with_z(0.05),
                 });
+
+                if *mob_type == MobType::AirElemental {
+                    blank_spawn_ev.send(SpawnBlankEvent {
+                        range: 8.,
+                        position: transform.translation,
+                        speed: 10.,
+                        side: false,
+                    });
+                }
 
                 for i in STATIC_MOBS {
                     if mob_type == i {
@@ -714,75 +629,16 @@ fn mob_death(
         });
     }
 }
+
 pub fn timer_shoot(
     mut shoot_query: Query<(Entity, &mut ShootAbility)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (mob_e,mut timer) in shoot_query.iter_mut() {
+    for (mob_e, mut timer) in shoot_query.iter_mut() {
         timer.time_to_shoot.tick(time.delta());
         if timer.time_to_shoot.just_finished() {
             commands.entity(mob_e).insert(Done::Success);
         }
     }
 }
-/*
-    if target_query.iter().len() <= 0 {
-        return;
-    }
-    let sorted_targets: Vec<(Entity, &Transform)> = target_query
-        .iter()
-        .sort_by::<&Transform>(|item1, item2| {
-            if item1.translation.distance(mob_transform.translation)
-                < item2.translation.distance(mob_transform.translation)
-            {
-                return Ordering::Less;
-            } else if item1.translation.distance(mob_transform.translation)
-                > item2.translation.distance(mob_transform.translation)
-            {
-                return Ordering::Greater;
-            }
-
-            return Ordering::Equal;
-        })
-        .collect();
-
-    let (target_e, target_transform) = sorted_targets[0];
-
-    let dir = (target_transform.translation - mob_transform.translation)
-        .truncate()
-        .normalize();
-
-    let Some(first_hit) = spatial_query.cast_ray_predicate(
-        mob_transform.translation.truncate(),
-        Dir2::new_unchecked(dir),
-        512.,
-        true,
-        SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
-        &|entity| entity != mob_e,
-    ) else {
-        continue;
-    };
-
-    if target_transform
-        .translation
-        .distance(mob_transform.translation)
-        <= mob.pursue_radius
-    {
-        if first_hit.entity == target_e {
-            commands.entity(mob_e).remove::<Idle>();
-            commands.entity(mob_e).insert(Pursue);
-            mob.search_time.reset();
-
-            ev_spawn_alert.send(SpawnAlertEvent {
-                position: mob_transform
-                    .translation
-                    .truncate()
-                    .with_y(mob_transform.translation.y + 16.),
-            });
-        }
-    }
-}
-///triger to check if there's target in attack range
-pub fn near_target() {}
-*/

@@ -41,9 +41,9 @@ impl Plugin for MobSpawnPlugin {
     }
 }
 
-const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage];
-const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage];
-const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight];
+const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage, MobType::EarthElemental];
+const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage, MobType::AirElemental];
+const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight, MobType::FireElemental];
 //maybe add some minibosses? const BOSSES: &[MobType] = &[MobType::Koldun];
 
 //event to spawn mob with mob_type in pos
@@ -62,6 +62,8 @@ pub enum MobAI {
     RangeWithTP,
     Spawner,
     Turret,
+    Phasing,
+    Orbital,
     //etc, add later
 }
 //structures for init=======================================================================================================================
@@ -172,7 +174,9 @@ impl SpawnKit<'_> {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage5.png",
+            texture_path: "textures/mobs/fire_elemental.png",
+            ai_type: MobAI::Phasing,
+            has_animation: false,
             ..default()
         }
     }
@@ -180,7 +184,8 @@ impl SpawnKit<'_> {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage6.png",
+            texture_path: "textures/mobs/water_elemental.png",
+            has_animation: false,
             ..default()
         }
     }
@@ -188,15 +193,19 @@ impl SpawnKit<'_> {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage7.png",
+            texture_path: "textures/mobs/earth_elemental.png",
+            ai_type: MobAI::Turret,
+            has_animation: false,
             ..default()
         }
     }
-    fn wind_elemental() -> Self {
+    fn air_elemental() -> Self {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage8.png",
+            texture_path: "textures/mobs/air_elemental.png",
+            ai_type: MobAI::Orbital,
+            has_animation: false,
             ..default()
         }
     }
@@ -326,7 +335,7 @@ pub fn spawn_mob(
                 spawn_kit = SpawnKit::water_elemental();
             }
             MobType::AirElemental => {
-                spawn_kit = SpawnKit::wind_elemental();
+                spawn_kit = SpawnKit::air_elemental();
             }
             MobType::ClayGolem => {
                 spawn_kit = SpawnKit::clay_golem();
@@ -363,6 +372,27 @@ pub fn spawn_mob(
         let mob: Entity;
 
         match spawn_kit.ai_type {
+            MobAI::Orbital => {
+                mob = commands
+                        .spawn((
+                            StateMachine::default()
+                                .trans::<FreeOrbital, _>(done(Some(Done::Success)), BusyOrbital)
+                                .trans::<BusyOrbital, _>(done(Some(Done::Success)), FreeOrbital),
+                            FreeOrbital,
+                        ))
+                        .id()
+            }
+            MobAI::Phasing => {
+                mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), Attack)
+                            .trans::<Attack, _>(done(Some(Done::Success)), PhasingFlag),
+                        PhasingFlag,
+                    ))
+                    .id()
+            }
+
             MobAI::MeleeWithATK => {
                 // done
                 mob = commands
@@ -441,8 +471,7 @@ pub fn spawn_mob(
                 texture,
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
-            })
-            .insert(Enemy);
+            });
 
         if spawn_kit.has_animation {
             commands
@@ -506,10 +535,20 @@ pub fn spawn_mob(
                 commands.entity(mob).insert(BossBundle::koldun());
             }
 
-            MobType::EarthElemental => {}
-            MobType::FireElemental => {}
-            MobType::WaterElemental => {}
-            MobType::AirElemental => {}
+            MobType::EarthElemental => {
+                commands.entity(mob).insert(TurretBundle::earth_elemental());
+            }
+            MobType::FireElemental => {
+                commands
+                    .entity(mob)
+                    .insert(MeleePhasingBundle::fire_elemental());
+            }
+            MobType::WaterElemental => {
+                //                commands.entity(mob).insert(RamgeMobBundle::water_elemental());
+            }
+            MobType::AirElemental => {
+                commands.entity(mob).insert(OrbitalBundle::air_elemental());
+            }
             MobType::ClayGolem => {}
             MobType::SkeletMage => {}
             MobType::SkeletWarrior => {}
@@ -590,9 +629,7 @@ fn spawner_mob_spawn(
 ) {
     for (summoner, mut summoning, raising, mut sprite) in summoner_query.iter_mut() {
         if !corpse_query.contains(raising.corpse_id) {
-            commands
-                .entity(summoner)
-                .insert(Done::Success);
+            commands.entity(summoner).insert(Done::Success);
             sprite.color = Color::srgb(1., 1., 1.);
             continue;
         }
@@ -605,15 +642,15 @@ fn spawner_mob_spawn(
             });
 
             commands.entity(raising.corpse_id).despawn();
-            commands
-                .entity(summoner)
-                .insert(Done::Success);
+            commands.entity(summoner).insert(Done::Success);
             sprite.color = Color::srgb(1., 1., 1.);
         }
     }
 }
 
-fn handle_raising(mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<RaisingFlag>>) {
+fn handle_raising(
+    mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<RaisingFlag>>,
+) {
     for (mut sprite, mut linvel) in raising_query.iter_mut() {
         sprite.color = Color::srgb(1., 3., 3.);
         linvel.0 = Vec2::ZERO;

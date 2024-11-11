@@ -6,7 +6,9 @@ use std::collections::{HashMap, LinkedList};
 
 use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
-    mobs::{BusyRaising,damage_mobs, CorpseRush, PlayerRush, RunawayRush, Summoning, Teleport},
+    mobs::{
+        damage_mobs, BusyRaising, CorpseRush, Phasing, PlayerRush, RunawayRush, Summoning, Teleport,
+    },
     obstacles::Corpse,
     player::Player,
     GameState,
@@ -29,7 +31,8 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             (
-                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>.after(damage_mobs),
+                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>
+                    .after(damage_mobs),
                 change_to_player::<Corpse, CorpseRush, RunawayRush>.after(damage_mobs),
                 a_pathfinding::<Player, PlayerRush, PlayerRush, Player>,
                 a_pathfinding::<Corpse, CorpseRush, BusyRaising, Corpse>,
@@ -280,7 +283,8 @@ fn pathfinding_with_tp(
             if let Ok(player) = player_query.get_single() {
                 let mut check: bool = false;
 
-                let player_node: (u16, u16) = safe_get_pos(player.translation.truncate(), &mut graph_search);
+                let player_node: (u16, u16) =
+                    safe_get_pos(player.translation.truncate(), &mut graph_search);
                 let mob_pos = (
                     (transform.translation.x.floor() / 32.).floor() as u16,
                     (transform.translation.y.floor() / 32.).floor() as u16,
@@ -300,10 +304,12 @@ fn pathfinding_with_tp(
                 }
 
                 if mob.amount_of_tiles as u16 + player_node.0 + 1 > ROOM_SIZE as u16 {
-                    padding_i_upper = mob.amount_of_tiles as u16 + player_node.0 + 1 - ROOM_SIZE as u16;
+                    padding_i_upper =
+                        mob.amount_of_tiles as u16 + player_node.0 + 1 - ROOM_SIZE as u16;
                 }
                 if mob.amount_of_tiles as u16 + player_node.1 + 1 > ROOM_SIZE as u16 {
-                    padding_j_upper = mob.amount_of_tiles as u16 + player_node.1 + 1 - ROOM_SIZE as u16;
+                    padding_j_upper =
+                        mob.amount_of_tiles as u16 + player_node.1 + 1 - ROOM_SIZE as u16;
                 }
 
                 for i in player_node.0 + padding_i - mob.amount_of_tiles as u16
@@ -388,6 +394,7 @@ fn a_pathfinding<
             Without<Teleport>,
             With<P>,
             Without<FilterPathfinder>,
+            Without<Phasing>,
         ),
     >,
     mut graph_search: ResMut<Graph>,

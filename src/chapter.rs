@@ -23,7 +23,7 @@ impl Default for ChapterManager {
     fn default() -> Self {
         Self {
             current_level: 1,
-            current_chapter: 3,
+            current_chapter: 1,
             max_chapter: 4,
         }
     }
