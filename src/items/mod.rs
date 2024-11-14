@@ -18,6 +18,18 @@ use lizard_tail::LizardTailPlugin;
 pub mod resistance_items;
 use resistance_items::ResistanceItemsPlugin;
 
+pub mod ghost_in_the_shell;
+use ghost_in_the_shell::GhostInTheShellPlugin;
+
+pub mod vampire_tooth;
+use vampire_tooth::VampireToothPlugin;
+
+pub mod blood_goblet;
+use blood_goblet::BloodGobletPlugin;
+
+pub mod blind_rage;
+use blind_rage::BlindRagePlugin;
+
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
     fn build(&self, app: &mut App) {
@@ -27,7 +39,11 @@ impl Plugin for ItemEffectsPlugin {
             HeartPlugin,
             AmuletPlugin,
             LizardTailPlugin,
-            ResistanceItemsPlugin
+            ResistanceItemsPlugin,
+            GhostInTheShellPlugin,
+            VampireToothPlugin,
+            BloodGobletPlugin,
+            BlindRagePlugin,
         ));
     }
 }

@@ -2,7 +2,9 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 
 use crate::friend::Friend;
+use crate::camera::YSort;
 use crate::invincibility::Invincibility;
+use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::elements::ElementResistance;
 use crate::mouse_position::MouseCoords;
@@ -18,6 +20,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<PlayerDeathEvent>()
+            .init_resource::<PlayerStats>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
             .add_systems(OnExit(GameState::InGame), reset_player_position)
@@ -29,20 +32,52 @@ impl Plugin for PlayerPlugin {
 #[derive(Event)]
 pub struct PlayerDeathEvent(pub Entity);
 
-#[derive(Component, Clone, Copy)]
-pub struct Player {
+#[derive(Resource)]
+pub struct PlayerStats {
     pub speed: f32,
+    pub damage: u32,
     pub invincibility_time: f32,
+    pub projectile_deflect_chance: f32,
+    pub vampirism: i32,
+    pub health_regen: i32,
+    pub spell_cast_hp_fee: i32,
+    pub blind_rage_bonus: u32,
 }
+
+impl PlayerStats {
+    pub fn get_bonused_damage(&self) -> u32 {
+        return self.damage + self.blind_rage_bonus;
+    }
+}
+
+impl Default for PlayerStats {
+    fn default() -> Self {
+        Self {
+            speed: 8000.,
+            damage: 20,
+            invincibility_time: 1.0,
+            projectile_deflect_chance: 0.0,
+            vampirism: 0,
+            health_regen: 0,
+            spell_cast_hp_fee: 0,
+            blind_rage_bonus: 0,
+        }
+    }
+}
+
+#[derive(Component, Clone, Copy)]
+pub struct Player;
 
 fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    commands.init_resource::<PlayerStats>();
+
     let texture = asset_server.load("textures/player_walk_mantle.png");
 
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 8, 1, None, None);
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 8, 2, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
     let animation_config = AnimationConfig::new(0, 7, 24);
@@ -57,20 +92,18 @@ fn spawn_player(
             layout: texture_atlas_layout.clone(),
             index: animation_config.first_sprite_index,
         },
-        animation_config
+        animation_config,
+        YSort(9.0),
     )).id();
 
     commands.entity(player)
         .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Collider::circle(8.0))
+        .insert(Collider::circle(6.0))
         .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
         .insert(LinearVelocity::ZERO)
-        .insert(Player {
-            speed: 8000.0,
-            invincibility_time: 1.0,
-        })
+        .insert(Player)
         .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]})
         .insert(ElementResistance {
             elements: vec![],
@@ -80,11 +113,12 @@ fn spawn_player(
 }
 
 fn move_player(
-    mut player_query: Query<(&mut LinearVelocity, &Player)>,
+    player_stats: Res<PlayerStats>,
+    mut player_query: Query<&mut LinearVelocity, With<Player>>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Ok((mut player_velocity, &player)) = player_query.get_single_mut() {
+    if let Ok(mut player_velocity) = player_query.get_single_mut() {
         let mut direction = Vec2::ZERO;
 
         if keyboard.pressed(KeyCode::KeyA) {
@@ -100,7 +134,7 @@ fn move_player(
             direction.y += 1.0;
         }
 
-        player_velocity.0 = direction.normalize_or_zero() * player.speed * time.delta_seconds();
+        player_velocity.0 = direction.normalize_or_zero() * player_stats.speed * time.delta_seconds();
     }
 }
 
@@ -114,7 +148,7 @@ fn reset_player_position(
 
 fn animate_player(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), With<Player>>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), (With<Player>, Without<ItemPickupAnimation>)>,
 ) {
     for (mut config, mut atlas, linvel) in &mut query {
         if linvel.0 != Vec2::ZERO {
@@ -143,7 +177,7 @@ fn animate_player(
 }
 
 fn flip_towards_mouse(
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut player_query: Query<&mut Transform, (With<Player>, Without<ItemPickupAnimation>)>,
     mouse_coords: Res<MouseCoords>,
     time: Res<Time>,
 ) {
@@ -187,12 +221,13 @@ fn debug_take_damage(
     mut commands: Commands,
     mut ev_death: EventWriter<PlayerDeathEvent>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut health_query: Query<(&mut Health, Entity, &Player), Without<Invincibility>>
+    mut health_query: Query<(&mut Health, Entity), (With<Player>, Without<Invincibility>)>,
+    player_stats: Res<PlayerStats>,
 ){
     if keyboard.just_pressed(KeyCode::KeyZ) {
-        if let Ok((mut health, ent, player)) = health_query.get_single_mut(){
+        if let Ok((mut health, ent)) = health_query.get_single_mut(){
             health.damage(25);
-            commands.entity(ent).insert(Invincibility::new(player.invincibility_time));
+            commands.entity(ent).insert(Invincibility::new(player_stats.invincibility_time));
             
             if health.current <= 0 {
                 ev_death.send(PlayerDeathEvent(ent));

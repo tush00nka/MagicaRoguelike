@@ -54,7 +54,7 @@ impl Default for ProjectileBundle {
                 element: ElementType::Air,
             },
             collider: Collider::circle(8.0),
-            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall, GameLayer::Friend]),
+            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall, GameLayer::Friend, GameLayer::Interactable]),
             sensor: Sensor
         }
     }
@@ -116,7 +116,8 @@ fn spawn_projectile(
                         GameLayer::Player,
                         GameLayer::Wall,
                         GameLayer::Shield,
-                        GameLayer::Friend,
+                        GameLayer::Friend,,
+                        GameLayer::Interactable,
                     ]
                 ));
         }
@@ -129,6 +130,7 @@ fn move_projectile(
 ) {
     for (mut projectile_transform, projectile) in projectile_query.iter_mut() {
         projectile_transform.translation += Vec3::new(projectile.direction.x, projectile.direction.y, 0.0) * projectile.speed * time.delta_seconds();
+        projectile_transform.rotation = Quat::from_rotation_z(projectile.direction.to_angle());
     }
 }
 

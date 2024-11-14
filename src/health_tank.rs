@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{health::Health, player::Player};
+use crate::{camera::YSort, health::Health, player::Player};
 
 pub struct HealthTankPlugin;
 
@@ -37,7 +37,8 @@ fn spawn_health_tank(
         })
         .insert(Collider::circle(8.0,))
         .insert(Sensor)
-        .insert(HealthTank { hp: ev.hp });
+        .insert(HealthTank { hp: ev.hp })
+        .insert(YSort(6.0));
     }
 }
 

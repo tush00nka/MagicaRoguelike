@@ -19,7 +19,7 @@ impl Plugin for ItemUIPlugin {
 }
 
 #[derive(Resource, Default)]
-pub struct ItemInventory(HashMap<ItemType, i32>);
+pub struct ItemInventory(pub HashMap<ItemType, i32>);
 
 impl ItemInventory {
     fn add(&mut self, item: ItemType) {

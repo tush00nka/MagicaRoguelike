@@ -41,10 +41,9 @@ pub struct GameOverUI;
 
 fn spawn_gameover_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slicer = TextureSlicer {
-        border: BorderRect::square(8.0),
-        center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
-        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-        max_corner_scale: 0.2,
+        border: BorderRect::square(16.0),
+        center_scale_mode: SliceScaleMode::Stretch,
+        sides_scale_mode: SliceScaleMode::Stretch,
         ..default()
     };
 

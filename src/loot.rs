@@ -50,7 +50,9 @@ fn loot_drop(
                 ev_item.send(SpawnItemEvent {
                     pos,
                     item_type: item,
-                    texture_path: item.get_texture_path().to_string()
+                    texture_path: item.get_texture_path().to_string(),
+                    item_name: item.get_name().to_string(),
+                    item_description: item.get_description().to_string()
                 });
             }
             _ => {}

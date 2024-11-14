@@ -3,12 +3,7 @@ use bevy::prelude::*;
 use seldom_state::trigger::Done;
 
 use crate::{
-    health::{Health, Hit},
-    mobs::*,
-    pathfinding::Pathfinder,
-    projectile::{Friendly, Projectile},
-    stun::Stun,
-    GameLayer, GameState,
+    camera::YSort, health::{Health, Hit}, mobs::*, pathfinding::Pathfinder, projectile::{Friendly, Projectile}, stun::Stun, GameLayer, GameState
 };
 
 pub struct ObstaclePlugin;
@@ -221,11 +216,10 @@ fn spawn_corpse(
             .insert(Collider::circle(6.))
             .insert(Sensor)
             .insert(LockedAxes::ROTATION_LOCKED)
-            .insert(GravityScale(0.0))
             .insert(CollisionLayers::new(GameLayer::Enemy, [GameLayer::Enemy]))
-            .insert(RigidBody::Dynamic)
             .insert(Health::new(40))
             .insert(Obstacle)
+            .insert(YSort(8.0))
             .id();
 
         if can_be_spawned {

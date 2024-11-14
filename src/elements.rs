@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
     black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, mobs::{MobSpawnEvent, MobType}, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
@@ -29,17 +29,28 @@ pub enum ElementType {
     Steam,
 }
 
+impl Distribution<ElementType> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ElementType {
+        match rng.gen_range(0..5) {
+            0 => ElementType::Fire,
+            1 => ElementType::Water,
+            2 => ElementType::Earth,
+            3 => ElementType::Air,
+            4 => ElementType::Steam,
+            _ => ElementType::Fire,
+        }
+    }
+}
+
 impl ElementType {
     pub fn color(&self) -> Color {
-        let c = match self {
+    match self {
             ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
             ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
             ElementType::Earth => Color::srgb(0.45, 0.15, 0.15),
             ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
             ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
-        };
-
-        c
+        }
     }
 }
 
@@ -150,10 +161,13 @@ fn fill_bar(
 }
 
 fn cast_spell(
-    mouse_coords: Res<crate::mouse_position::MouseCoords>,
+    mouse_coords: Res<MouseCoords>,
+    player_stats: Res<PlayerStats>,
 
     wand_query: Query<&Transform, With<Wand>>,
-    mut player_query: Query<&Transform, With<Player>>,
+    
+    mut player_query: Query<(&mut Health, Entity), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut ev_death: EventWriter<PlayerDeathEvent>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
@@ -168,17 +182,26 @@ fn cast_spell(
     time: Res<Time<Virtual>>,
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
-        
+
+        let Ok((mut player_health, player_e)) = player_query.get_single_mut() else {
+            return;
+        };
+
+        // отнимаем хп, если предмет
+        if player_stats.spell_cast_hp_fee > 0 {
+            player_health.damage(player_stats.spell_cast_hp_fee);
+            if player_health.current <= 0 {
+                ev_death.send(PlayerDeathEvent (player_e));
+            }
+        }
+
         ev_bar_clear.send(ElementBarClear);
 
         let bar = element_bar.clone();
         element_bar.clear();
 
-        let mut dmg = 0;
-        dmg += bar.fire as u32 * 20;
-        dmg += bar.water as u32 * 20;
-        dmg += bar.earth as u32 * 20;
-        dmg += bar.air as u32 * 20;
+        let mut dmg = player_stats.get_bonused_damage();
+        dmg *= bar.len() as u32;
 
         let mut rng = rand::thread_rng();
 

@@ -1,6 +1,5 @@
 use crate::{
-    gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE},
-    GameState,
+    camera::YSort, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, GameState
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -44,19 +43,34 @@ pub fn spawn_boss_room(asset_server: Res<AssetServer>, mut commands: Commands) {
                     })
                     .insert(RigidBody::Static)
                     .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
-                    .insert(Wall);
+                    .insert(Wall)
+                    .insert(YSort(16.0));
             } else {
-                commands
-                    .spawn(SpriteBundle {
+                let floor = commands.spawn(SpriteBundle {
                         texture: asset_server.load("textures/t_floor_hub.png"),
                         transform: Transform::from_xyz(
                             TILE_SIZE * x as f32,
                             TILE_SIZE * y as f32,
-                            0.0,
+                            -100.0,
                         ),
                         ..default()
                     })
-                    .insert(Floor);
+                    .insert(Floor)
+                    .id();
+
+                    if y == upper-1 {
+                        commands.entity(floor).with_children(|parent| {
+                            parent.spawn(SpriteBundle {
+                                texture: asset_server.load("textures/t_shadow.png"),
+                                transform: Transform::from_xyz(
+                                    0.0, 
+                                    0.0,
+                                    0.1,
+                                ),
+                                ..default()
+                            });
+                        });
+                    }
             }
         }
     }

@@ -146,7 +146,6 @@ fn main() {
         .set(WgpuFeatures::VERTEX_WRITABLE_STORAGE, true);
 
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())

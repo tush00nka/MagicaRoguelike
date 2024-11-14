@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
+use noise::{NoiseFn, Perlin};
 use rand::Rng;
 use std::collections::HashMap;
 
 use crate::{
-    chapter::ChapterManager,
-    utils::get_random_index_with_weight,
-    GameLayer,
-    GameState
+    camera::YSort, chapter::ChapterManager, health::Health, obstacles::Obstacle, utils::get_random_index_with_weight, GameLayer, GameState
 };
 
 pub const ROOM_SIZE: i32 = 32;
@@ -78,6 +76,8 @@ pub struct LevelGenerator {
     chance_walker_change_dir: f32,
     chance_walker_spawn: f32,
     chance_walker_destroy: f32,
+    chance_walker_spawn_obstacle: f32,
+    obstacles: Vec<(f32, f32)>,
     max_walkers: usize,
     percent_to_fill: f32,
 }
@@ -92,6 +92,8 @@ impl Default for LevelGenerator {
             chance_walker_change_dir: 0.5,
             chance_walker_spawn: 0.05,
             chance_walker_destroy: 0.05,
+            chance_walker_spawn_obstacle: 0.05,
+            obstacles: vec![],
             max_walkers: 16,
             percent_to_fill: 0.1,
         }
@@ -137,6 +139,8 @@ impl LevelGenerator {
 
         self.walkers = Vec::new();
         self.walkers.push(new_walker);
+
+        self.obstacles = Vec::new();
     }
 
     fn create_floors(&mut self) {
@@ -174,6 +178,17 @@ impl LevelGenerator {
                         pos: self.walkers[i].pos,
                     };
                     self.walkers.push(new_walker);
+                }
+            }
+
+            // chance: walker spawns an obstacle/prop
+            for walker in self.walkers.iter() {
+                if rng.gen::<f32>() < self.chance_walker_spawn_obstacle {
+                    if self.obstacles.contains(&(walker.pos)) {
+                        continue;    
+                    }
+
+                    self.obstacles.push(walker.pos);
                 }
             }
 
@@ -262,11 +277,13 @@ pub fn spawn_map(
     mut map: ResMut<Map>,
     chapter_manager: Res<ChapterManager>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    time: Res<Time>,
 ) {
     room.start();
     let room_height = room.room_height;
     let room_width = room.room_width;
     let grid = &room.grid;
+    let obstacles = &room.obstacles;
 
     for x in 0..room_width {
         for y in 0..room_height {
@@ -277,7 +294,7 @@ pub fn spawn_map(
                     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Floor, 0));
-                    commands.spawn((
+                    let floor = commands.spawn((
                         SpriteBundle {
                             sprite: Sprite {
                                 flip_x: rand::random(),
@@ -287,8 +304,8 @@ pub fn spawn_map(
                             transform: Transform::from_xyz(
                                 TILE_SIZE * x as f32,
                                 TILE_SIZE * y as f32,
-                                0.0,
-                                ),
+                                -100.0,
+                            ),
                         ..default()
                         },
                         TextureAtlas {
@@ -296,7 +313,24 @@ pub fn spawn_map(
                             index: get_random_index_with_weight(vec![10, 3, 2, 1])
                         }
                     ))
-                    .insert(Floor);
+                    .insert(Floor)
+                    .id();
+
+                if y < room_height
+                && grid[x as usize][y as usize + 1] == TileType::Wall {
+                    commands.entity(floor).with_children(|parent| {
+                        parent.spawn(SpriteBundle {
+                            texture: asset_server.load("textures/t_shadow.png"),
+                            transform: Transform::from_xyz(
+                                0.0, 
+                                0.0,
+                                0.1,
+                            ),
+                            ..default()
+                        });
+                    });
+                } 
+
                 },
                 TileType::Wall => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Wall, 0));
@@ -326,24 +360,45 @@ pub fn spawn_map(
                         .insert(RigidBody::Static)
                         .insert(Collider::rectangle(TILE_SIZE - 0.01, TILE_SIZE - 0.01))
                         .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]))
-                        .insert(Wall);
+                        .insert(Wall)
+                        .insert(YSort(16.0));
                 },
                 TileType::Empty => {
                     map.map.insert((x as u16, y as u16), Tile::new(TileType::Empty, 0));
-
-                    commands.spawn(SpriteBundle {
-                        texture: asset_server.load(format!("textures/t_wall_{}.png", chapter_manager.get_current_chapter())),
-                        transform: Transform::from_xyz(
-                        TILE_SIZE * x as f32,
-                        TILE_SIZE * y as f32,
-                        0.0,
-                    ),
-                    ..default()
-                    })
-                    .insert(Wall);
                 }
             }
         }
     }
+
+    let perlin = Perlin::new(time.elapsed_seconds().round() as u32);
+
+    for pos in obstacles.iter() {
+        let height = perlin.get([pos.0 as f64 * 0.1, pos.1 as f64 * 0.1]);
+
+        // --- hardcoded shit needs refactoring ---
+        let texture_path = {
+            if height >= 0.3 { "textures/obstacles/claypot.png" }
+            else { "textures/obstacles/crate.png"} 
+        };
+
+        let sorting_offset = {
+            if height >= 0.3 { 4.0 }
+            else { 0.0 } 
+        };
+        // end --- hardcoded shit needs refactoring --- end
+
+        commands.spawn(SpriteBundle {
+            texture: asset_server.load(texture_path),
+            transform: Transform::from_xyz(pos.0 * TILE_SIZE, pos.1 * TILE_SIZE, 0.1),
+            ..default()
+        })
+        .insert(Collider::circle(6.))
+        .insert(Sensor)
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile]))
+        .insert(Health::new(10))
+        .insert(Obstacle)
+        .insert(YSort(sorting_offset));
+    }   
 
 }

@@ -49,113 +49,113 @@ fn spawn_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn(NodeBundle {
+    commands.spawn(ImageBundle {
         style: Style {
             width: Val::Percent(100.0),
-            height: Val::Percent(25.0),
-            justify_self: JustifySelf::Start,
-            align_self: AlignSelf::Start,
-            flex_direction: FlexDirection::Column,
+            height: Val::Percent(100.0),
             align_items: AlignItems::Center,
-            ..default()            
+            ..default()
+        },
+        image: UiImage {
+            texture: asset_server.load("textures/ui/main_menu_bg.png"),
+            ..default()
         },
         ..default()
     })
     .insert(MainMenuUI)
     .with_children(|parent| {
-        parent.spawn(ImageBundle {
-            image: UiImage::new(asset_server.load("textures/main_menu_title.png")),
-            style: Style {
-                width: Val::Px(320.0),
-                height: Val::Px(96.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                margin: UiRect::top(Val::Px(4.0)),
-                ..default()
-            },
+    
+        let slicer = TextureSlicer {
+            border: BorderRect::square(16.0),
+            center_scale_mode: SliceScaleMode::Stretch,
+            sides_scale_mode: SliceScaleMode::Stretch,
             ..default()
-        });
-    });
-
-    let slicer = TextureSlicer {
-        border: BorderRect::square(8.0),
-        center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
-        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-        max_corner_scale: 0.2,
-        ..default()
-    };
-
-    commands.spawn(NodeBundle {
-        style: Style {
-            width: Val::Px(40.0),
-            height: Val::Percent(50.0),
-            justify_self: JustifySelf::Center,
-            align_self: AlignSelf::Center,
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            ..default()            
-        },
-        ..default()
-    })
-    .insert(MainMenuUI)
-    .with_children(|parent| {
-
-        parent.spawn(ButtonBundle {
+        };
+    
+        parent.spawn(NodeBundle {
             style: Style {
-                width: Val::Px(512.0),
-                height: Val::Px(24.0),
-                justify_content: JustifyContent::Center,
+                width: Val::Percent(50.0),
+                height: Val::Percent(50.0),
+                justify_self: JustifySelf::Center,
+                align_self: AlignSelf::Center,
+                flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                margin: UiRect::top(Val::Px(4.0)),
-                ..default()
-            },
-            image: UiImage {
-                texture: asset_server.load("textures/ui/button.png"),
-                ..default()
+                ..default()            
             },
             ..default()
         })
-        .insert(ImageScaleMode::Sliced(slicer.clone()))
-        .insert(MainMenuButton::NEW_RUN)
-        .with_children(|button| {
-            button.spawn(TextBundle::from_section(
-                "вот решил опять попробовать", 
-                TextStyle {
-                    font: asset_server.load("fonts/ebbe_bold.ttf"),
-                    font_size: 16.0,
-                    color: Color::BLACK,
+        .with_children(|parent| {
+    
+            parent.spawn(ImageBundle {
+                image: UiImage::new(asset_server.load("textures/main_menu_title.png")),
+                style: Style {
+                    width: Val::Px(320.0),
+                    height: Val::Px(96.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(4.0)),
                     ..default()
                 },
-            ));
-        });
+                ..default()
+            });
 
-        parent.spawn(ButtonBundle {
-            style: Style {
-                width: Val::Px(512.0),
-                height: Val::Px(24.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                margin: UiRect::top(Val::Px(4.0)),
-                ..default()
-            },
-            image: UiImage {
-                texture: asset_server.load("textures/ui/button.png"),
-                ..default()
-            },
-            ..default()
-        })
-        .insert(ImageScaleMode::Sliced(slicer.clone()))
-        .insert(MainMenuButton::QUIT)
-        .with_children(|button| {
-            button.spawn(TextBundle::from_section(
-                "что я наделал", 
-                TextStyle {
-                    font: asset_server.load("fonts/ebbe_bold.ttf"),
-                    font_size: 16.0,
-                    color: Color::BLACK,
+            parent.spawn(ButtonBundle {
+                style: Style {
+                    width: Val::Px(360.0),
+                    height: Val::Px(32.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(4.0)),
                     ..default()
                 },
-            ));
+                image: UiImage {
+                    texture: asset_server.load("textures/ui/button.png"),
+                    ..default()
+                },
+                ..default()
+            })
+            .insert(ImageScaleMode::Sliced(slicer.clone()))
+            .insert(MainMenuButton::NEW_RUN)
+            .with_children(|button| {
+                button.spawn(TextBundle::from_section(
+                    "вот решил опять попробовать", 
+                    TextStyle {
+                        font: asset_server.load("fonts/ebbe_bold.ttf"),
+                        font_size: 16.0,
+                        color: Color::BLACK,
+                        ..default()
+                    },
+                ));
+            });
+    
+            parent.spawn(ButtonBundle {
+                style: Style {
+                    width: Val::Px(360.0),
+                    height: Val::Px(32.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(4.0)),
+                    ..default()
+                },
+                image: UiImage {
+                    texture: asset_server.load("textures/ui/button.png"),
+                    ..default()
+                },
+                ..default()
+            })
+            .insert(ImageScaleMode::Sliced(slicer.clone()))
+            .insert(MainMenuButton::QUIT)
+            .with_children(|button| {
+                button.spawn(TextBundle::from_section(
+                    "что я наделал", 
+                    TextStyle {
+                        font: asset_server.load("fonts/ebbe_bold.ttf"),
+                        font_size: 16.0,
+                        color: Color::BLACK,
+                        ..default()
+                    },
+                ));
+            });
         });
     });
 }
@@ -168,7 +168,7 @@ pub fn handle_buttons(
     for (interaction, button, mut style) in buttons_query.iter_mut() {
         match *interaction {
             Interaction::Hovered => {
-                style.height = Val::Px(32.0);
+                style.height = Val::Px(48.0);
             }, // добавить анимации
             Interaction::Pressed => {
                 match button.button {
@@ -179,7 +179,7 @@ pub fn handle_buttons(
                 }
             },
             Interaction::None => {
-                style.height = Val::Px(24.0);
+                style.height = Val::Px(32.0);
             }, // откатывать анимации
         }
     }
