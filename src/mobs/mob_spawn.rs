@@ -5,7 +5,18 @@ use seldom_state::prelude::*;
 use rand::{thread_rng, Rng};
 
 use crate::{
-    animation::AnimationConfig, boss_room::spawn_boss_room, camera::YSort, chapter::ChapterManager, gamemap::{Map, TileType, ROOM_SIZE}, level_completion::PortalManager, mobs::{mob::*, mob_types::*}, obstacles::Corpse, pathfinding::create_new_graph, stun::Stun, GameState
+    animation::AnimationConfig,
+    boss_room::spawn_boss_room,
+    camera::YSort,
+    chapter::ChapterManager,
+    friend::Friend,
+    gamemap::{Map, TileType, ROOM_SIZE},
+    level_completion::PortalManager,
+    mobs::{mob::*, mob_types::*},
+    obstacles::Corpse,
+    pathfinding::create_new_graph,
+    stun::Stun,
+    GameState,
 };
 
 pub struct MobSpawnPlugin;
@@ -32,8 +43,18 @@ impl Plugin for MobSpawnPlugin {
 }
 
 const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage, MobType::EarthElemental];
-const JUNGLE_MOBS: &[MobType] = &[MobType::Mossling, MobType::JungleTurret, MobType::WaterMage, MobType::AirElemental];
-const INFERNO_MOBS: &[MobType] = &[MobType::Necromancer, MobType::FireMage, MobType::Knight, MobType::FireElemental];
+const JUNGLE_MOBS: &[MobType] = &[
+    MobType::Mossling,
+    MobType::JungleTurret,
+    MobType::WaterMage,
+    MobType::AirElemental,
+];
+const INFERNO_MOBS: &[MobType] = &[
+    MobType::Necromancer,
+    MobType::FireMage,
+    MobType::Knight,
+    MobType::FireElemental,
+];
 //maybe add some minibosses? const BOSSES: &[MobType] = &[MobType::Koldun];
 
 //event to spawn mob with mob_type in pos
@@ -364,13 +385,13 @@ pub fn spawn_mob(
         match spawn_kit.ai_type {
             MobAI::Orbital => {
                 mob = commands
-                        .spawn((
-                            StateMachine::default()
-                                .trans::<FreeOrbital, _>(done(Some(Done::Success)), BusyOrbital)
-                                .trans::<BusyOrbital, _>(done(Some(Done::Success)), FreeOrbital),
-                            FreeOrbital,
-                        ))
-                        .id()
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<FreeOrbital, _>(done(Some(Done::Success)), BusyOrbital)
+                            .trans::<BusyOrbital, _>(done(Some(Done::Success)), FreeOrbital),
+                        FreeOrbital,
+                    ))
+                    .id()
             }
             MobAI::Phasing => {
                 mob = commands
@@ -462,8 +483,7 @@ pub fn spawn_mob(
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
-            .insert(YSort(spawn_kit.pixel_size as f32 / 2.))
-            .id();
+            .insert(YSort(spawn_kit.pixel_size as f32 / 2.));
 
         if spawn_kit.has_animation {
             commands

@@ -4,7 +4,17 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, mobs::{MobSpawnEvent, MobType}, player::Player, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, 
+    blank_spell::SpawnBlankEvent, 
+    mobs::{MobSpawnEvent, MobType}, 
+    player::{Player, PlayerStats, PlayerDeathEvent}, 
+    projectile::SpawnProjectileEvent, 
+    shield_spell::SpawnShieldEvent, 
+    wand::Wand, 
+    GameState,
+    health::Health,
+    item::ItemPickupAnimation,
+    mouse_position::MouseCoords,
 };
 
 pub struct ElementsPlugin;
@@ -166,7 +176,7 @@ fn cast_spell(
 
     wand_query: Query<&Transform, With<Wand>>,
     
-    mut player_query: Query<(&mut Health, Entity), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut player_query: Query<(&mut Health, Entity, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
@@ -183,7 +193,7 @@ fn cast_spell(
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
 
-        let Ok((mut player_health, player_e)) = player_query.get_single_mut() else {
+        let Ok((mut player_health, player_e, transform)) = player_query.get_single_mut() else {
             return;
         };
 
@@ -246,16 +256,13 @@ fn cast_spell(
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
-                if let Ok(spawn_pos) = player_query.get_single_mut(){
-                ev_spawn_blank.send(SpawnBlankEvent {
+                    ev_spawn_blank.send(SpawnBlankEvent {
                     range: bar.air as f32 * 2.,
-                    position: spawn_pos.translation,
+                    position: transform.translation,
                     speed: 10.0,
                     side: true,
                 });
-
                 return;
-            }
             }
 
             if bar.fire == bar.water

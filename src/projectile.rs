@@ -116,7 +116,7 @@ fn spawn_projectile(
                         GameLayer::Player,
                         GameLayer::Wall,
                         GameLayer::Shield,
-                        GameLayer::Friend,,
+                        GameLayer::Friend,
                         GameLayer::Interactable,
                     ]
                 ));

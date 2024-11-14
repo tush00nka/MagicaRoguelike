@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
+    camera::CameraShakeEvent, friend::Friend, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
