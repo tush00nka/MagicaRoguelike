@@ -386,8 +386,8 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), Attack)
-                            .trans::<Attack, _>(done(Some(Done::Success)), PhasingFlag),
+                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), PhasingFlag),
                         PhasingFlag,
                     ))
                     .id()
@@ -399,9 +399,9 @@ pub fn spawn_mob(
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), Attack)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<Attack, _>(done(Some(Done::Success)), Idle),
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
                     .id()

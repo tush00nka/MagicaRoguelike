@@ -279,6 +279,7 @@ fn pursue<Who: Component, Target: Component>(
             &mut LinearVelocity,
             &Transform,
             &mut SearchAndPursue,
+            &mut AttackComponent,
         ),
         (With<Pursue>, With<Who>, Without<Target>),
     >,
@@ -286,7 +287,7 @@ fn pursue<Who: Component, Target: Component>(
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
     time: Res<Time>,
 ) {
-    for (mob_e, mut linvel, mob_transform, mut mob) in mob_query.iter_mut() {
+    for (mob_e, mut linvel, mob_transform, mut mob, mut attack_range) in mob_query.iter_mut() {
         if target_query.iter().len() <= 0 {
             commands.entity(mob_e).insert(Done::Failure);
             return;
@@ -310,7 +311,7 @@ fn pursue<Who: Component, Target: Component>(
             .collect();
 
         let (target_e, target_transform) = sorted_targets[0];
-
+        attack_range.target = Some(target_e);
         let direction = (target_transform.translation - mob_transform.translation)
             .truncate()
             .normalize();
@@ -343,15 +344,19 @@ fn pursue<Who: Component, Target: Component>(
             || mob.search_time.just_finished()
         {
             commands.entity(mob_e).insert(Done::Failure);
+
             linvel.0 = Vec2::ZERO;
             mob.last_target_dir = Vec2::ZERO;
         } else if target_transform
             .translation
             .distance(mob_transform.translation)
-            < 16.
+            < attack_range.range && !attack_range.attacked
         //melee range idk
         {
             commands.entity(mob_e).insert(Done::Success);
+            attack_range.attacked = true;
+            linvel.0 = Vec2::ZERO;
+            mob.last_target_dir = Vec2::ZERO;
         }
     }
 }

@@ -4,8 +4,14 @@ use {
     std::f32::consts::PI,
 };
 ///add mobs with kinematic body type
-pub const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage, MobType::EarthElemental];
+pub const STATIC_MOBS: &[MobType] = &[
+    MobType::JungleTurret,
+    MobType::FireMage,
+    MobType::WaterMage,
+    MobType::EarthElemental,
+];
 
+use crate::animation::AnimationConfig;
 use crate::mobs::rotate_orbital;
 use crate::{
     blank_spell::SpawnBlankEvent,
@@ -44,6 +50,7 @@ impl Plugin for MobPlugin {
                 rotate_orbital::<Enemy>,
                 timer_tick_orbital::<Enemy>,
                 timer_tick_orbital::<Friend>,
+                tick_attack_cooldown,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -89,6 +96,14 @@ pub enum ProjectileType {
     Circle,  // spawn some projectiles around
     Missile, // like fireball
     Gatling, // a lot of small ones
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub enum AttackType {
+    Slash,
+    Rush,
+    Spear,
 }
 
 //targets for mob pathfinding as enum
@@ -255,9 +270,23 @@ pub struct IdleStatic;
 #[derive(Component, Clone)]
 pub struct Pursue;
 
-/// This state make mob attack in melee if he's near his range
+/// This Flag is for mob attack animation
 #[derive(Component, Clone)]
 pub struct Attack;
+
+/// This Flag is for mob AI (melee attacks)
+#[derive(Component, Clone)]
+pub struct AttackFlag;
+
+/// This Flag make mob attack in melee if he's near his range
+#[derive(Component, Clone)]
+pub struct AttackComponent {
+    pub range: f32,
+    pub attack_type: AttackType,
+    pub target: Option<Entity>,
+    pub cooldown: Timer,
+    pub attacked: bool,
+}
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),
@@ -342,12 +371,68 @@ fn mob_attack<Who: Component>(
             &mut LinearVelocity,
             &Transform,
             &mut SearchAndPursue,
+            &AttackComponent,
         ),
-        (With<Attack>, With<Who>),
+        (Changed<AttackFlag>, With<Who>),
     >,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_server: Res<AssetServer>,
+    transform_query: Query<&Transform>,
 ) {
-    for (entity, _a, _b, _c) in mob_query.iter() {
-        commands.entity(entity).insert(Done::Success);
+    for (entity, _a, mob_transform, _c, range) in mob_query.iter() {
+        let dir;
+        match range.target {
+            None => continue,
+            Some(parent) => {
+                dir = transform_query.get(parent).unwrap().translation.truncate() - mob_transform.translation.truncate();
+                commands.entity(entity).insert(Done::Success);},
+        };
+
+        let animation_config = AnimationConfig::new(0, 4, 24);
+        let texture_path;
+        match range.attack_type {
+            AttackType::Slash => texture_path = "textures/slash_horisontal3.png",
+            AttackType::Spear => texture_path = "textures/slash_horisontal.png",
+            AttackType::Rush => texture_path = "textures/slash_horisontal.png", // todo: change to choose from mob type?
+        };
+
+        let texture = asset_server.load(texture_path);
+        let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 5, 1, None, None);
+        let texture_atlas_layout = texture_atlas_layouts.add(layout);
+
+        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
+
+        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
+        
+        transform_attack.translation = Vec3::new(pos_new.x,pos_new.y, 0.);
+        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+
+        commands.entity(entity).with_children(|parent| {
+            parent
+                .spawn(SpriteBundle {
+                    texture,
+                    transform: transform_attack,
+                    ..default()
+                })
+                .insert(animation_config)
+                .insert(Attack)
+                .insert(TextureAtlas {
+                    layout: texture_atlas_layout.clone(),
+                    index: 0,
+                });
+        });
+    }
+}
+
+fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackComponent>) {
+    for mut attack_cd in mob_query.iter_mut(){
+        if attack_cd.attacked{
+            attack_cd.cooldown.tick(time.delta());
+
+            if attack_cd.cooldown.just_finished(){
+                attack_cd.attacked = false;
+            }
+        }
     }
 }
 //actual code==============================================================================================================================

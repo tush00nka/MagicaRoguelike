@@ -18,12 +18,12 @@ pub struct ChapterManager {
     current_chapter: u8,
     max_chapter: u8,
 }
-
+    
 impl Default for ChapterManager {
     fn default() -> Self {
         Self {
             current_level: 1,
-            current_chapter: 2,
+            current_chapter: 1,
             max_chapter: 4,
         }
     }

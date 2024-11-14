@@ -8,8 +8,7 @@ use crate::{
     health::Health,
     mobs::mob::*,
     pathfinding::Pathfinder,
-    Timer,
-    GameLayer,
+    GameLayer, Timer,
 };
 
 #[derive(Bundle)]
@@ -17,6 +16,7 @@ pub struct MeleeMobBundle<T: Component> {
     mob_bundle: MobBundle,
     path_finder: Pathfinder,
     behaviour: T,
+    attack: AttackComponent,
 }
 
 impl MobBundle {
@@ -74,6 +74,13 @@ impl MeleeMobBundle<PlayerRush> {
                 speed: 2000.,
             },
             behaviour: PlayerRush,
+            attack: AttackComponent {
+                range: 24.,
+                attack_type: AttackType::Slash,
+                target: None,
+                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
+                attacked: false,
+            },
         }
     }
 
@@ -89,20 +96,35 @@ impl MeleeMobBundle<PlayerRush> {
                 speed: 2500.,
             },
             behaviour: PlayerRush,
+            attack: AttackComponent {
+                range: 24.,
+                attack_type: AttackType::Slash,
+                target: None,
+                cooldown: Timer::new(Duration::from_millis(1400), TimerMode::Repeating),
+                attacked: false,
+            },
         }
     }
 }
 
 #[derive(Bundle)]
-pub struct MeleePhasingBundle{
+pub struct MeleePhasingBundle {
     mob_bundle: MobBundle,
     phasing: Phasing,
+    attack: AttackComponent,
 }
 impl MeleePhasingBundle {
     pub fn fire_elemental() -> Self {
         Self {
             mob_bundle: MobBundle::fire_elemental(),
-            phasing: Phasing { speed: 2500. }
+            phasing: Phasing { speed: 2500. },
+            attack: AttackComponent {
+                range: 24.,
+                attack_type: AttackType::Slash,
+                target: None,
+                cooldown: Timer::new(Duration::from_millis(1400), TimerMode::Repeating),
+                attacked: false,
+            },
         }
     }
 }
