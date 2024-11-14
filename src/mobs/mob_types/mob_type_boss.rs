@@ -35,6 +35,7 @@ impl MobBundle {
             loot: MobLoot { orbs: 100 },
             body_type: RigidBody::Dynamic,
             health: Health::new(2000),
+            hit_list: HitList::default(),
         }
     }
 }

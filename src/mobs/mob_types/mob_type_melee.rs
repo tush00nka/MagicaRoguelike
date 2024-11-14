@@ -80,6 +80,8 @@ impl MeleeMobBundle<PlayerRush> {
                 target: None,
                 cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
                 attacked: false,
+                element: None,
+                damage: 25,
             },
         }
     }
@@ -100,8 +102,10 @@ impl MeleeMobBundle<PlayerRush> {
                 range: 24.,
                 attack_type: AttackType::Slash,
                 target: None,
-                cooldown: Timer::new(Duration::from_millis(1400), TimerMode::Repeating),
+                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
                 attacked: false,
+                element: None,
+                damage: 25,
             },
         }
     }
@@ -122,8 +126,10 @@ impl MeleePhasingBundle {
                 range: 24.,
                 attack_type: AttackType::Slash,
                 target: None,
-                cooldown: Timer::new(Duration::from_millis(1400), TimerMode::Repeating),
+                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
                 attacked: false,
+                element: None,
+                damage: 25,
             },
         }
     }

@@ -7,6 +7,7 @@ use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::elements::ElementResistance;
+use crate::mobs::HitList;
 use crate::mouse_position::MouseCoords;
 use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
@@ -109,7 +110,8 @@ fn spawn_player(
             elements: vec![],
             resistance_percent: vec![0, 0, 0, 0, 0],
         })
-        .insert(Friend);
+        .insert(Friend)
+        .insert(HitList::default());
 }
 
 fn move_player(

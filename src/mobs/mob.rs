@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 //all things about mobs and their spawn/behaviour
 use {
     avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
@@ -50,7 +52,10 @@ impl Plugin for MobPlugin {
                 rotate_orbital::<Enemy>,
                 timer_tick_orbital::<Enemy>,
                 timer_tick_orbital::<Friend>,
+                attack_hit::<Friend, Enemy>,
+                attack_hit::<Enemy, Friend>,
                 tick_attack_cooldown,
+                timer_empty_list,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -168,7 +173,7 @@ pub struct Mob {
 }
 
 /// Marks mob to be hostile towards player and friends
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Enemy;
 
 #[derive(Component)]
@@ -228,6 +233,22 @@ pub struct Raising {
 #[derive(Component, Clone)]
 pub struct RaisingFlag;
 //mob loot(amount of exp)
+
+#[derive(Component)]
+pub struct HitList {
+    timer_to_clear: Timer,
+    been_punched: bool,
+    id_list: Vec<u16>,
+}
+impl Default for HitList {
+    fn default() -> Self {
+        Self {
+            timer_to_clear: Timer::new(Duration::from_millis(5000), TimerMode::Repeating),
+            been_punched: false,
+            id_list: vec![],
+        }
+    }
+}
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
@@ -272,7 +293,12 @@ pub struct Pursue;
 
 /// This Flag is for mob attack animation
 #[derive(Component, Clone)]
-pub struct Attack;
+pub struct Attack {
+    pub damage: i32,
+    pub element: Option<ElementType>,
+    pub dir: Vec2,
+    pub hit_id: u16,
+}
 
 /// This Flag is for mob AI (melee attacks)
 #[derive(Component, Clone)]
@@ -286,6 +312,8 @@ pub struct AttackComponent {
     pub target: Option<Entity>,
     pub cooldown: Timer,
     pub attacked: bool,
+    pub damage: i32,
+    pub element: Option<ElementType>,
 }
 
 //Bundles===========================================================================================================================================
@@ -312,6 +340,7 @@ pub struct MobBundle {
     pub loot: MobLoot,
     pub body_type: RigidBody,
     pub health: Health,
+    pub hit_list: HitList,
 }
 
 //implemenations
@@ -358,42 +387,66 @@ impl Default for MobBundle {
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
             health: Health::new(100),
+            hit_list: HitList::default(),
         }
     }
 }
 
-fn mob_attack<Who: Component>(
+fn mob_attack<Who: Component + std::default::Default>(
     mut commands: Commands,
     //    spatial_query: SpatialQuery,
     mob_query: Query<
-        (
-            Entity,
-            &mut LinearVelocity,
-            &Transform,
-            &mut SearchAndPursue,
-            &AttackComponent,
-        ),
+        (Entity, &mut LinearVelocity, &Transform, &AttackComponent),
         (Changed<AttackFlag>, With<Who>),
     >,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
     transform_query: Query<&Transform>,
 ) {
-    for (entity, _a, mob_transform, _c, range) in mob_query.iter() {
+    for (entity, _a, mob_transform, range) in mob_query.iter() {
         let dir;
         match range.target {
             None => continue,
             Some(parent) => {
-                dir = transform_query.get(parent).unwrap().translation.truncate() - mob_transform.translation.truncate();
-                commands.entity(entity).insert(Done::Success);},
+                dir = transform_query.get(parent).unwrap().translation.truncate()
+                    - mob_transform.translation.truncate();
+                commands.entity(entity).insert(Done::Success);
+            }
         };
 
+        let hit_id: u16 = rand::thread_rng().gen::<u16>();
+
         let animation_config = AnimationConfig::new(0, 4, 24);
-        let texture_path;
+        let mut texture_path;
+
+        let mut friendly: bool = false;
+
+        if std::any::type_name::<Who>() == std::any::type_name::<Friend>() {
+            friendly = true;
+        }
         match range.attack_type {
-            AttackType::Slash => texture_path = "textures/slash_horisontal3.png",
-            AttackType::Spear => texture_path = "textures/slash_horisontal.png",
-            AttackType::Rush => texture_path = "textures/slash_horisontal.png", // todo: change to choose from mob type?
+            AttackType::Slash => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                    println!("GOT heRe");
+                }
+            }
+            AttackType::Spear => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                }
+            }
+            AttackType::Rush => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                }
+            } // todo: change to choose from mob type?
         };
 
         let texture = asset_server.load(texture_path);
@@ -403,8 +456,8 @@ fn mob_attack<Who: Component>(
         let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
 
         let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
-        
-        transform_attack.translation = Vec3::new(pos_new.x,pos_new.y, 0.);
+
+        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
         transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
 
         commands.entity(entity).with_children(|parent| {
@@ -415,22 +468,59 @@ fn mob_attack<Who: Component>(
                     ..default()
                 })
                 .insert(animation_config)
-                .insert(Attack)
+                .insert(Attack {
+                    damage: range.damage,
+                    element: range.element,
+                    dir: dir,
+                    hit_id: hit_id,
+                })
                 .insert(TextureAtlas {
                     layout: texture_atlas_layout.clone(),
                     index: 0,
-                });
+                })
+                .insert(Collider::rectangle(16., 16.))
+                .insert(Sensor)
+                .insert(LockedAxes::ROTATION_LOCKED)
+                .insert(Who::default());
         });
     }
 }
 
 fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackComponent>) {
-    for mut attack_cd in mob_query.iter_mut(){
-        if attack_cd.attacked{
+    for mut attack_cd in mob_query.iter_mut() {
+        if attack_cd.attacked {
             attack_cd.cooldown.tick(time.delta());
 
-            if attack_cd.cooldown.just_finished(){
+            if attack_cd.cooldown.just_finished() {
                 attack_cd.attacked = false;
+            }
+        }
+    }
+}
+
+fn attack_hit<Who: Component, Target: Component>(
+    mut attack_query: Query<(Entity, &mut Attack), (With<Who>, Without<Target>)>,
+    mut target_query: Query<
+        (&CollidingEntities, &mut Health, &ElementResistance, &mut HitList),
+        (Without<Who>, With<Target>),
+    >,
+) {
+    for (entities, mut hp, el_res, mut hit_list) in target_query.iter_mut() {
+        //maybe apply el_res?
+        for (attack_e, attack) in attack_query.iter_mut() {
+            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id){
+                let mut damage = attack.damage;
+                el_res.calculate_for(&mut damage, attack.element);
+                
+                hit_list.id_list.push(attack.hit_id);
+                hit_list.been_punched = true;
+                hit_list.timer_to_clear.reset();
+
+                hp.hit_queue.push(Hit {
+                    damage: damage,
+                    element: attack.element,
+                    direction: Vec3::new(attack.dir.x, attack.dir.y, 1.0),
+                });
             }
         }
     }
@@ -589,7 +679,17 @@ fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
         }
     }
 }
-
+pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
+    for mut list in list_query.iter_mut() {
+        if list.been_punched {
+            list.timer_to_clear.tick(time.delta());
+            if list.timer_to_clear.just_finished() {
+                list.been_punched = false;
+                list.id_list = vec![];
+            }
+        }
+    }
+}
 pub fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,

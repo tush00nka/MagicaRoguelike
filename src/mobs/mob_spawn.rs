@@ -307,7 +307,9 @@ pub fn spawn_mob(
     mut portal_manager: ResMut<PortalManager>,
 ) {
     for ev in ev_mob_spawn.read() {
-        portal_manager.push_mob();
+        if !ev.is_friendly {
+            portal_manager.push_mob();
+        }
         let spawn_kit: SpawnKit;
 
         let x = ev.pos.x;

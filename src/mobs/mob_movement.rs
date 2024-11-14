@@ -99,7 +99,13 @@ fn runaway_mob(
 
 fn phasing_mob<Side: Component, Target: Component>(
     mut side_query: Query<
-        (&mut LinearVelocity, &Transform, &Phasing),
+        (
+            Entity,
+            &mut LinearVelocity,
+            &Transform,
+            &Phasing,
+            &mut AttackComponent,
+        ),
         (
             Without<Stun>,
             Without<Teleport>,
@@ -109,14 +115,15 @@ fn phasing_mob<Side: Component, Target: Component>(
             Without<Target>,
         ),
     >,
-    target_query: Query<&Transform, (With<Target>, Without<Side>)>,
+    target_query: Query<(Entity, &Transform), (With<Target>, Without<Side>)>,
     time: Res<Time>,
+    mut commands: Commands,
 ) {
-    for (mut linvel, transform, pathfinder) in side_query.iter_mut() {
+    for (phasing_e, mut linvel, transform, pathfinder, mut attack) in side_query.iter_mut() {
         if target_query.iter().len() <= 0 {
             return;
         }
-        let sorted_targets: Vec<&Transform> = target_query
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
                 if item1.translation.distance(transform.translation)
@@ -133,7 +140,7 @@ fn phasing_mob<Side: Component, Target: Component>(
             })
             .collect();
 
-        let target_transform = sorted_targets[0];
+        let (target_e, target_transform) = sorted_targets[0];
 
         let direction = Vec2::new(
             target_transform.translation.x - transform.translation.x,
@@ -142,6 +149,17 @@ fn phasing_mob<Side: Component, Target: Component>(
         .normalize();
 
         linvel.0 = direction * pathfinder.speed * time.delta_seconds();
+
+        if target_transform.translation.distance(transform.translation) < attack.range
+            && !attack.attacked
+        //melee range idk
+        {
+            commands.entity(phasing_e).insert(Done::Success);
+            attack.target = Some(target_e);
+            attack.attacked = true;
+            linvel.0 = Vec2::ZERO;
+            println!("Phasing done");
+        }
     }
 }
 
@@ -350,7 +368,8 @@ fn pursue<Who: Component, Target: Component>(
         } else if target_transform
             .translation
             .distance(mob_transform.translation)
-            < attack_range.range && !attack_range.attacked
+            < attack_range.range
+            && !attack_range.attacked
         //melee range idk
         {
             commands.entity(mob_e).insert(Done::Success);
