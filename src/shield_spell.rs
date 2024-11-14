@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
-use crate::{player::Player, GameLayer};
+use crate::{friend::Friend, player::Player, GameLayer};
 
 pub struct ShieldSpellPlugin;
 
@@ -60,7 +60,8 @@ fn spawn_shield(
             .insert(RigidBody::Dynamic)
             .insert(GravityScale(0.0))
             .insert(Collider::circle(16.0))
-            .insert(CollisionLayers::new(GameLayer::Shield, [GameLayer::Enemy, GameLayer::Projectile])).id();
+            .insert(CollisionLayers::new(GameLayer::Shield, [GameLayer::Enemy, GameLayer::Projectile]))
+            .insert(Friend).id();
 
             commands.spawn(FixedJoint::new(player_e, shield_e));
         }

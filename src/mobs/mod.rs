@@ -14,3 +14,4 @@ mod mob_types;
 
 mod boss_behaviour;
 pub use  boss_behaviour::*;
+pub use mob_types::*;

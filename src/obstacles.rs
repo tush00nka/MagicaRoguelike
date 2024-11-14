@@ -1,5 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use seldom_state::trigger::Done;
 
 use crate::{
     camera::YSort, health::{Health, Hit}, mobs::*, pathfinding::Pathfinder, projectile::{Friendly, Projectile}, stun::Stun, GameLayer, GameState
@@ -42,7 +43,7 @@ fn corpse_collision(
     mut commands: Commands,
     mut summoner_query: Query<
         (Entity, &Transform, &mut Summoning, &Pathfinder),
-        (Without<Raising>, Without<Stun>),
+        (Without<RaisingFlag>, Without<Stun>),
     >,
     mut corpse_query: Query<(Entity, &Transform, &Corpse), Without<BusyRaising>>,
     mut ev_collision: EventReader<Collision>,
@@ -64,11 +65,14 @@ fn corpse_collision(
             if spawner_e == candidate_e {
                 for (corpse_candidate_e, transform, corpse) in corpse_query.iter_mut() {
                     if corpse_e == corpse_candidate_e {
-                        commands.entity(spawner_e).insert(Raising {
-                            mob_type: corpse.mob_type.clone(),
-                            mob_pos: *transform,
-                            corpse_id: corpse_e,
-                        });
+                        commands
+                            .entity(spawner_e)
+                            .insert(Raising {
+                                mob_type: corpse.mob_type.clone(),
+                                mob_pos: *transform,
+                                corpse_id: corpse_e,
+                            })
+                            .insert(Done::Success);
                         commands.entity(corpse_e).insert(BusyRaising);
                     }
                 }
@@ -105,7 +109,6 @@ fn hit_obstacles<T: Component>(
             }
         }
     }
-
 }
 
 fn damage_obstacles<T: Component>(
@@ -164,7 +167,43 @@ fn spawn_corpse(
             }
             MobType::Koldun => {
                 texture_path = "textures/mob_corpse_placeholder.png";
-                can_be_spawned = false;//maybe true?
+                can_be_spawned = false; //maybe true?
+            }
+            MobType::EarthElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::FireElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::WaterElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::AirElemental => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::ClayGolem => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletMage => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletWarrior => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::SkeletRanger => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
+            }
+            MobType::TankEater => {
+                texture_path = "textures/mob_corpse_placeholder.png";
+                can_be_spawned = true;
             }
         }
         let texture = asset_server.load(texture_path);

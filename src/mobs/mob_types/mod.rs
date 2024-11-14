@@ -12,3 +12,6 @@ pub use mob_type_turret::*;
 
 mod mob_type_boss;
 pub use mob_type_boss::*;
+
+mod mob_type_orbital;
+pub use mob_type_orbital::*;

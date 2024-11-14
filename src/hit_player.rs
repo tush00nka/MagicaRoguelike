@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    camera::CameraShakeEvent, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
+    camera::CameraShakeEvent, friend::Friend, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -18,7 +18,7 @@ impl Plugin for HitPlayerPlugin {
 }
 //damage by collision with mob
 fn hit_player(
-    mob_query: Query<(Entity, &Mob), Without<Player>>,
+    mob_query: Query<(Entity, &Mob), (Without<Friend>, Without<Player>)>,
     mut player_query: Query<(&CollidingEntities, &mut Health), (With<Player>, Without<Invincibility>)>,
 ) {
     let Ok((colliding_e, mut health)) = player_query.get_single_mut() else {

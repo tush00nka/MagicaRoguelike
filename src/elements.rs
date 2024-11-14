@@ -4,7 +4,17 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::ItemPickupAnimation, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    black_hole::SpawnBlackHoleEvent, 
+    blank_spell::SpawnBlankEvent, 
+    mobs::{MobSpawnEvent, MobType}, 
+    player::{Player, PlayerStats, PlayerDeathEvent}, 
+    projectile::SpawnProjectileEvent, 
+    shield_spell::SpawnShieldEvent, 
+    wand::Wand, 
+    GameState,
+    health::Health,
+    item::ItemPickupAnimation,
+    mouse_position::MouseCoords,
 };
 
 pub struct ElementsPlugin;
@@ -166,14 +176,14 @@ fn cast_spell(
 
     wand_query: Query<&Transform, With<Wand>>,
     
-    mut player_query: Query<(&mut Health, Entity), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut player_query: Query<(&mut Health, Entity, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 
     mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
     mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
     mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
-
+    mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
     mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
 
@@ -183,7 +193,7 @@ fn cast_spell(
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
 
-        let Ok((mut player_health, player_e)) = player_query.get_single_mut() else {
+        let Ok((mut player_health, player_e, transform)) = player_query.get_single_mut() else {
             return;
         };
 
@@ -246,11 +256,12 @@ fn cast_spell(
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
-                ev_spawn_blank.send(SpawnBlankEvent {
+                    ev_spawn_blank.send(SpawnBlankEvent {
                     range: bar.air as f32 * 2.,
+                    position: transform.translation,
                     speed: 10.0,
+                    side: true,
                 });
-
                 return;
             }
 
@@ -265,6 +276,41 @@ fn cast_spell(
                     strength: 1_000. * bar.len() as f32,
                 });
 
+                return;
+            }
+            //spawn ClayGolem
+            if bar.earth == 2 
+            && bar.air <= 0 
+            && bar.water >=2 
+            && bar.fire >=2 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+
+            //spawn FireElemental
+            if bar.earth >= 1 
+            && bar.air <= 0 
+            && bar.water >=1 
+            && bar.fire == 2 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+            
+            //spawn EarthElemental
+            if bar.earth == 2 
+            && bar.air <= 0 
+            && bar.water >=1 
+            && bar.fire >=1 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }
+
+            //spawn AirElemental
+            if bar.earth <= 0 
+            && bar.air == 2 
+            && bar.water >= 1 
+            && bar.fire >=1 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
                 return;
             }
 

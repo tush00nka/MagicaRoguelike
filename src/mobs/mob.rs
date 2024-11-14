@@ -1,51 +1,62 @@
+use std::time::Duration;
+
 //all things about mobs and their spawn/behaviour
-use std::f32::consts::PI;
-
-use avian2d::prelude::*;
-use bevy::prelude::*;
-use rand::Rng;
+use {
+    avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
+    std::f32::consts::PI,
+};
 ///add mobs with kinematic body type
-const STATIC_MOBS: &[MobType] = &[MobType::JungleTurret, MobType::FireMage, MobType::WaterMage];
+pub const STATIC_MOBS: &[MobType] = &[
+    MobType::JungleTurret,
+    MobType::FireMage,
+    MobType::WaterMage,
+    MobType::EarthElemental,
+];
 
+use crate::animation::AnimationConfig;
+use crate::mobs::rotate_orbital;
 use crate::{
-    elements::{
-        ElementResistance,
-        ElementType
-    },
+    blank_spell::SpawnBlankEvent,
+    elements::{ElementResistance, ElementType},
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
+    friend::Friend,
     gamemap::Map,
-    health::{
-        Health,
-        Hit
-    },
-    level_completion::{
-        PortalEvent,
-        PortalManager
-    },
-    obstacles::{
-        Corpse,
-        CorpseSpawnEvent
-    },
+    health::{Health, Hit},
+    level_completion::{PortalEvent, PortalManager},
+    mobs::timer_tick_orbital,
+    obstacles::{Corpse, CorpseSpawnEvent},
     particles::SpawnParticlesEvent,
     player::Player,
-    projectile::{
-        Friendly,
-        Projectile,
-        SpawnProjectileEvent
-    },
+    projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
     stun::Stun,
-    GameLayer,
-    GameState
+    GameLayer, GameState,
 };
-
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MobDeathEvent>().add_systems(
             Update,
-            (damage_mobs, mob_death, mob_shoot, hit_projectiles)
+            (
+                damage_mobs,
+                mob_death,
+                mob_shoot::<Friend, ShootAbility, Friend, Friendly, Hostile>,
+                mob_shoot::<Mob, Friend, Friendly, Friend, Friendly>,
+                mob_attack::<Enemy>,
+                mob_attack::<Friend>,
+                hit_projectiles::<Player, Friend, Hostile>,
+                hit_projectiles::<Friend, Mob, Friendly>,
+                timer_shoot,
+                rotate_orbital::<Friend>,
+                rotate_orbital::<Enemy>,
+                timer_tick_orbital::<Enemy>,
+                timer_tick_orbital::<Friend>,
+                attack_hit::<Friend, Enemy>,
+                attack_hit::<Enemy, Friend>,
+                tick_attack_cooldown,
+                timer_empty_list,
+            )
                 .run_if(in_state(GameState::InGame)),
         );
     }
@@ -62,7 +73,7 @@ pub struct MobDeathEvent {
 
 //Enum components========================================================================================================================================
 //MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
-#[derive(Component, Clone,PartialEq)]
+#[derive(Component, Clone, PartialEq)]
 pub enum MobType {
     Knight,
     Mossling,
@@ -71,6 +82,15 @@ pub enum MobType {
     JungleTurret,
     Necromancer,
     Koldun,
+    ClayGolem,      //walking tank(like fat, not shooting, attacks around)
+    WaterElemental, //walking range mob
+    FireElemental,  //like ghost(melee mob with phasing) // done
+    SkeletWarrior,  //mechanics
+    SkeletMage,     //mechanics
+    SkeletRanger,   // add arrow texture
+    EarthElemental, //turret i guess? //done
+    AirElemental,   // just an orbital?
+    TankEater,
 }
 
 //projectile types
@@ -81,6 +101,14 @@ pub enum ProjectileType {
     Circle,  // spawn some projectiles around
     Missile, // like fireball
     Gatling, // a lot of small ones
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub enum AttackType {
+    Slash,
+    Rush,
+    Spear,
 }
 
 //targets for mob pathfinding as enum
@@ -100,13 +128,24 @@ pub enum MobTarget {
 //Pure components=========================================================================================================================================
 //If you want to add something (create new mob, or add new component), first of all, add components there (and check, maybe it exists already)
 //ability to teleport, contains timer and range in tiles from target
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Teleport {
     //todo: change to just tuple? maybe not?
     pub amount_of_tiles: u8,
     pub place_to_teleport: Vec<(u16, u16)>,
     pub time_to_teleport: Timer,
 }
+///Flag to teleport state
+#[derive(Component, Clone)]
+pub struct TeleportFlag;
+
+///Flag to mobs with phasing
+#[derive(Component, Clone)]
+pub struct Phasing {
+    pub speed: f32,
+}
+#[derive(Component, Clone)]
+pub struct PhasingFlag;
 
 //component to mob and structures who can spawn enemy.
 #[allow(dead_code)]
@@ -117,12 +156,15 @@ pub struct Summoning {
 }
 
 //component to shoot, has timer, element and proj type according to enum ProjectileType
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ShootAbility {
     pub time_to_shoot: Timer,
     pub element: ElementType,
     pub proj_type: ProjectileType,
 }
+///flag to state system
+#[derive(Component, Clone)]
+pub struct ShootFlag;
 
 //component to deal contact damage
 #[derive(Component)]
@@ -130,6 +172,17 @@ pub struct Mob {
     pub damage: i32,
 }
 
+/// Marks mob to be hostile towards player and friends
+#[derive(Component, Default)]
+pub struct Enemy;
+
+#[derive(Component)]
+pub struct Orbital {
+    pub time_to_live: Timer,
+    pub is_eternal: bool,
+    pub speed: f32,
+    pub parent: Option<Box<Entity>>,
+}
 /// Struct for convenient mob sight handling
 #[derive(Debug)]
 pub struct Ray {
@@ -144,7 +197,7 @@ pub struct SearchAndPursue {
     pub search_time: Timer,
     pub wander_timer: Timer,
     pub pursue_radius: f32,
-    pub last_player_dir: Vec2,
+    pub last_target_dir: Vec2,
     pub rays: Vec<Ray>,
 }
 
@@ -164,12 +217,11 @@ impl Default for SearchAndPursue {
             search_time: Timer::from_seconds(5., TimerMode::Once),
             wander_timer: Timer::from_seconds(3., TimerMode::Repeating),
             pursue_radius: 256.0,
-            last_player_dir: Vec2::ZERO,
+            last_target_dir: Vec2::ZERO,
             rays,
         }
     }
 }
-
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -177,8 +229,26 @@ pub struct Raising {
     pub mob_pos: Transform,
     pub corpse_id: Entity,
 }
-
+///TEMPORARY COMP FOR MOB AI
+#[derive(Component, Clone)]
+pub struct RaisingFlag;
 //mob loot(amount of exp)
+
+#[derive(Component)]
+pub struct HitList {
+    timer_to_clear: Timer,
+    been_punched: bool,
+    id_list: Vec<u16>,
+}
+impl Default for HitList {
+    fn default() -> Self {
+        Self {
+            timer_to_clear: Timer::new(Duration::from_millis(5000), TimerMode::Repeating),
+            been_punched: false,
+            id_list: vec![],
+        }
+    }
+}
 #[derive(Component)]
 pub struct MobLoot {
     //todo: maybe add something like chance to spawn tank with exp/hp?
@@ -192,11 +262,11 @@ pub struct MobLoot {
 pub struct PlayerRush;
 
 /// Flag to pathfinding: rush to corpse
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct CorpseRush;
 
 /// Flag to pathfinding: try to run away
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct RunawayRush;
 
 /// Flag for entities with rotation parts
@@ -210,12 +280,41 @@ pub struct FlipEntity;
 pub struct BusyRaising;
 
 /// This state should be applied to mob entity if it doesn't need to do anything in particular
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Idle;
 
-/// This state should be applied to mob entity if it need to be following player
-#[derive(Component)]
-pub struct PursuePlayer;
+/// This state should be applied to STATIC mob entity if it doesn't need to do anything in particular(for state machines)
+#[derive(Component, Clone)]
+pub struct IdleStatic;
+
+/// This state make mob search for target and follow it
+#[derive(Component, Clone)]
+pub struct Pursue;
+
+/// This Flag is for mob attack animation
+#[derive(Component, Clone)]
+pub struct Attack {
+    pub damage: i32,
+    pub element: Option<ElementType>,
+    pub dir: Vec2,
+    pub hit_id: u16,
+}
+
+/// This Flag is for mob AI (melee attacks)
+#[derive(Component, Clone)]
+pub struct AttackFlag;
+
+/// This Flag make mob attack in melee if he's near his range
+#[derive(Component, Clone)]
+pub struct AttackComponent {
+    pub range: f32,
+    pub attack_type: AttackType,
+    pub target: Option<Entity>,
+    pub cooldown: Timer,
+    pub attacked: bool,
+    pub damage: i32,
+    pub element: Option<ElementType>,
+}
 
 //Bundles===========================================================================================================================================
 //Bundles of components, works like this: PhysicalBundle -> MobBundle -> MobTypeBundle (like turret),
@@ -223,31 +322,32 @@ pub struct PursuePlayer;
 // physical bundle with all physical stats
 #[derive(Bundle)]
 pub struct PhysicalBundle {
-    collider: Collider,
-    axes: LockedAxes,
-    gravity: GravityScale,
-    collision_layers: CollisionLayers,
-    linear_velocity: LinearVelocity,
+    pub collider: Collider,
+    pub axes: LockedAxes,
+    pub gravity: GravityScale,
+    pub collision_layers: CollisionLayers,
+    pub linear_velocity: LinearVelocity,
 }
 
 //bundle with all basic parameters of mob
 #[derive(Bundle)]
 pub struct MobBundle {
     //contains mob stats
-    phys_bundle: PhysicalBundle,
-    resistance: ElementResistance,
-    mob_type: MobType,
-    mob: Mob,
-    loot: MobLoot,
-    body_type: RigidBody,
-    health: Health,
+    pub phys_bundle: PhysicalBundle,
+    pub resistance: ElementResistance,
+    pub mob_type: MobType,
+    pub mob: Mob,
+    pub loot: MobLoot,
+    pub body_type: RigidBody,
+    pub health: Health,
+    pub hit_list: HitList,
 }
 
 //implemenations
 //change it, only if you know what you're doing
 //add something there, and later go to spawn_mob
 impl Mob {
-    fn new(damage: i32) -> Self {
+    pub fn new(damage: i32) -> Self {
         Self { damage }
     }
 }
@@ -265,6 +365,7 @@ impl Default for PhysicalBundle {
                     GameLayer::Wall,
                     GameLayer::Projectile,
                     GameLayer::Shield,
+                    GameLayer::Friend,
                     GameLayer::Enemy,
                     GameLayer::Player,
                 ],
@@ -273,130 +374,199 @@ impl Default for PhysicalBundle {
         }
     }
 }
-
-impl MobBundle {
-    pub fn knight() -> Self {
+impl Default for MobBundle {
+    fn default() -> Self {
         Self {
             phys_bundle: PhysicalBundle::default(),
             resistance: ElementResistance {
                 elements: vec![],
                 resistance_percent: vec![0, 0, 0, 0, 0],
             },
-            mob_type: MobType::Knight,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(100),
-        }
-    }
-    pub fn mossling() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 15, 15, 0, 0],
-            },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
             loot: MobLoot { orbs: 3 },
             body_type: RigidBody::Dynamic,
             health: Health::new(100),
-        }
-    }
-    pub fn turret() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth, ElementType::Water],
-                resistance_percent: vec![0, 60, 60, 0, 0],
-            },
-            mob_type: MobType::JungleTurret,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(200),
-        }
-    }
-    pub fn fire_mage() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Fire],
-                resistance_percent: vec![80, 0, 0, 0, 0],
-            },
-            mob_type: MobType::FireMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    pub fn water_mage() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Water],
-                resistance_percent: vec![0, 80, 0, 0, 0],
-            },
-            mob_type: MobType::WaterMage,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
-            body_type: RigidBody::Static,
-            health: Health::new(80),
-        }
-    }
-
-    pub fn necromancer() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle::default(),
-            resistance: ElementResistance {
-                elements: vec![ElementType::Earth],
-                resistance_percent: vec![0, 0, 30, 0, 0],
-            },
-            mob_type: MobType::Necromancer,
-            mob: Mob::new(20),
-            loot: MobLoot { orbs: 5 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(140),
-        }
-    }
-    pub fn koldun() -> Self {
-        Self {
-            phys_bundle: PhysicalBundle {
-                collider: Collider::circle(24.),
-                ..default()
-            },
-            resistance: ElementResistance {
-                elements: vec![
-                    ElementType::Earth,
-                    ElementType::Air,
-                    ElementType::Fire,
-                    ElementType::Water,
-                ],
-                resistance_percent: vec![20, 20, 20, 20, 20],
-            },
-            mob_type: (MobType::Koldun),
-            mob: Mob::new(40),
-            loot: MobLoot { orbs: 100 },
-            body_type: RigidBody::Dynamic,
-            health: Health::new(2000),
+            hit_list: HitList::default(),
         }
     }
 }
 
+fn mob_attack<Who: Component + std::default::Default>(
+    mut commands: Commands,
+    //    spatial_query: SpatialQuery,
+    mob_query: Query<
+        (Entity, &mut LinearVelocity, &Transform, &AttackComponent),
+        (Changed<AttackFlag>, With<Who>),
+    >,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_server: Res<AssetServer>,
+    transform_query: Query<&Transform>,
+) {
+    for (entity, _a, mob_transform, range) in mob_query.iter() {
+        let dir;
+        match range.target {
+            None => continue,
+            Some(parent) => {
+                dir = transform_query.get(parent).unwrap().translation.truncate()
+                    - mob_transform.translation.truncate();
+                commands.entity(entity).insert(Done::Success);
+            }
+        };
+
+        let hit_id: u16 = rand::thread_rng().gen::<u16>();
+
+        let animation_config = AnimationConfig::new(0, 4, 24);
+        let mut texture_path;
+
+        let mut friendly: bool = false;
+
+        if std::any::type_name::<Who>() == std::any::type_name::<Friend>() {
+            friendly = true;
+        }
+        match range.attack_type {
+            AttackType::Slash => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                    println!("GOT heRe");
+                }
+            }
+            AttackType::Spear => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                }
+            }
+            AttackType::Rush => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                }
+            } // todo: change to choose from mob type?
+        };
+
+        let texture = asset_server.load(texture_path);
+        let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 5, 1, None, None);
+        let texture_atlas_layout = texture_atlas_layouts.add(layout);
+
+        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
+
+        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
+
+        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
+        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+
+        commands.entity(entity).with_children(|parent| {
+            parent
+                .spawn(SpriteBundle {
+                    texture,
+                    transform: transform_attack,
+                    ..default()
+                })
+                .insert(animation_config)
+                .insert(Attack {
+                    damage: range.damage,
+                    element: range.element,
+                    dir: dir,
+                    hit_id: hit_id,
+                })
+                .insert(TextureAtlas {
+                    layout: texture_atlas_layout.clone(),
+                    index: 0,
+                })
+                .insert(Collider::rectangle(16., 16.))
+                .insert(Sensor)
+                .insert(LockedAxes::ROTATION_LOCKED)
+                .insert(Who::default());
+        });
+    }
+}
+
+fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackComponent>) {
+    for mut attack_cd in mob_query.iter_mut() {
+        if attack_cd.attacked {
+            attack_cd.cooldown.tick(time.delta());
+
+            if attack_cd.cooldown.just_finished() {
+                attack_cd.attacked = false;
+            }
+        }
+    }
+}
+
+fn attack_hit<Who: Component, Target: Component>(
+    mut attack_query: Query<(Entity, &mut Attack), (With<Who>, Without<Target>)>,
+    mut target_query: Query<
+        (&CollidingEntities, &mut Health, &ElementResistance, &mut HitList),
+        (Without<Who>, With<Target>),
+    >,
+) {
+    for (entities, mut hp, el_res, mut hit_list) in target_query.iter_mut() {
+        //maybe apply el_res?
+        for (attack_e, attack) in attack_query.iter_mut() {
+            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id){
+                let mut damage = attack.damage;
+                el_res.calculate_for(&mut damage, attack.element);
+                
+                hit_list.id_list.push(attack.hit_id);
+                hit_list.been_punched = true;
+                hit_list.timer_to_clear.reset();
+
+                hp.hit_queue.push(Hit {
+                    damage: damage,
+                    element: attack.element,
+                    direction: Vec3::new(attack.dir.x, attack.dir.y, 1.0),
+                });
+            }
+        }
+    }
+}
 //actual code==============================================================================================================================
-fn mob_shoot(
+fn mob_shoot<
+    Target: Component,
+    Shoot: Component,
+    Filter1: Component,
+    Filter2: Component,
+    ProjType: Component,
+>(
+    mut commands: Commands,
     spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut mob_query: Query<(Entity, &Transform, &mut ShootAbility), Without<Stun>>,
-    mut player_query: Query<(Entity, &Transform), (With<Player>, Without<Mob>)>,
-    time: Res<Time>,
+    mut shoot_query: Query<
+        (Entity, &Transform, &mut ShootAbility),
+        (
+            With<Shoot>,
+            Without<Stun>,
+            Without<Filter1>,
+            With<ShootFlag>,
+        ),
+    >,
+    target_query: Query<(Entity, &Transform), (With<Target>, Without<Filter2>)>,
     avoid_query: Query<Entity, With<Corpse>>,
 ) {
-    for (mob_e, &mob_transform, mut can_shoot) in mob_query.iter_mut() {
-        if let Ok((player_e, player_transform)) = player_query.get_single_mut() {
-            let dir = (player_transform.translation.truncate()
+    for (mob_e, &mob_transform, can_shoot) in shoot_query.iter_mut() {
+        if target_query.iter().len() != 0 {
+            let mut target_transform: Transform = mob_transform.clone();
+            let mut target_e: Entity = mob_e;
+            let mut dist: f32 = f32::MAX;
+            for (temp_e, temp_pos) in target_query.iter() {
+                let temp_dist: f32 = (mob_transform.translation - temp_pos.translation)
+                    .x
+                    .powf(2.)
+                    + (mob_transform.translation - temp_pos.translation)
+                        .y
+                        .powf(2.);
+                if dist > temp_dist {
+                    dist = temp_dist;
+                    target_transform = *temp_pos;
+                    target_e = temp_e;
+                }
+            }
+            let dir = (target_transform.translation.truncate()
                 - mob_transform.translation.truncate())
             .normalize_or_zero();
 
@@ -408,15 +578,19 @@ fn mob_shoot(
                 SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
                 &|entity| entity != mob_e,
             ) else {
+                commands.entity(mob_e).insert(Done::Failure);
                 continue;
             };
+            let mut friendly_proj: bool = false;
 
-            can_shoot.time_to_shoot.tick(time.delta());
-            if can_shoot.time_to_shoot.just_finished() && first_hit.entity == player_e {
+            if std::any::type_name::<ProjType>() == std::any::type_name::<Friendly>() {
+                friendly_proj = true;
+            }
+
+            if first_hit.entity == target_e {
                 let angle = dir.y.atan2(dir.x); //math
                 let texture_path: String;
                 let damage: u32;
-
                 match can_shoot.proj_type {
                     //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
                     ProjectileType::Circle => {
@@ -444,16 +618,18 @@ fn mob_shoot(
                     speed: 150.,
                     damage,
                     element: can_shoot.element,
-                    is_friendly: false,
+                    is_friendly: friendly_proj,
                 });
+            } else if first_hit.entity != target_e {
+                commands.entity(mob_e).insert(Done::Failure);
             }
         }
     }
 }
 
-fn hit_projectiles(
+fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Projectile, &Transform), With<Friendly>>,
+    projectile_query: Query<(Entity, &Projectile, &Transform), With<Side>>,
     mut mob_query: Query<
         (
             &CollidingEntities,
@@ -461,7 +637,7 @@ fn hit_projectiles(
             &Transform,
             &ElementResistance,
         ),
-        With<Mob>,
+        (With<Mob>, Without<Filter>, With<FilterTrue>),
     >,
     mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 ) {
@@ -491,7 +667,7 @@ fn hit_projectiles(
                     pattern: crate::particles::ParticlePattern::Burst {
                         direction: -projectile.direction,
                         distance: rand::thread_rng().gen_range(8.0..12.0),
-                        spread: PI/3.,
+                        spread: PI / 3.,
                     },
                     position: projectile_transform.translation,
                     amount: 3,
@@ -503,7 +679,17 @@ fn hit_projectiles(
         }
     }
 }
-
+pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
+    for mut list in list_query.iter_mut() {
+        if list.been_punched {
+            list.timer_to_clear.tick(time.delta());
+            if list.timer_to_clear.just_finished() {
+                list.been_punched = false;
+                list.id_list = vec![];
+            }
+        }
+    }
+}
 pub fn damage_mobs(
     mut commands: Commands,
     mut ev_death: EventWriter<MobDeathEvent>,
@@ -517,9 +703,10 @@ pub fn damage_mobs(
             &MobLoot,
             &MobType,
         ),
-        With<Mob>,
+        (With<Mob>, Without<Friend>),
     >,
     mut mob_map: ResMut<Map>,
+    mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -548,6 +735,15 @@ pub fn damage_mobs(
                     pos: transform.translation.with_z(0.05),
                 });
 
+                if *mob_type == MobType::AirElemental {
+                    blank_spawn_ev.send(SpawnBlankEvent {
+                        range: 8.,
+                        position: transform.translation,
+                        speed: 10.,
+                        side: false,
+                    });
+                }
+
                 for i in STATIC_MOBS {
                     if mob_type == i {
                         let mob_pos = (
@@ -560,7 +756,7 @@ pub fn damage_mobs(
                             .get_mut(&(mob_pos.0, mob_pos.1))
                             .unwrap()
                             .mob_count -= 1;
-                        
+
                         break;
                     }
                 }
@@ -616,5 +812,18 @@ fn mob_death(
             speed: 5.,
             rotate: false,
         });
+    }
+}
+
+pub fn timer_shoot(
+    mut shoot_query: Query<(Entity, &mut ShootAbility)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (mob_e, mut timer) in shoot_query.iter_mut() {
+        timer.time_to_shoot.tick(time.delta());
+        if timer.time_to_shoot.just_finished() {
+            commands.entity(mob_e).insert(Done::Success);
+        }
     }
 }

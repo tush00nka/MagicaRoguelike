@@ -1,6 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
-
+use seldom_state::prelude::*;
 use crate::{animation::AnimationConfig, mobs::mob::*, player::Player, stun::Stun, GameState,pathfinding::Pathfinder};
 
 pub struct MobAnimationPlugin;
@@ -9,7 +9,7 @@ impl Plugin for MobAnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (animate_mobs, rotate_mobs, mob_flip).run_if(in_state(GameState::InGame)),
+            (animate_mobs, rotate_mobs, mob_flip, animate_mob_attack).run_if(in_state(GameState::InGame)),
         );
     }
 }
@@ -84,6 +84,45 @@ fn mob_flip(
                 .scale
                 .x
                 .lerp(1.0, 10.0 * time.delta_seconds());
+        }
+    }
+}
+
+fn animate_mob_attack(
+    time: Res<Time>,
+    mut attack_query: Query<(Entity, &mut AnimationConfig, &mut TextureAtlas, &Parent), With<Attack>>,
+    mut commands: Commands,
+    mob_query: Query<Entity, (With<AttackFlag>, With<Mob>)>
+    //add parent_query to get and animate parent?
+) {
+    fn animate(config: &mut AnimationConfig, atlas: &mut TextureAtlas, time: &Time) -> bool {
+        // we track how long the current sprite has been displayed for
+        config.frame_timer.tick(time.delta());
+        let mut last_frame_check: bool = false;
+        // If it has been displayed for the user-defined amount of time (fps)...
+        if config.frame_timer.just_finished() {
+            if atlas.index == config.last_sprite_index {
+                // ...and it IS the last frame, then we move back to the first frame and stop.
+                last_frame_check = true;
+            } else {
+                // ...and it is NOT the last frame, then we move to the next frame...
+                atlas.index += 1;
+                // ...and reset the frame timer to start counting all over again
+                config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
+            }
+        }
+        return last_frame_check;
+    }
+
+    for (attack_e,mut config, mut atlas,parent) in attack_query.iter_mut() {
+        let last_frame: bool = animate(&mut config, &mut atlas, &time);
+        if last_frame{
+            commands.entity(attack_e).despawn();
+            let mob_e = mob_query.get(**parent);
+            match mob_e{
+                Ok(ent) => {commands.entity(ent).insert(Done::Success);},
+                _=> {println!("NotFound");},
+            }
         }
     }
 }

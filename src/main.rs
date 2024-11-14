@@ -75,6 +75,9 @@ use stun::StunPlugin;
 mod animation;
 mod utils;
 
+mod friend;
+use friend::FriendPlugin;
+
 mod chapter;
 use chapter::ChapterPlugin;
 
@@ -95,6 +98,8 @@ use loot::LootPlugin;
 
 mod items;
 use items::ItemEffectsPlugin;
+
+use seldom_state::prelude::*;
 
 mod obstacles;
 use obstacles::ObstaclePlugin;
@@ -131,6 +136,7 @@ pub enum GameLayer {
     Wall,
     Interactable,
     Shield,
+    Friend,
 }
 
 fn main() {
@@ -168,6 +174,7 @@ fn main() {
         .add_plugins((HealthTankPlugin, HealthUIPlugin))
         .add_plugins(PathfindingPlugin)
         .add_plugins((
+            StateMachinePlugin,
             MobPlugin,
             MobAnimationPlugin,
             MobSpawnPlugin,
@@ -187,6 +194,7 @@ fn main() {
         .add_plugins(LoadingScreenUIPlugin)
         .add_plugins(ObstaclePlugin)
         .add_plugins(BossRoomPlugin)
+        .add_plugins(FriendPlugin)
         .add_plugins(ParticlesPlguin)
         .run();
 }
