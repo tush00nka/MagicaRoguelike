@@ -5,8 +5,7 @@ use crate::{
     exp_tank::SpawnExpTankEvent,
     health_tank::SpawnHealthTankEvent,
     item::{
-        ItemType,
-        SpawnItemEvent
+        ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent
     },
     mobs::MobDeathEvent
 };
@@ -26,6 +25,9 @@ fn loot_drop(
     mut ev_health_tank: EventWriter<SpawnHealthTankEvent>,
     mut ev_exp_tank: EventWriter<SpawnExpTankEvent>,
     mut ev_item: EventWriter<SpawnItemEvent>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ){
     let mut rng = rand::thread_rng();
 
@@ -47,12 +49,18 @@ fn loot_drop(
             96..=112 => {
                 let item: ItemType = rand::random();
 
+                let item_name: String = item_database.get(handle.0.id()).unwrap().items[item as usize]["name"].as_str().unwrap().to_string();
+                let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item as usize]["texture_name"].as_str().unwrap().to_string();
+                let item_description: String = item_database.get(handle.0.id()).unwrap().items[item as usize]["description"].as_str().unwrap().to_string();
+        
+                let texture_path = format!("textures/items/{}", texture_name);
+
                 ev_item.send(SpawnItemEvent {
                     pos,
                     item_type: item,
-                    texture_path: item.get_texture_path().to_string(),
-                    item_name: item.get_name().to_string(),
-                    item_description: item.get_description().to_string()
+                    texture_path,
+                    item_name,
+                    item_description
                 });
             }
             _ => {}

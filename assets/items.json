@@ -2,14 +2,80 @@
     "items": [
         {
             "name": "Амулет",
-            "description": "",
+            "description": "Больше опыта от всех источников",
             "texture_name": "amulet.png"
         },
 
         {
             "name": "Бекон",
-            "description": "",
+            "description": "Неуязвимость после получения\nурона длится дольше",
             "texture_name": "bacon.png"
+        },
+
+        {
+            "name": "Слепая ярость",
+            "description": "Меньше здоровья - больше урона",
+            "texture_name": "bling_rage.png"
+        },
+
+        {
+            "name": "Кубок с кровью",
+            "description": "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье",
+            "texture_name": "blood_goblet.png"
+        },
+
+        {
+            "name": "Призрак в ракушке",
+            "description": "Шанс отразить снаряд",
+            "texture_name": "ghost_in_the_shell.png"
+        },
+
+        {
+            "name": "Воздушный руль",
+            "description": "Сопротивление воздуху",
+            "texture_name": "glider.png"
+        },
+
+        {
+            "name": "Сердце",
+            "description": "Больше максимального здоровья",
+            "texture_name": "heart.png"
+        },
+
+        {
+            "name": "Хвост ящерицы",
+            "description": "Вторая жизнь",
+            "texture_name": "lizard_tail.png"
+        },
+
+        {
+            "name": "Минерал",
+            "description": "Сопротивление земле",
+            "texture_name": "mineral.png"
+        },
+
+        {
+            "name": "Снадобье скорости",
+            "description": "Больше скорость ходьбы",
+            "texture_name": "speed_potion.png"
+        },
+
+        {
+            "name": "Клык вампира",
+            "description": "Лечение при убийстве врагов",
+            "texture_name": "vampire_tooth.png"
+        },
+
+        {
+            "name": "Свиток магии воды",
+            "description": "Сопротивление воде",
+            "texture_name": "waterbending_scroll.png"
+        },
+
+        {
+            "name": "Дух в банке",
+            "description": "Сопротивление огню",
+            "texture_name": "wisp_in_a_jar.png"
         }
     ]
 }
