@@ -14,6 +14,7 @@ impl Plugin for AlertPlugin {
 #[derive(Event)]
 pub struct SpawnAlertEvent{
     pub position: Vec2,
+    pub attack_alert: bool,
 }
 
 #[derive(Component)]
@@ -26,8 +27,12 @@ fn spawn_alert(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     for ev in ev_spawn_alert.read() {
-        let texture = asset_server.load("textures/alert.png");
+        let mut texture = asset_server.load("textures/alert.png");
 
+        if ev.attack_alert{
+            texture = asset_server.load("textures/attack_alert.png");
+        }
+        
         let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 8, 1, None, None);
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
 

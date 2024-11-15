@@ -265,6 +265,7 @@ fn idle<Who: Component, Target: Component>(
                         .translation
                         .truncate()
                         .with_y(mob_transform.translation.y + 16.),
+                    attack_alert: false,
                 });
             }
         }
@@ -286,6 +287,7 @@ fn pursue<Who: Component, Target: Component>(
     >,
     target_query: Query<(Entity, &Transform), With<Target>>,
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Enemy>)>>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     time: Res<Time>,
 ) {
     for (mob_e, mut linvel, mob_transform, mut mob, mut attack_range) in mob_query.iter_mut() {
@@ -350,6 +352,14 @@ fn pursue<Who: Component, Target: Component>(
             attack_range.attacked = true;
             linvel.0 = Vec2::ZERO;
             mob.last_target_dir = Vec2::ZERO;
+
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: mob_transform
+                    .translation
+                    .truncate()
+                    .with_y(mob_transform.translation.y + 16.),
+                attack_alert: true,
+            });
         }
     }
 }
