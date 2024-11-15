@@ -1,0 +1,15 @@
+{
+    "items": [
+        {
+            "name": "Амулет",
+            "description": "",
+            "texture_name": "amulet.png"
+        },
+
+        {
+            "name": "Бекон",
+            "description": "",
+            "texture_name": "bacon.png"
+        }
+    ]
+}

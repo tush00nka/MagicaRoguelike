@@ -39,13 +39,9 @@ pub struct MainMenuUI;
 #[allow(unused)]
 pub enum ButtonType {
     NewRun,
-    Almanach,
-    ViewSpells,
-    ViewItems,
-    ViewMobs,
-    Settings,
     Quit,
-    MainMenu
+    MainMenu,
+    NaviagteMenu(MainMenuState)
 }
 
 #[derive(Component)]
@@ -61,7 +57,7 @@ impl MainMenuButton {
         height: 32.
     };
     pub const SETTINGS: Self = Self {
-        button: ButtonType::Settings,
+        button: ButtonType::NaviagteMenu(MainMenuState::Settings),
         height: 32.
     };
     pub const QUIT: Self = Self {
@@ -73,19 +69,19 @@ impl MainMenuButton {
         height: 32.
     };
     pub const ALMANACH: Self = Self {
-        button: ButtonType::Almanach,
+        button: ButtonType::NaviagteMenu(MainMenuState::AlmanachSelection),
         height: 32.
     };
     pub const VIEW_SPELLS: Self = Self {
-        button: ButtonType::ViewSpells,
+        button: ButtonType::NaviagteMenu(MainMenuState::ViewSpells),
         height: 360.
     };
     pub const VIEW_ITEMS: Self = Self {
-        button: ButtonType::ViewItems,
+        button: ButtonType::NaviagteMenu(MainMenuState::ViewItems),
         height: 360.
     };
     pub const VIEW_MOBS: Self = Self {
-        button: ButtonType::ViewMobs,
+        button: ButtonType::NaviagteMenu(MainMenuState::ViewMobs),
         height: 360.
     };
 }
@@ -239,6 +235,7 @@ fn spawn_almanach_ui(
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
+            row_gap: Val::Px(8.0),
             ..default()            
         },
         ..default()
@@ -258,7 +255,6 @@ fn spawn_almanach_ui(
                 height: Val::Px(360.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                margin: UiRect::left(Val::Px(8.0)),
                 ..default()
             },
             image: UiImage::new(asset_server.load("textures/ui/button.png")),
@@ -276,6 +272,33 @@ fn spawn_almanach_ui(
     let option3 = commands.spawn(button.clone())
         .insert(MainMenuButton::VIEW_MOBS)
         .id();
+
+    let _back_button = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(64.0),
+                height: Val::Px(32.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            image: UiImage::new(asset_server.load("textures/ui/button.png")),
+            ..default()
+        },
+        ImageScaleMode::Sliced(slicer.clone())
+    ))
+    .insert(MainMenuButton::MAIN_MENU)
+    .insert(StateScoped(MainMenuState::AlmanachSelection))
+    .with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Назад",
+            TextStyle {
+                font: asset_server.load("fonts/ebbe_bold.ttf"),
+                font_size: 16.0,
+                color: Color::BLACK,
+            }
+        ));
+    });
 
     commands.entity(content).push_children(&[option1, option2, option3]);
     commands.entity(canvas).push_children(&[content]);
@@ -390,6 +413,33 @@ fn spawn_view_spells(
         entries.push(entry);
     }
 
+    let _back_button = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(64.0),
+                height: Val::Px(32.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            image: UiImage::new(asset_server.load("textures/ui/button.png")),
+            ..default()
+        },
+        ImageScaleMode::Sliced(slicer.clone())
+    ))
+    .insert(MainMenuButton::ALMANACH)
+    .insert(StateScoped(MainMenuState::ViewSpells))
+    .with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Назад",
+            TextStyle {
+                font: asset_server.load("fonts/ebbe_bold.ttf"),
+                font_size: 16.0,
+                color: Color::BLACK,
+            }
+        ));
+    });
+
     commands.entity(content).push_children(&entries);
     commands.entity(canvas).push_children(&[content]);
 }
@@ -408,24 +458,14 @@ pub fn handle_buttons(
             Interaction::Pressed => {
                 match button.button {
                     ButtonType::NewRun => { game_state.set(GameState::Loading); }, // идём в загрузку
-                    ButtonType::Settings => { main_menu_state.set(MainMenuState::Settings); }, // открываем настройки
                     ButtonType::Quit => { app_exit_events.send(AppExit::Success); }, // выходим из игры
                     ButtonType::MainMenu => {
                         game_state.set(GameState::MainMenu);
                         main_menu_state.set(MainMenuState::Main); // just in case
                     }, // в главное меню
-                    ButtonType::Almanach => { 
-                        main_menu_state.set(MainMenuState::AlmanachSelection);
-                    }, // открываем альманах
-                    ButtonType::ViewSpells => { 
-                        main_menu_state.set(MainMenuState::ViewSpells);
-                    }, // смотрим спеллы
-                    ButtonType::ViewItems => { 
-                        main_menu_state.set(MainMenuState::ViewItems);
-                    }, // смотрим предметы
-                    ButtonType::ViewMobs => { 
-                        main_menu_state.set(MainMenuState::ViewMobs);
-                    }, // смотрим мобов
+                    ButtonType::NaviagteMenu(state) => {
+                        main_menu_state.set(state);
+                    }
                 }
             },
             Interaction::None => {
