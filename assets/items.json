@@ -15,7 +15,7 @@
         {
             "name": "Слепая ярость",
             "description": "Меньше здоровья - больше урона",
-            "texture_name": "bling_rage.png"
+            "texture_name": "blind_rage.png"
         },
 
         {

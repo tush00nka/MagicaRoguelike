@@ -3,8 +3,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::{
-    GameState,
-    MainMenuState
+    item::{ItemDatabase, ItemDatabaseHandle}, GameState, MainMenuState
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -20,6 +19,7 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnEnter(MainMenuState::Main), spawn_main_menu_ui)
             .add_systems(OnEnter(MainMenuState::AlmanachSelection), spawn_almanach_ui)
             .add_systems(OnEnter(MainMenuState::ViewSpells), spawn_view_spells)
+            .add_systems(OnEnter(MainMenuState::ViewItems), spawn_view_items)
             .add_systems(Update, handle_buttons)
             .add_systems(OnExit(GameState::MainMenu), despawn_ui);
     }
@@ -264,9 +264,31 @@ fn spawn_almanach_ui(
     );
 
     let option1 = commands.spawn(button.clone())
+    .with_children(|parent| {
+        parent.spawn(ImageBundle {
+            image: UiImage::new(asset_server.load("textures/ui/almanach_spells_option.png")),
+            style: Style {
+                width: Val::Px(256.0),
+                height: Val::Px(256.0),
+                ..default()
+            },
+            ..default()
+        });
+    })
         .insert(MainMenuButton::VIEW_SPELLS)
         .id();
     let option2 = commands.spawn(button.clone())
+        .with_children(|parent| {
+            parent.spawn(ImageBundle {
+                image: UiImage::new(asset_server.load("textures/ui/almanach_items_option.png")),
+                style: Style {
+                    width: Val::Px(256.0),
+                    height: Val::Px(256.0),
+                    ..default()
+                },
+                ..default()
+            });
+        })
         .insert(MainMenuButton::VIEW_ITEMS)
         .id();
     let option3 = commands.spawn(button.clone())
@@ -329,7 +351,7 @@ fn spawn_view_spells(
     let content = commands.spawn(NodeBundle {
         style: Style {
             width: Val::Percent(90.0),
-            height: Val::Percent(50.0),
+            height: Val::Percent(90.0),
             justify_self: JustifySelf::Center,
             align_self: AlignSelf::Center,
             flex_direction: FlexDirection::Column,
@@ -429,6 +451,153 @@ fn spawn_view_spells(
     ))
     .insert(MainMenuButton::ALMANACH)
     .insert(StateScoped(MainMenuState::ViewSpells))
+    .with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Назад",
+            TextStyle {
+                font: asset_server.load("fonts/ebbe_bold.ttf"),
+                font_size: 16.0,
+                color: Color::BLACK,
+            }
+        ));
+    });
+
+    commands.entity(content).push_children(&entries);
+    commands.entity(canvas).push_children(&[content]);
+}
+
+fn spawn_view_items(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
+) {
+    let canvas = commands.spawn(ImageBundle { 
+        style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },  
+        background_color: BackgroundColor(Color::srgb(69. / 255., 35. / 255., 13. / 255.)),
+        ..default()
+    })
+    .insert(MainMenuUI)
+    .insert(StateScoped(MainMenuState::ViewItems))
+    .id();
+
+    let content = commands.spawn(NodeBundle {
+        style: Style {
+            width: Val::Percent(90.0),
+            height: Val::Percent(90.0),
+            justify_self: JustifySelf::Center,
+            align_self: AlignSelf::Center,
+            display: Display::Grid,
+            grid_auto_flow: GridAutoFlow::Row,
+
+            grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
+            grid_template_rows: RepeatedGridTrack::flex(4, 1.0),
+            row_gap: Val::Px(4.0),
+            column_gap: Val::Px(4.0),
+
+            ..default()            
+        },
+        ..default()
+    }).id();
+
+    let slicer = TextureSlicer {
+        border: BorderRect::square(16.0),
+        center_scale_mode: SliceScaleMode::Stretch,
+        sides_scale_mode: SliceScaleMode::Stretch,
+        ..default()
+    };
+
+    let items = &item_database.get(handle.0.id()).unwrap().items;
+
+    let mut entries: Vec<Entity> = vec![];
+
+    for item in items.iter() {
+        let name = item["name"].as_str().unwrap();
+        let description = item["description"].as_str().unwrap();
+        let texture_name = item["texture_name"].as_str().unwrap();
+
+        let texture_path = format!("textures/items/{}", texture_name);
+
+        let entry = commands.spawn((
+            ImageBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(4.)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    aspect_ratio: Some(1.0),
+                    ..default()
+                },
+                image: UiImage::new(asset_server.load("textures/ui/button.png")),
+                ..default()
+            },
+            ImageScaleMode::Sliced(slicer.clone())
+        ))
+        .with_children(|parent| { 
+
+            parent.spawn(ImageBundle {
+                image: UiImage::new(asset_server.load(texture_path)),
+                style: Style {
+                    width: Val::Px(48.),
+                    height: Val::Px(48.),
+                    ..default()
+                },
+                ..default()
+            });
+
+            parent.spawn(TextBundle::from_sections([
+                TextSection::new(format!("{}\n", name), TextStyle {
+                        font: asset_server.load("fonts/ebbe_bold.ttf"),
+                        font_size: 16.0,
+                        color: Color::BLACK,
+                        ..default()
+                    },
+                ),
+
+                TextSection::new(description, TextStyle {
+                    font: asset_server.load("fonts/ebbe_bold.ttf"),
+                    font_size: 12.0,
+                    color: Color::BLACK,
+                    ..default()
+                },
+            )])
+            .with_text_justify(JustifyText::Center)
+            .with_style(Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(50.),
+                ..default()
+            }));
+        })
+        .id();
+
+        entries.push(entry);
+    }
+
+    let _back_button = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(64.0),
+                height: Val::Px(32.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            image: UiImage::new(asset_server.load("textures/ui/button.png")),
+            ..default()
+        },
+        ImageScaleMode::Sliced(slicer.clone())
+    ))
+    .insert(MainMenuButton::ALMANACH)
+    .insert(StateScoped(MainMenuState::ViewItems))
     .with_children(|parent| {
         parent.spawn(TextBundle::from_section(
             "Назад",
