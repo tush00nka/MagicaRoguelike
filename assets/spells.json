@@ -1,0 +1,137 @@
+{
+    "spells": [
+        {
+            "name": "Огненный залп",
+            "recipe": [
+                "fire"
+            ]
+        },
+    
+        {
+            "name": "Огненный шар",
+            "recipe": [
+                "fire",
+                "air"
+            ]
+        },
+        
+        {
+            "name": "Огненный взрыв",
+            "recipe": [
+                "fire",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Водный всплеск",
+            "recipe": [
+                "water"
+            ]
+        },
+    
+        {
+            "name": "Водяной взрыв",
+            "recipe": [
+                "water",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Водяной шар",
+            "recipe": [
+                "water",
+                "air"
+            ]
+        },
+
+        {
+            "name": "Земляной взрыв",
+            "recipe": [
+                "earth"
+            ]
+        },
+    
+        {
+            "name": "Земляной шар",
+            "recipe": [
+                "earth",
+                "air"
+            ]
+        },
+
+        {
+            "name": "Воздушный снаряд",
+            "recipe": [
+                "air"
+            ]
+        },
+
+        {
+            "name": "Пар",
+            "recipe": [
+                "fire",
+                "water"
+            ]
+        },
+
+        {
+            "name": "Щит",
+            "recipe": [
+                "water",
+                "earth",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Пустышка",
+            "recipe": [
+                "water",
+                "air",
+                "air"
+            ]
+        },
+
+        {
+            "name": "Чёрная дыра",
+            "recipe": [
+                "fire",
+                "water",
+                "earth",
+                "air"
+            ]
+        },
+
+        {
+            "name": "Призыв огненного элементаля",
+            "recipe": [
+                "fire",
+                "fire",
+                "water",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Призыв земляного элементаля",
+            "recipe": [
+                "fire",
+                "water",
+                "earth",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Призыв воздушного элементаля",
+            "recipe": [
+                "fire",
+                "water",
+                "air",
+                "air"
+            ]
+        }
+    ]
+}
