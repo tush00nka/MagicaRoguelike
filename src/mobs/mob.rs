@@ -16,8 +16,8 @@ pub const STATIC_MOBS: &[MobType] = &[
     MobType::EarthElemental,
 ];
 
-use crate::animation::AnimationConfig;
 use crate::mobs::rotate_orbital;
+use crate::animation::AnimationConfig;
 use crate::{
     blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},
@@ -63,6 +63,7 @@ impl Plugin for MobPlugin {
                 attack_hit::<Enemy, Friend>,
                 tick_attack_cooldown,
                 timer_empty_list,
+                before_attack_delay,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -305,6 +306,19 @@ pub struct BusyRaising;
 #[derive(Component, Clone)]
 pub struct Idle;
 
+#[derive(Component, Clone)]
+pub struct BeforeAttackDelay {
+    timer: Timer,
+}
+
+impl Default for BeforeAttackDelay {
+    fn default() -> Self {
+        Self {
+            timer: Timer::new(Duration::from_millis(350), TimerMode::Once),
+        }
+    }
+}
+
 /// This state should be applied to STATIC mob entity if it doesn't need to do anything in particular(for state machines)
 #[derive(Component, Clone)]
 pub struct IdleStatic;
@@ -523,17 +537,22 @@ fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackCompone
 fn attack_hit<Who: Component, Target: Component>(
     mut attack_query: Query<(Entity, &mut Attack), (With<Who>, Without<Target>)>,
     mut target_query: Query<
-        (&CollidingEntities, &mut Health, &ElementResistance, &mut HitList),
+        (
+            &CollidingEntities,
+            &mut Health,
+            &ElementResistance,
+            &mut HitList,
+        ),
         (Without<Who>, With<Target>),
     >,
 ) {
     for (entities, mut hp, el_res, mut hit_list) in target_query.iter_mut() {
         //maybe apply el_res?
         for (attack_e, attack) in attack_query.iter_mut() {
-            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id){
+            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id) {
                 let mut damage = attack.damage;
                 el_res.calculate_for(&mut damage, attack.element);
-                
+
                 hit_list.id_list.push(attack.hit_id);
                 hit_list.been_punched = true;
                 hit_list.timer_to_clear.reset();
@@ -765,22 +784,19 @@ pub fn damage_mobs(
                         side: false,
                     });
                 }
+                if STATIC_MOBS.contains(mob_type) {
+                    let mob_pos = (
+                        (transform.translation.x.floor() / 32.).floor() as u16,
+                        (transform.translation.y.floor() / 32.).floor() as u16,
+                    );
 
-                for i in STATIC_MOBS {
-                    if mob_type == i {
-                        let mob_pos = (
-                            (transform.translation.x.floor() / 32.).floor() as u16,
-                            (transform.translation.y.floor() / 32.).floor() as u16,
-                        );
+                    mob_map
+                        .map
+                        .get_mut(&(mob_pos.0, mob_pos.1))
+                        .unwrap()
+                        .mob_count -= 1;
 
-                        mob_map
-                            .map
-                            .get_mut(&(mob_pos.0, mob_pos.1))
-                            .unwrap()
-                            .mob_count -= 1;
-
-                        break;
-                    }
+                    break;
                 }
             }
         }
@@ -846,6 +862,19 @@ pub fn timer_shoot(
         timer.time_to_shoot.tick(time.delta());
         if timer.time_to_shoot.just_finished() {
             commands.entity(mob_e).insert(Done::Success);
+        }
+    }
+}
+
+pub fn before_attack_delay(
+    mut timer_query: Query<(Entity, &mut BeforeAttackDelay), Without<Stun>>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (timer_e, mut delay) in timer_query.iter_mut() {
+        delay.timer.tick(time.delta());
+        if delay.timer.just_finished() {
+            commands.entity(timer_e).insert(Done::Success);
         }
     }
 }

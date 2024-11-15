@@ -276,6 +276,7 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
     if chapter_manager.get_current_chapter() % 4 == 0 {
         mobs_amount = chapter_manager.get_current_chapter() as u16 / 4 as u16;
     }
+    println!("mobs amount {}", mobs_amount);
     while mobs_amount > 0 {
         for x in 1..ROOM_SIZE - 1 {
             for y in 1..ROOM_SIZE - 1 {
@@ -399,7 +400,8 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), PhasingFlag),
                         PhasingFlag,
                     ))
@@ -412,8 +414,9 @@ pub fn spawn_mob(
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
@@ -441,7 +444,7 @@ pub fn spawn_mob(
                         StateMachine::default()
                             .trans::<TeleportFlag, _>(done(Some(Done::Success)), ShootFlag)
                             .trans::<ShootFlag, _>(done(Some(Done::Success)), TeleportFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), TeleportFlag),
+                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), TeleportFlag),//change: need to create smth like tp -> check range -> alert -> shoot
                         TeleportFlag, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
@@ -514,32 +517,12 @@ pub fn spawn_mob(
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
-
-                mob_map
-                    .map
-                    .get_mut(&(
-                        (x / ROOM_SIZE as f32).floor() as u16,
-                        (y / ROOM_SIZE as f32).floor() as u16,
-                    ))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::WaterMage => {
                 commands.entity(mob).insert(MageBundle::water_mage());
-                mob_map
-                    .map
-                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::JungleTurret => {
                 commands.entity(mob).insert(TurretBundle::jungle_turret());
-
-                mob_map
-                    .map
-                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::Necromancer => {
                 commands.entity(mob).insert(SpawnerBundle::necromancer());
@@ -580,6 +563,19 @@ pub fn spawn_mob(
                     })
                     .insert(RotationEntity);
             });
+        }
+
+        if STATIC_MOBS.contains(&ev.mob_type) {
+            let mob_pos = (
+                (x.floor() / 32.).floor() as u16,
+                (y.floor() / 32.).floor() as u16,
+            );
+
+            mob_map
+                .map
+                .get_mut(&(mob_pos.0, mob_pos.1))
+                .unwrap()
+                .mob_count += 1;
         }
     }
 }
