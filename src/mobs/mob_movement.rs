@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use core::f32;
 use rand::Rng;
 use seldom_state::prelude::*;
-use std::cmp::Ordering;
 
 use crate::mobs::air_elemental_movement;
 use crate::{
@@ -123,20 +122,12 @@ fn phasing_mob<Side: Component, Target: Component>(
         if target_query.iter().len() <= 0 {
             return;
         }
+
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                if item1.translation.distance(transform.translation)
-                    < item2.translation.distance(transform.translation)
-                {
-                    return Ordering::Less;
-                } else if item1.translation.distance(transform.translation)
-                    > item2.translation.distance(transform.translation)
-                {
-                    return Ordering::Greater;
-                }
-
-                return Ordering::Equal;
+                item1.translation.distance(transform.translation)
+                    .total_cmp(&item2.translation.distance(transform.translation))
             })
             .collect();
 
@@ -205,7 +196,7 @@ fn idle<Who: Component, Target: Component>(
     >,
     target_query: Query<(Entity, &Transform), With<Target>>,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
-    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Enemy>)>>,
     time: Res<Time>,
 ) {
     for (mob_e, mob_transform, mut mob) in mob_query.iter_mut() {
@@ -234,20 +225,12 @@ fn idle<Who: Component, Target: Component>(
         if target_query.iter().len() <= 0 {
             return;
         }
+
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                if item1.translation.distance(mob_transform.translation)
-                    < item2.translation.distance(mob_transform.translation)
-                {
-                    return Ordering::Less;
-                } else if item1.translation.distance(mob_transform.translation)
-                    > item2.translation.distance(mob_transform.translation)
-                {
-                    return Ordering::Greater;
-                }
-
-                return Ordering::Equal;
+                item1.translation.distance(mob_transform.translation)
+                    .total_cmp(&item2.translation.distance(mob_transform.translation))
             })
             .collect();
 
@@ -302,7 +285,7 @@ fn pursue<Who: Component, Target: Component>(
         (With<Pursue>, With<Who>, Without<Target>),
     >,
     target_query: Query<(Entity, &Transform), With<Target>>,
-    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>)>>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Enemy>)>>,
     time: Res<Time>,
 ) {
     for (mob_e, mut linvel, mob_transform, mut mob, mut attack_range) in mob_query.iter_mut() {
@@ -314,17 +297,8 @@ fn pursue<Who: Component, Target: Component>(
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                if item1.translation.distance(mob_transform.translation)
-                    < item2.translation.distance(mob_transform.translation)
-                {
-                    return Ordering::Less;
-                } else if item1.translation.distance(mob_transform.translation)
-                    > item2.translation.distance(mob_transform.translation)
-                {
-                    return Ordering::Greater;
-                }
-
-                return Ordering::Equal;
+                item1.translation.distance(mob_transform.translation)
+                    .total_cmp(&item2.translation.distance(mob_transform.translation))
             })
             .collect();
 
