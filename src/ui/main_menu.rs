@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::{
-    item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, GameState, MainMenuState
+    audio::PlayAudioEvent, item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, GameState, MainMenuState
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -777,6 +777,7 @@ pub fn handle_buttons(
     mut main_menu_state: ResMut<NextState<MainMenuState>>,
     mut buttons_query: Query<(&Interaction, &MainMenuButton, &mut Style), Changed<Interaction>>,
     mut app_exit_events: ResMut<Events<bevy::app::AppExit>>,
+    mut ev_play_audio: EventWriter<PlayAudioEvent>, 
 ) {
     for (interaction, button, mut style) in buttons_query.iter_mut() {
         match *interaction {
@@ -784,6 +785,8 @@ pub fn handle_buttons(
                 style.height = Val::Px(button.height + 12.0);
             }, // добавить анимации
             Interaction::Pressed => {
+                ev_play_audio.send(PlayAudioEvent::from_file("tick.ogg"));
+
                 match button.button {
                     ButtonType::NewRun => { game_state.set(GameState::Loading); }, // идём в загрузку
                     ButtonType::Quit => { app_exit_events.send(AppExit::Success); }, // выходим из игры

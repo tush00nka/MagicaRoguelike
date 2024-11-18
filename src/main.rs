@@ -116,6 +116,9 @@ use blank_spell::BlankSpellPlugin;
 mod particles;
 use particles::ParticlesPlguin;
 
+mod audio;
+use audio::AudioPlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -208,5 +211,6 @@ fn main() {
         .add_plugins(BossRoomPlugin)
         .add_plugins(FriendPlugin)
         .add_plugins(ParticlesPlguin)
+        .add_plugins(AudioPlugin)
         .run();
 }

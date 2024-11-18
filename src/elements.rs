@@ -4,17 +4,7 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    black_hole::SpawnBlackHoleEvent, 
-    blank_spell::SpawnBlankEvent, 
-    mobs::{MobSpawnEvent, MobType}, 
-    player::{Player, PlayerStats, PlayerDeathEvent}, 
-    projectile::SpawnProjectileEvent, 
-    shield_spell::SpawnShieldEvent, 
-    wand::Wand, 
-    GameState,
-    health::Health,
-    item::ItemPickupAnimation,
-    mouse_position::MouseCoords,
+    audio::PlayAudioEvent, black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::ItemPickupAnimation, mobs::{MobSpawnEvent, MobType}, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -54,12 +44,22 @@ impl Distribution<ElementType> for Standard {
 
 impl ElementType {
     pub fn color(&self) -> Color {
-    match self {
+        match self {
             ElementType::Fire => Color::srgb(2.5, 1.25, 1.0),
             ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
             ElementType::Earth => Color::srgb(0.45, 0.15, 0.15),
             ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
             ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
+        }
+    }
+
+    pub fn audio(&self) -> &str {
+        match self {
+            ElementType::Fire => "fire.ogg",
+            ElementType::Water => "water.ogg",
+            ElementType::Earth => "earth.ogg",
+            ElementType::Air => "air.ogg",
+            ElementType::Steam => "air.ogg"
         }
     }
 }
@@ -184,8 +184,11 @@ fn cast_spell(
     mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
+    
     mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
+
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 
     mouse: Res<ButtonInput<MouseButton>>,
 
@@ -233,11 +236,15 @@ fn cast_spell(
         }
 
         // sub-element, cannot directly cast
-        if bar.fire > 0 && bar.water > 0 {
+        if bar.fire > 0 && bar.water > 0
+        && (bar.earth + bar.air) < (bar.fire + bar.water) {
             element = ElementType::Steam;
         }
 
         let color = element.color();
+        let audio_file = element.audio();
+
+        ev_play_audio.send(PlayAudioEvent::from_file(audio_file));
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
