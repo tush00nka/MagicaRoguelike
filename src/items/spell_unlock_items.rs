@@ -30,6 +30,7 @@ fn apply_effect(
                 ItemType::ElementWheel => Some(Spell::BlackHole),
                 ItemType::NotchedPickaxe => Some(Spell::EarthElemental),
                 ItemType::Fan => Some(Spell::AirElemental),
+                ItemType::Shield => Some(Spell::Shield),
                 _ => None,
             };
 

@@ -79,6 +79,12 @@
         },
 
         {
+            "name": "Щит",
+            "description": "Создайте щит из воды и земли",
+            "texture_name": "shield.png"
+        },
+
+        {
             "name": "Снадобье скорости",
             "description": "Больше скорость ходьбы",
             "texture_name": "speed_potion.png"

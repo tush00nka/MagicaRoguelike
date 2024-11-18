@@ -49,6 +49,7 @@ pub enum ItemType { // Keep enum variants in alphabetical order or it will break
     LizardTail,
     Mineral,
     NotchedPickaxe,
+    Shield,
     SpeedPotion,
     Valve,
     VampireTooth,
@@ -60,7 +61,7 @@ pub enum ItemType { // Keep enum variants in alphabetical order or it will break
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=17) {
+        match rng.gen_range(0..=18) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -79,6 +80,7 @@ impl Distribution<ItemType> for Standard {
             15 => ItemType::ElementWheel,
             16 => ItemType::NotchedPickaxe,
             17 => ItemType::Fan,
+            18 => ItemType::Shield,
             _ => ItemType::WispInAJar,
         }
     }
