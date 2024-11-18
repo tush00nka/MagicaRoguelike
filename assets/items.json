@@ -25,6 +25,18 @@
         },
 
         {
+            "name": "Колесо стихий",
+            "description": "Создайте чёрную дыру",
+            "texture_name": "element_wheel.png"  
+        },
+
+        {
+            "name": "Тлеющий осколок",
+            "description": "Призовите огненного духа",
+            "texture_name": "fiery_shard.png"
+        },
+
+        {
             "name": "Призрак в ракушке",
             "description": "Шанс отразить снаряд",
             "texture_name": "ghost_in_the_shell.png"
@@ -58,6 +70,12 @@
             "name": "Снадобье скорости",
             "description": "Больше скорость ходьбы",
             "texture_name": "speed_potion.png"
+        },
+
+        {
+            "name": "Вентиль",
+            "description": "Комбинируйте огонь и воду в пар",
+            "texture_name": "valve.png"
         },
 
         {
