@@ -31,6 +31,8 @@ fn apply_effect(
                 ItemType::NotchedPickaxe => Some(Spell::EarthElemental),
                 ItemType::Fan => Some(Spell::AirElemental),
                 ItemType::Shield => Some(Spell::Shield),
+                ItemType::Blank => Some(Spell::Blank),
+                ItemType::Aquarius => Some(Spell::WaterElemental),
                 _ => None,
             };
 

@@ -7,9 +7,21 @@
         },
 
         {
+            "name": "Водолей",
+            "description": "Призовите водного духа",
+            "texture_name": "aquarius.png"
+        },
+
+        {
             "name": "Бекон",
             "description": "Неуязвимость после получения\nурона длится дольше",
             "texture_name": "bacon.png"
+        },
+
+        {
+            "name": "Пустышка",
+            "description": "Погодите, это из другой игры...",
+            "texture_name": "blank.png"
         },
 
         {

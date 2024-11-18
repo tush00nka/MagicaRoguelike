@@ -37,7 +37,9 @@ impl Plugin for ItemPlugin {
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ItemType { // Keep enum variants in alphabetical order or it will break, pls, thanks
     Amulet,
+    Aquarius,
     Bacon,
+    Blank,
     BlindRage,
     BloodGoblet,
     ElementWheel,
@@ -61,7 +63,7 @@ pub enum ItemType { // Keep enum variants in alphabetical order or it will break
 // но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=18) {
+        match rng.gen_range(0..=20) {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -81,6 +83,8 @@ impl Distribution<ItemType> for Standard {
             16 => ItemType::NotchedPickaxe,
             17 => ItemType::Fan,
             18 => ItemType::Shield,
+            19 => ItemType::Blank,
+            20 => ItemType::Aquarius,
             _ => ItemType::WispInAJar,
         }
     }
