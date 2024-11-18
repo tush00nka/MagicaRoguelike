@@ -28,6 +28,7 @@ fn apply_effect(
                 ItemType::FieryShard => Some(Spell::FireElemental),
                 ItemType::Valve => Some(Spell::Steam),
                 ItemType::ElementWheel => Some(Spell::BlackHole),
+                ItemType::NotchedPickaxe => Some(Spell::EarthElemental),
                 _ => None,
             };
 

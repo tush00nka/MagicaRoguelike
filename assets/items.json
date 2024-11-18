@@ -67,6 +67,12 @@
         },
 
         {
+            "name": "Зазубренная кирка",
+            "description": "Призовите земляного духа",
+            "texture_name": "notched_pickaxe.png"
+        },
+
+        {
             "name": "Снадобье скорости",
             "description": "Больше скорость ходьбы",
             "texture_name": "speed_potion.png"
