@@ -13,7 +13,8 @@ use crate::{
 pub struct MageBundle {
     pub mob_bundle: MobBundle,
     pub teleport_ability: Teleport,
-    pub shoot_ability: ShootAbility,
+    pub shoot_ability: AttackComponent,
+    pub search_and_pursue: SearchAndPursue,
 }
 
 impl MobBundle {
@@ -55,11 +56,16 @@ impl MageBundle {
                 place_to_teleport: vec![],
                 time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
             },
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Fire,
-                proj_type: ProjectileType::Missile,
+            shoot_ability: AttackComponent {
+                range: 300.,
+                attack_type: AttackType::Range,
+                cooldown: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                damage: 20,
+                element: Some(ElementType::Fire),
+                proj_type: Some(ProjectileType::Missile),
+                ..default()
             },
+            search_and_pursue: SearchAndPursue::range_units(),
         }
     }
     pub fn water_mage() -> Self {
@@ -72,11 +78,17 @@ impl MageBundle {
                 place_to_teleport: vec![],
                 time_to_teleport: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
             },
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Water,
-                proj_type: ProjectileType::Missile,
+            shoot_ability: AttackComponent {
+                range: 300.,
+                attack_type: AttackType::Range,
+                cooldown: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
+                damage: 20,
+                element: Some(ElementType::Water),
+                proj_type: Some(ProjectileType::Missile),
+                ..default()
             },
+            
+            search_and_pursue: SearchAndPursue::range_units(),
         }
     }
 }

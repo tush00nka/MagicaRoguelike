@@ -13,11 +13,13 @@ impl Plugin for MobAnimationPlugin {
         );
     }
 }
-
+///flag for multistate animation
+#[derive(Component)]
+pub struct MultistateAnimationFlag;
 fn animate_mobs(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, Without<SearchAndPursue>)>,
-    mut multistate_query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), With<SearchAndPursue>>,
+    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, (With<SearchAndPursue>, Without<MultistateAnimationFlag>))>,
+    mut multistate_query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), (With<SearchAndPursue>, With<MultistateAnimationFlag>)>,
 ) {
     fn animate(config: &mut AnimationConfig, atlas: &mut TextureAtlas, time: &Time) {
         // we track how long the current sprite has been displayed for

@@ -12,9 +12,9 @@ use crate::{
     friend::Friend,
     gamemap::{Map, TileType, ROOM_SIZE},
     level_completion::PortalManager,
-    mobs::{mob::*, mob_types::*},
+    mobs::{MultistateAnimationFlag,mob::*, mob_types::*},
     obstacles::Corpse,
-    pathfinding::create_new_graph,
+    pathfinding::{EnemyRush, FriendRush,create_new_graph},
     stun::Stun,
     GameState,
 };
@@ -196,6 +196,7 @@ impl SpawnKit<'_> {
             frame_count: 2,
             fps: 3,
             texture_path: "textures/mobs/water_elemental.png",
+            ai_type: MobAI::RangeMoving,
             has_animation: false,
             ..default()
         }
@@ -424,27 +425,45 @@ pub fn spawn_mob(
             }
 
             MobAI::RangeMoving => {
+                if ev.is_friendly{
+                    mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<FriendRush, _>(done(Some(Done::Success)), Idle)
+                            .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
+                            .trans::<Idle, _>(done(Some(Done::Failure)), FriendRush::default())
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
+                        FriendRush::default(),
+                    ))
+                    .id()
+                }else{
                 //need to create and fix later i guess
                 mob = commands
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), ShootFlag)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), Idle),
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
                     .id()
+                }
             }
-
             MobAI::RangeWithTP => {
                 //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<TeleportFlag, _>(done(Some(Done::Success)), ShootFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), TeleportFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), TeleportFlag),//change: need to create smth like tp -> check range -> alert -> shoot
+                            .trans::<TeleportFlag, _>(done(Some(Done::Success)), IdleStatic)
+                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<IdleStatic, _>(done(Some(Done::Failure)), TeleportFlag)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), TeleportFlag),//change: need to create smth like tp -> check range -> alert -> shoot
                         TeleportFlag, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
@@ -468,9 +487,9 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<IdleStatic, _>(done(Some(Done::Success)), ShootFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), IdleStatic)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), IdleStatic),
+                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), IdleStatic),
                         IdleStatic, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
@@ -507,13 +526,15 @@ pub fn spawn_mob(
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::knight())
-                    .insert(SearchAndPursue::default());
+                    .insert(SearchAndPursue::default())
+                    .insert(MultistateAnimationFlag);
             }
             MobType::Mossling => {
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::mossling())
-                    .insert(SearchAndPursue::default());
+                    .insert(SearchAndPursue::default())
+                    .insert(MultistateAnimationFlag);
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
@@ -541,7 +562,7 @@ pub fn spawn_mob(
                     .insert(MeleePhasingBundle::fire_elemental());
             }
             MobType::WaterElemental => {
-                //                commands.entity(mob).insert(RamgeMobBundle::water_elemental());
+                commands.entity(mob).insert(RangeMobBundle::water_elemental());
             }
             MobType::AirElemental => {
                 commands.entity(mob).insert(OrbitalBundle::air_elemental());

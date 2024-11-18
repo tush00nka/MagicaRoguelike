@@ -2,12 +2,14 @@
 use bevy::prelude::*;
 use seldom_state::trigger::Done;
 
-use std::collections::{HashMap, LinkedList};
+use std::{collections::{HashMap, LinkedList}, time::Duration};
 
 use crate::{
+    friend::Friend,
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
     mobs::{
-        damage_mobs, BusyRaising, CorpseRush, Phasing, PlayerRush, RunawayRush, Summoning, Teleport,
+        damage_mobs, BusyRaising, CorpseRush, Enemy, Phasing, PlayerRush, RunawayRush, Summoning,
+        Teleport,
     },
     obstacles::Corpse,
     player::Player,
@@ -36,6 +38,7 @@ impl Plugin for PathfindingPlugin {
                 change_to_player::<Corpse, CorpseRush, RunawayRush>.after(damage_mobs),
                 a_pathfinding::<Player, PlayerRush, PlayerRush, Player>,
                 a_pathfinding::<Corpse, CorpseRush, BusyRaising, Corpse>,
+                a_pathfinding::<Friend, FriendRush, Enemy, Enemy>,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -43,6 +46,18 @@ impl Plugin for PathfindingPlugin {
 }
 // структуры для поиска пути
 // структура для поиска пути, путь, таймер для перерасчета пути, скорость ходьбы
+#[derive(Component, Clone)]
+pub struct EnemyRush;
+
+#[derive(Component, Clone)]
+pub struct FriendRush{pub timer: Timer,}
+
+impl Default for FriendRush{
+    fn default() -> Self {
+        Self { timer: Timer::new(Duration::from_millis(1250), TimerMode::Repeating) }
+    }
+}
+
 #[derive(Component)]
 pub struct Pathfinder {
     pub path: Vec<(u16, u16)>,
@@ -386,11 +401,10 @@ fn a_pathfinding<
     FilterTarget: Component,
     FilterPathfinder: Component,
 >(
-    target_query: Query<&Transform, (With<T>, Without<FilterTarget>, Without<P>)>, //don't use globalTransform, please
+    target_query: Query<(Entity, &Transform), (With<T>, Without<FilterTarget>)>, //don't use globalTransform, please
     mut pathfinder_query: Query<
-        (&Transform, &mut Pathfinder),
+        (Entity, &Transform, &mut Pathfinder),
         (
-            Without<T>,
             Without<Teleport>,
             With<P>,
             Without<FilterPathfinder>,
@@ -399,26 +413,33 @@ fn a_pathfinding<
     >,
     mut graph_search: ResMut<Graph>,
     time: Res<Time>,
+    mut commands: Commands,
 ) {
-    for (pathfinder_transform, mut pathfinder) in pathfinder_query.iter_mut() {
+    for (pathfinder_e, pathfinder_transform, mut pathfinder) in pathfinder_query.iter_mut() {
         pathfinder.update_path_timer.tick(time.delta());
         if pathfinder.update_path_timer.just_finished() {
             //получаем позицию игрока
             if target_query.iter().len() != 0 {
-                let mut target: Transform = pathfinder_transform.clone();
-                let mut dist: f32 = f32::MAX;
-                for temp_pos in target_query.iter() {
-                    let temp_dist: f32 = (pathfinder_transform.translation - temp_pos.translation)
-                        .x
-                        .powf(2.)
-                        + (pathfinder_transform.translation - temp_pos.translation)
-                            .y
-                            .powf(2.);
-                    if dist > temp_dist {
-                        dist = temp_dist;
-                        target = *temp_pos;
+                let sorted_targets: Vec<(Entity, &Transform)> = target_query
+                    .iter()
+                    .sort_by::<&Transform>(|item1, item2| {
+                        item1
+                            .translation
+                            .distance(pathfinder_transform.translation)
+                            .total_cmp(&item2.translation.distance(pathfinder_transform.translation))
+                    })
+                    .collect();
+
+                    let (target_e, mut target) = sorted_targets[0];
+
+
+                    if target_e == pathfinder_e{
+                        if sorted_targets.iter().len() < 2{
+                            commands.entity(pathfinder_e).insert(Done::Success);
+                            continue;
+                        }
+                        target = sorted_targets[1].1;
                     }
-                }
                 //создаем нод где стоит моб
                 let start_node = Node::new(
                     TileType::Floor,

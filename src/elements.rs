@@ -314,6 +314,14 @@ fn cast_spell(
                 return;
             }
 
+            if bar.earth >= 1 
+            && bar.air >= 1 
+            && bar.water == 2 
+            && bar.fire <=0 {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::WaterElemental, pos: mouse_coords.0, is_friendly: true });
+                return;
+            }            
+
             if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {                
                 let offset = PI/12.0;
                 for _i in 0..bar.fire*3 {
