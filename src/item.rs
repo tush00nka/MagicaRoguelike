@@ -191,7 +191,7 @@ fn debug_spawn_random_item(
     if keyboard.just_pressed(KeyCode::KeyI) {
         let rand_item: ItemType = rand::random::<ItemType>();
 
-        // What the fuck did I just wrote here
+        // What the fuck did I just wrote here??
         // Only God knows what this code does
         let item_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["name"].as_str().unwrap().to_string();
         let texture_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["texture_name"].as_str().unwrap().to_string();
