@@ -170,11 +170,11 @@ fn spawn_corpse(
                 can_be_spawned = false; //maybe true?
             }
             MobType::EarthElemental => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/earth_elemental_corpse.png";
                 can_be_spawned = true;
             }
             MobType::FireElemental => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/fire_elemental_corpse.png";
                 can_be_spawned = true;
             }
             MobType::WaterElemental => {
@@ -182,7 +182,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::AirElemental => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/air_elemental_corpse.png";
                 can_be_spawned = true;
             }
             MobType::ClayGolem => {

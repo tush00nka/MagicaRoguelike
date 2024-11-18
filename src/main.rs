@@ -121,11 +121,22 @@ pub enum GameState {
     #[default]
     MainMenu,
     InGame,
-    Settings,
     Loading,
     GameOver,
     Hub,
     LoadingBoss,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
+#[source(GameState = GameState::MainMenu)]
+pub enum MainMenuState {
+    #[default]
+    Main,
+    Settings,
+    AlmanachSelection,
+    ViewSpells,
+    ViewItems,
+    ViewMobs,
 }
 
 #[derive(PhysicsLayer)]
@@ -156,6 +167,7 @@ fn main() {
         )
         .add_plugins(PhysicsPlugins::default())
         .init_state::<GameState>()
+        .add_sub_state::<MainMenuState>()
         .add_plugins(MainMenuPlugin)
         .add_plugins(MousePositionPlugin)
         .add_plugins(GameMapPlugin)

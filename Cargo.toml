@@ -13,3 +13,6 @@ avian2d = "0.1.2"
 rand = "0.8.5"
 noise = "0.9.0"
 seldom_state = "0.11"
+serde_json = "1.0.132"
+bevy_common_assets = { version="0.11.0", features=["json"] }
+serde = "1.0.215"

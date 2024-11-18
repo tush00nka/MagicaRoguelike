@@ -1,0 +1,63 @@
+{
+    "mobs": [
+        {
+            "name": "Моховичок",
+            "description": "Атакует вблизи, имеет небольшой иммунитет к воде и земле",
+            "texture_name": "mossling.png"
+        },
+
+        {
+            "name": "Рыцарь",
+            "description": "Атакует вблизи",
+            "texture_name": "knight.png"
+        },
+
+        {
+            "name": "Огненный маг",
+            "description": "Атакует издалека и телепортируется, имеет иммунитет к огню",
+            "texture_name": "fire_mage.png"
+        },
+
+        {
+            "name": "Водный маг",
+            "description": "Атакует издалека и телепортируется, имеет иммунитет к воде",
+            "texture_name": "water_mage.png"
+        },
+
+        {
+            "name": "Растение",
+            "description": "Неподвижно, но метко стреляет семечками. Иммунитет к воде и земле",
+            "texture_name": "plant.png"
+        },
+
+        {
+            "name": "Некромант",
+            "description": "Избегает сражений, воскрешает павших товарищей",
+            "texture_name": "necromancer.png"
+        },
+
+        {
+            "name": "Огненный дух",
+            "description": "Проникает сквозь стены и атакует вблизи",
+            "texture_name": "fire_elemental.png"
+        },
+
+        {
+            "name": "Водный дух",
+            "description": "Атакует на расстоянии",
+            "texture_name": "water_elemental.png"
+        },
+
+        {
+            "name": "Земляной дух",
+            "description": "Неподвижен. Стреляет редко, но метко",
+            "texture_name": "earth_elemental.png"
+        },
+
+        {
+            "name": "Воздушный дух",
+            "description": "Летает вокруг союзников, защищая их",
+            "texture_name": "air_elemental.png"
+        }
+    ]
+}

@@ -3,10 +3,12 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use avian2d::prelude::*;
 
+use bevy_common_assets::json::JsonAssetPlugin;
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
+use serde_json::{Map, Value};
 
 use crate::{camera::YSort, mouse_position::MouseCoords, player::Player};
 
@@ -15,8 +17,10 @@ pub struct ItemPlugin;
 impl Plugin for ItemPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugins(JsonAssetPlugin::<ItemDatabase>::new(&["json"]))
             .add_event::<SpawnItemEvent>()
             .add_event::<ItemPickedUpEvent>()
+            .add_systems(Startup, load_item_database)
             .add_systems(Startup, spawn_item_hint)
             .add_systems(Update, (
                 debug_spawn_random_item,
@@ -31,76 +35,20 @@ impl Plugin for ItemPlugin {
 
 #[allow(unused)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ItemType {
+pub enum ItemType { // Keep enum variants in alphabetical order pls, thanks
     Amulet,
     Bacon,
+    BlindRage,
+    BloodGoblet,
+    GhostInTheShell,
+    Glider,
     Heart,
     LizardTail,
-    SpeedPotion,
-    WispInAJar,
-    WaterbendingScroll,
     Mineral,
-    Glider,
-    GhostInTheShell,
+    SpeedPotion,
     VampireTooth,
-    BloodGoblet,
-    BlindRage,
-}
-
-impl ItemType {
-    pub fn get_texture_path(&self) -> &str{
-        match self {
-            ItemType::Amulet => "textures/items/amulet.png",
-            ItemType::Bacon => "textures/items/bacon.png",
-            ItemType::Heart => "textures/items/heart.png",
-            ItemType::LizardTail => "textures/items/lizard_tail.png",
-            ItemType::SpeedPotion => "textures/items/speed_potion.png",
-            ItemType::WispInAJar => "textures/items/wisp_in_a_jar.png",
-            ItemType::WaterbendingScroll => "textures/items/waterbending_scroll.png",
-            ItemType::Mineral => "textures/items/mineral.png",
-            ItemType::Glider => "textures/items/glider.png",
-            ItemType::GhostInTheShell => "textures/items/ghost_in_the_shell.png",
-            ItemType::VampireTooth => "textures/items/vampire_tooth.png",
-            ItemType::BloodGoblet => "textures/items/blood_goblet.png",
-            ItemType::BlindRage => "textures/items/blind_rage.png"
-        }
-    }
-
-    pub fn get_name(&self) -> &str {
-        match self {
-            ItemType::Amulet => "Амулет",
-            ItemType::Bacon => "Бекон",
-            ItemType::Heart => "Сердце",
-            ItemType::LizardTail => "Хвост Ящерицы",
-            ItemType::SpeedPotion => "Снадобье Скорости",
-            ItemType::WispInAJar => "Дух в Банке",
-            ItemType::WaterbendingScroll => "Свиток Магии Воды",
-            ItemType::Mineral => "Минерал",
-            ItemType::Glider => "Воздушный Руль",
-            ItemType::GhostInTheShell => "Призрак в ракушке",
-            ItemType::VampireTooth => "Клык вампира",
-            ItemType::BloodGoblet => "Кубок с кровью",
-            ItemType::BlindRage => "Слепая ярость"
-        }
-    }
-
-    pub fn get_description(&self) -> &str {
-        match self {
-            ItemType::Amulet => "Больше опыта от всех источников",
-            ItemType::Bacon => "Неуязвимость после получения\nурона длится дольше",
-            ItemType::Heart => "Больше максимального здоровья",
-            ItemType::LizardTail => "Вторая жизнь",
-            ItemType::SpeedPotion => "Больше скорость ходьбы",
-            ItemType::WispInAJar => "Сопротивление огню",
-            ItemType::WaterbendingScroll => "Сопротивление воде",
-            ItemType::Mineral => "Сопротивление земле",
-            ItemType::Glider => "Сопротивление воздуху",
-            ItemType::GhostInTheShell => "Шанс отразить снаряд",
-            ItemType::VampireTooth => "Лечение при убийстве врагов",
-            ItemType::BloodGoblet => "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье",
-            ItemType::BlindRage => "Меньше здоровья - больше урона"
-        }
-    }
+    WaterbendingScroll,
+    WispInAJar,
 }
 
 // я не знаю, что это за волшебный код,
@@ -124,6 +72,22 @@ impl Distribution<ItemType> for Standard {
             _ => ItemType::WispInAJar,
         }
     }
+}
+
+
+#[derive(serde::Deserialize, Asset, TypePath)]
+pub struct ItemDatabase {
+    pub items: Vec<Map<String, Value>>,
+}
+
+#[derive(Resource)]
+pub struct ItemDatabaseHandle(pub Handle<ItemDatabase>); 
+
+fn load_item_database(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(ItemDatabaseHandle(asset_server.load("items.json")));
 }
 
 #[derive(Component)]
@@ -221,16 +185,26 @@ fn debug_spawn_random_item(
     mut ev_spawn_item: EventWriter<SpawnItemEvent>,
     mouse_coords: Res<MouseCoords>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyI) {
         let rand_item: ItemType = rand::random::<ItemType>();
 
+        // What the fuck did I just wrote here??
+        // Only God knows what this code does
+        let item_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["name"].as_str().unwrap().to_string();
+        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["texture_name"].as_str().unwrap().to_string();
+        let item_description: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["description"].as_str().unwrap().to_string();
+
+        let texture_path = format!("textures/items/{}", texture_name);
+
         ev_spawn_item.send(SpawnItemEvent {
             pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
             item_type: rand_item,
-            texture_path: rand_item.get_texture_path().to_string(),
-            item_name: rand_item.get_name().to_string(),
-            item_description: rand_item.get_description().to_string()
+            texture_path,
+            item_name,
+            item_description
         });
     }
 }
@@ -243,6 +217,9 @@ fn pick_up_item(
     player_query: Query<(Entity, &CollidingEntities), (With<Player>, Without<ItemPickupAnimation>)>,
 
     mut ev_item_picked_up: EventWriter<ItemPickedUpEvent>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ) {
     let Ok((player_e, colliding_e)) = player_query.get_single() else {
         return;
@@ -254,13 +231,16 @@ fn pick_up_item(
                 item_type: item.item_type,
             });
 
+            let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item.item_type as usize]["texture_name"].as_str().unwrap().to_string();
+            let texture_path = format!("textures/items/{}", texture_name);
+
             commands.entity(player_e)
                 .insert(ItemPickupAnimation {
                     timer: Timer::from_seconds(1.0, TimerMode::Once),
                 })
                 .with_children(|parent| {
                     parent.spawn(SpriteBundle {
-                        texture: asset_server.load(item.item_type.get_texture_path().to_string()),
+                        texture: asset_server.load(texture_path),
                         transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
                         ..default()
                     }).insert(HeldItem);

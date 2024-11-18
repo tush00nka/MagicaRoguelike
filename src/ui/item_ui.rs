@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::{
-    item::{ItemPickedUpEvent, ItemType}, GameState
+    item::{ItemDatabase, ItemDatabaseHandle, ItemPickedUpEvent, ItemType}, GameState
 };
 
 pub struct ItemUIPlugin;
@@ -81,6 +81,9 @@ fn update_ui(
     ui_query: Query<Entity, With<ItemUI>>,
     mut ev_update_inventory: EventReader<UpdateInventoryEvent>,
     inventory: Res<ItemInventory>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ) {
     for _ev in ev_update_inventory.read() {
         if let Ok(ui) = ui_query.get_single() {
@@ -100,13 +103,17 @@ fn update_ui(
         .insert(ItemUI)
         .with_children(|parent| {
             for (item_type, count) in inventory.0.iter() {
+
+                let texture_name: String = item_database.get(handle.0.id()).unwrap().items[*item_type as usize]["texture_name"].as_str().unwrap().to_string();
+                let texture_path = format!("textures/items/{}", texture_name);
+
                 parent.spawn(ImageBundle {
                     style: Style {
                         width: Val::Px(32.0),
                         height: Val::Px(32.0),
                         ..default()
                     },
-                    image: UiImage::new(asset_server.load(item_type.get_texture_path().to_string())),
+                    image: UiImage::new(asset_server.load(texture_path)),
                     ..default()
                 })
                 .with_children(|icon| {

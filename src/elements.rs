@@ -278,6 +278,7 @@ fn cast_spell(
 
                 return;
             }
+            
             //spawn ClayGolem
             if bar.earth == 2 
             && bar.air <= 0 

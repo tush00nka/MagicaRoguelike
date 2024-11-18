@@ -1,4 +1,4 @@
-use crate::{camera::YSort, chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemType, SpawnItemEvent}, GameState};
+use crate::{camera::YSort, chapter::ChapterManager, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent}, GameState};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 pub struct HubPlugin;
@@ -16,6 +16,9 @@ fn spawn_hub(
     mut commands: Commands,
     mut ev_spawn_portal: EventWriter<crate::level_completion::PortalEvent>,
     mut ev_spawn_item: EventWriter<crate::item::SpawnItemEvent>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ) {
     let lower = ROOM_SIZE/2 - 4;
     let upper = ROOM_SIZE/2 + 4;
@@ -85,12 +88,19 @@ fn spawn_hub(
 
     for i in (lower+2..=upper-2).step_by(2) {
         let random_item: ItemType = rand::random();
+
+        let item_name: String = item_database.get(handle.0.id()).unwrap().items[random_item as usize]["name"].as_str().unwrap().to_string();
+        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[random_item as usize]["texture_name"].as_str().unwrap().to_string();
+        let item_description: String = item_database.get(handle.0.id()).unwrap().items[random_item as usize]["description"].as_str().unwrap().to_string();
+
+        let texture_path = format!("textures/items/{}", texture_name);
+
         ev_spawn_item.send(SpawnItemEvent {
             pos: Vec3::new(i as f32 * TILE_SIZE, (upper - 3) as f32 * TILE_SIZE, 1.),
             item_type: random_item,
-            texture_path: random_item.get_texture_path().to_string(),
-            item_name: random_item.get_name().to_string(),
-            item_description: random_item.get_description().to_string()
+            texture_path,
+            item_name,
+            item_description
         });
     }
 

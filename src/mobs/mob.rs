@@ -1,9 +1,12 @@
 use std::time::Duration;
 
+use bevy_common_assets::json::JsonAssetPlugin;
+
 //all things about mobs and their spawn/behaviour
 use {
     avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
     std::f32::consts::PI,
+    serde_json::{Map as JsonMap, Value},
 };
 ///add mobs with kinematic body type
 pub const STATIC_MOBS: &[MobType] = &[
@@ -36,7 +39,11 @@ pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<MobDeathEvent>().add_systems(
+        app
+            .add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
+            .add_systems(Startup, load_mob_database)
+            .add_event::<MobDeathEvent>()
+            .add_systems(
             Update,
             (
                 damage_mobs,
@@ -62,8 +69,23 @@ impl Plugin for MobPlugin {
     }
 }
 
+#[derive(serde::Deserialize, Asset, TypePath)]
+pub struct MobDatabase {
+    pub mobs: Vec<JsonMap<String, Value>>,
+}
+
+#[derive(Resource)]
+pub struct MobDatabaseHandle(pub Handle<MobDatabase>); 
+
+fn load_mob_database(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(MobDatabaseHandle(asset_server.load("mobs.json")));
+}
+
 //Events for mobs
-//event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
+///event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
 #[derive(Event)]
 pub struct MobDeathEvent {
     pub orbs: u32,
@@ -72,7 +94,7 @@ pub struct MobDeathEvent {
 }
 
 //Enum components========================================================================================================================================
-//MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
+///MobtypesHere(Better say mob names, bcz types are like turret, spawner etc.)
 #[derive(Component, Clone, PartialEq)]
 pub enum MobType {
     Knight,
