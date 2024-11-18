@@ -15,3 +15,6 @@ pub use mob_type_boss::*;
 
 mod mob_type_orbital;
 pub use mob_type_orbital::*;
+
+mod mob_type_range;
+pub use mob_type_range::*;

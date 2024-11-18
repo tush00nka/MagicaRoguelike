@@ -1,5 +1,5 @@
 //bundle for turrets(can shoot)
-use {avian2d::prelude::*, bevy::prelude::*, rand::Rng, std::time::Duration};
+use {avian2d::prelude::*, bevy::prelude::*, std::time::Duration};
 
 use crate::{
     elements::{ElementResistance, ElementType},
@@ -11,7 +11,8 @@ use crate::{
 #[derive(Bundle)]
 pub struct TurretBundle {
     mob_bundle: MobBundle,
-    shoot_ability: ShootAbility,
+    shoot_ability: AttackComponent,
+    search_and_pursue: SearchAndPursue,
 }
 
 impl MobBundle {
@@ -44,28 +45,34 @@ impl MobBundle {
 
 impl TurretBundle {
     pub fn jungle_turret() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(1500..2000);
-
         Self {
             mob_bundle: MobBundle::jungle_turret(),
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Earth,
-                proj_type: ProjectileType::Gatling,
+            shoot_ability: AttackComponent {
+                range: 300.,
+                attack_type: AttackType::Range,
+                cooldown: Timer::new(Duration::from_millis(2000),TimerMode::Repeating),
+                damage: 15,
+                element: Some(ElementType::Earth),
+                proj_type: Some(ProjectileType::Gatling),
+                ..default()
             },
+            search_and_pursue: SearchAndPursue::range_units(),
         }
     }
 
     pub fn earth_elemental() -> Self {
-        let timer: u64 = rand::thread_rng().gen_range(3500..4500);
-
         Self {
             mob_bundle: MobBundle::earth_elemental(),
-            shoot_ability: ShootAbility {
-                time_to_shoot: Timer::new(Duration::from_millis(timer), TimerMode::Repeating),
-                element: ElementType::Earth,
-                proj_type: ProjectileType::Missile,
+            shoot_ability: AttackComponent {
+                range: 300.,
+                attack_type: AttackType::Range,
+                cooldown: Timer::new(Duration::from_millis(3500),TimerMode::Repeating),
+                damage: 30,
+                element: Some(ElementType::Earth),
+                proj_type: Some(ProjectileType::Missile),                
+                ..default()
             },
+            search_and_pursue: SearchAndPursue::range_units(),
         }
     }
 }

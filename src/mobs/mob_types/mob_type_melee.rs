@@ -75,13 +75,8 @@ impl MeleeMobBundle<PlayerRush> {
             },
             behaviour: PlayerRush,
             attack: AttackComponent {
-                range: 24.,
-                attack_type: AttackType::Slash,
-                target: None,
-                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
-                attacked: false,
-                element: None,
                 damage: 25,
+                ..default()
             },
         }
     }
@@ -99,13 +94,9 @@ impl MeleeMobBundle<PlayerRush> {
             },
             behaviour: PlayerRush,
             attack: AttackComponent {
-                range: 24.,
-                attack_type: AttackType::Slash,
-                target: None,
-                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
-                attacked: false,
-                element: None,
                 damage: 25,
+                ..default()
+
             },
         }
     }
@@ -123,13 +114,9 @@ impl MeleePhasingBundle {
             mob_bundle: MobBundle::fire_elemental(),
             phasing: Phasing { speed: 2500. },
             attack: AttackComponent {
-                range: 24.,
-                attack_type: AttackType::Slash,
-                target: None,
-                cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
-                attacked: false,
-                element: None,
+                element: Some(ElementType::Fire),
                 damage: 25,
+                ..default()
             },
         }
     }

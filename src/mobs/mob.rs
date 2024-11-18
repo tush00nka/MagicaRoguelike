@@ -17,7 +17,7 @@ pub const STATIC_MOBS: &[MobType] = &[
 ];
 
 use crate::mobs::rotate_orbital;
-use crate::animation::AnimationConfig;
+use crate::{animation::AnimationConfig, pathfinding::Pathfinder};
 use crate::{
     blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},
@@ -28,7 +28,7 @@ use crate::{
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     mobs::timer_tick_orbital,
-    obstacles::{Corpse, CorpseSpawnEvent},
+    obstacles::CorpseSpawnEvent,
     particles::SpawnParticlesEvent,
     player::Player,
     projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
@@ -48,13 +48,13 @@ impl Plugin for MobPlugin {
             (
                 damage_mobs,
                 mob_death,
-                mob_shoot::<Friend, ShootAbility, Friend, Friendly, Hostile>,
-                mob_shoot::<Mob, Friend, Friendly, Friend, Friendly>,
+                //                mob_shoot::<Friend, Enemy, Hostile>,
+                //                mob_shoot::<Enemy, Friend, Friendly>,
                 mob_attack::<Enemy>,
                 mob_attack::<Friend>,
                 hit_projectiles::<Player, Friend, Hostile>,
                 hit_projectiles::<Friend, Mob, Friendly>,
-                timer_shoot,
+                //                timer_shoot,
                 rotate_orbital::<Friend>,
                 rotate_orbital::<Enemy>,
                 timer_tick_orbital::<Enemy>,
@@ -64,6 +64,7 @@ impl Plugin for MobPlugin {
                 tick_attack_cooldown,
                 timer_empty_list,
                 before_attack_delay,
+                pos_pathfinder,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -118,7 +119,6 @@ pub enum MobType {
 
 //projectile types
 #[derive(Component, Clone)]
-#[allow(dead_code)]
 pub enum ProjectileType {
     // can use to create mobs with different types of projectiles
     Circle,  // spawn some projectiles around
@@ -132,22 +132,9 @@ pub enum AttackType {
     Slash,
     Rush,
     Spear,
+    Range,
 }
 
-//targets for mob pathfinding as enum
-#[allow(unused)]
-#[derive(Component)]
-pub enum MobTarget {
-    Player,
-    Corpse,
-
-    // Для моба-вора? ну типа
-    HPTank,
-    EXPTank,
-
-    Runaway,
-    Noone,
-}
 //Pure components=========================================================================================================================================
 //If you want to add something (create new mob, or add new component), first of all, add components there (and check, maybe it exists already)
 //ability to teleport, contains timer and range in tiles from target
@@ -177,17 +164,6 @@ pub struct Summoning {
     pub time_to_spawn: Timer,
     pub is_static: bool,
 }
-
-//component to shoot, has timer, element and proj type according to enum ProjectileType
-#[derive(Component, Clone)]
-pub struct ShootAbility {
-    pub time_to_shoot: Timer,
-    pub element: ElementType,
-    pub proj_type: ProjectileType,
-}
-///flag to state system
-#[derive(Component, Clone)]
-pub struct ShootFlag;
 
 //component to deal contact damage
 #[derive(Component)]
@@ -245,6 +221,27 @@ impl Default for SearchAndPursue {
         }
     }
 }
+
+impl SearchAndPursue {
+    pub fn range_units() -> Self {
+        let mut rays: Vec<Ray> = vec![];
+        for i in 0..16 {
+            rays.push(Ray {
+                direction: Vec2::from_angle(i as f32 * PI / 8.),
+                weight: 0.0,
+            })
+        }
+
+        Self {
+            speed: 2000.0,
+            search_time: Timer::from_seconds(5., TimerMode::Once),
+            wander_timer: Timer::from_seconds(3., TimerMode::Repeating),
+            pursue_radius: 512.0,
+            last_target_dir: Vec2::ZERO,
+            rays,
+        }
+    }
+}
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -266,7 +263,7 @@ pub struct HitList {
 impl Default for HitList {
     fn default() -> Self {
         Self {
-            timer_to_clear: Timer::new(Duration::from_millis(5000), TimerMode::Repeating),
+            timer_to_clear: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
             been_punched: false,
             id_list: vec![],
         }
@@ -350,6 +347,22 @@ pub struct AttackComponent {
     pub attacked: bool,
     pub damage: i32,
     pub element: Option<ElementType>,
+    pub proj_type: Option<ProjectileType>,
+}
+
+impl Default for AttackComponent {
+    fn default() -> Self {
+        Self {
+            range: 28.,
+            attack_type: AttackType::Slash,
+            target: None,
+            cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
+            attacked: true,
+            damage: 1,
+            element: None,
+            proj_type: None,
+        }
+    }
 }
 
 //Bundles===========================================================================================================================================
@@ -438,15 +451,21 @@ fn mob_attack<Who: Component + std::default::Default>(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
     transform_query: Query<&Transform>,
+    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
 ) {
     for (entity, _a, mob_transform, range) in mob_query.iter() {
         let dir;
         match range.target {
             None => continue,
             Some(parent) => {
-                dir = transform_query.get(parent).unwrap().translation.truncate()
-                    - mob_transform.translation.truncate();
-                commands.entity(entity).insert(Done::Success);
+                if transform_query.contains(parent) {
+                    dir = transform_query.get(parent).unwrap().translation.truncate()
+                        - mob_transform.translation.truncate();
+                    commands.entity(entity).insert(Done::Success);
+                } else {
+                    commands.entity(entity).insert(Done::Success);
+                    continue;
+                }
             }
         };
 
@@ -460,6 +479,14 @@ fn mob_attack<Who: Component + std::default::Default>(
         if std::any::type_name::<Who>() == std::any::type_name::<Friend>() {
             friendly = true;
         }
+
+        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
+
+        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
+
+        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
+        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+
         match range.attack_type {
             AttackType::Slash => {
                 texture_path = "textures/slash_horisontal3_enemy.png";
@@ -483,18 +510,56 @@ fn mob_attack<Who: Component + std::default::Default>(
                     texture_path = "textures/slash_horisontal3.png";
                 }
             } // todo: change to choose from mob type?
+
+            AttackType::Range => {
+                commands.entity(entity).insert(Done::Success);
+
+                let angle = dir.y.atan2(dir.x); //math
+                let texture_path: String;
+                let damage: u32;
+                match range.proj_type {
+                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
+                    Some(ProjectileType::Circle) => {
+                        texture_path = "textures/earthquake.png".to_string();
+                        damage = 20;
+                    }
+                    Some(ProjectileType::Missile) => {
+                        texture_path = "textures/fireball.png".to_string();
+                        damage = 25;
+                    }
+                    Some(ProjectileType::Gatling) => {
+                        texture_path = "textures/small_fire.png".to_string();
+                        damage = 10;
+                    }
+                    None => continue,
+                };
+
+                let color = range
+                    .element
+                    .expect("Range attack without element, refactor this code.")
+                    .color();
+
+                ev_shoot.send(SpawnProjectileEvent {
+                    texture_path,
+                    color, //todo: change this fragment, that we could spawn different types of projectiles.
+                    translation: mob_transform.translation,
+                    angle,
+                    radius: 8.0,
+                    speed: 150.,
+                    damage,
+                    element: range
+                        .element
+                        .expect("Range attack without element, refactor this code."),
+                    is_friendly: friendly,
+                });
+
+                continue;
+            }
         };
 
         let texture = asset_server.load(texture_path);
         let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 5, 1, None, None);
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
-
-        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
-
-        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
-
-        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
-        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
 
         commands.entity(entity).with_children(|parent| {
             parent
@@ -567,27 +632,17 @@ fn attack_hit<Who: Component, Target: Component>(
     }
 }
 //actual code==============================================================================================================================
-fn mob_shoot<
-    Target: Component,
-    Shoot: Component,
-    Filter1: Component,
-    Filter2: Component,
-    ProjType: Component,
->(
+/*
+fn mob_shoot<Target: Component, Who: Component, ProjType: Component>(
     mut commands: Commands,
     spatial_query: SpatialQuery,
     mut ev_shoot: EventWriter<SpawnProjectileEvent>,
     mut shoot_query: Query<
         (Entity, &Transform, &mut ShootAbility),
-        (
-            With<Shoot>,
-            Without<Stun>,
-            Without<Filter1>,
-            With<ShootFlag>,
-        ),
+        (Without<Stun>, With<Who>, Without<Target>, With<ShootFlag>),
     >,
-    target_query: Query<(Entity, &Transform), (With<Target>, Without<Filter2>)>,
-    avoid_query: Query<Entity, With<Corpse>>,
+    target_query: Query<(Entity, &Transform), (With<Target>, Without<Who>)>,
+    avoid_query: Query<Entity, Or<(With<Obstacle>, With<Shield>, With<Blank>, With<Who>)>>,
 ) {
     for (mob_e, &mob_transform, can_shoot) in shoot_query.iter_mut() {
         if target_query.iter().len() != 0 {
@@ -667,7 +722,7 @@ fn mob_shoot<
         }
     }
 }
-
+ */
 fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Side>>,
@@ -852,20 +907,31 @@ fn mob_death(
         });
     }
 }
-
+/*
 pub fn timer_shoot(
-    mut shoot_query: Query<(Entity, &mut ShootAbility)>,
+    mut shoot_query: Query<
+        (Entity, &mut ShootAbility, &Transform),
+        (Without<Idle>, Without<Pursue>),
+    >,
     time: Res<Time>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     mut commands: Commands,
 ) {
-    for (mob_e, mut timer) in shoot_query.iter_mut() {
+    for (mob_e, mut timer, mob_transform) in shoot_query.iter_mut() {
         timer.time_to_shoot.tick(time.delta());
         if timer.time_to_shoot.just_finished() {
             commands.entity(mob_e).insert(Done::Success);
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: mob_transform
+                    .translation
+                    .truncate()
+                    .with_y(mob_transform.translation.y + 16.),
+                attack_alert: true,
+            });
         }
     }
 }
-
+*/
 pub fn before_attack_delay(
     mut timer_query: Query<(Entity, &mut BeforeAttackDelay), Without<Stun>>,
     time: Res<Time>,
@@ -875,6 +941,61 @@ pub fn before_attack_delay(
         delay.timer.tick(time.delta());
         if delay.timer.just_finished() {
             commands.entity(timer_e).insert(Done::Success);
+        }
+    }
+}
+
+fn pos_pathfinder(
+    mut pathfinder_query: Query<
+        (
+            Entity,
+            &mut Pathfinder,
+            &Transform,
+            &mut crate::pathfinding::FriendRush,
+        ),
+        Without<Stun>,
+    >,
+    mut commands: Commands,
+    target_query: Query<(Entity, &Transform), With<Friend>>,
+    time: Res<Time>,
+) {
+    for (pathfinder_e, _pathfinder, transform, mut timer) in pathfinder_query.iter_mut() {
+        if target_query.iter().len() == 0 {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            return;
+        }
+
+        timer.timer.tick(time.delta());
+
+        if timer.timer.just_finished() {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            println!("Timer ticked");
+            continue;
+        }
+
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                item1
+                    .translation
+                    .distance(transform.translation)
+                    .total_cmp(&item2.translation.distance(transform.translation))
+            })
+            .collect();
+
+        let (target_e, mut target) = sorted_targets[0];
+
+        if target_e == pathfinder_e {
+            if sorted_targets.iter().len() < 2 {
+                commands.entity(pathfinder_e).insert(Done::Success);
+                continue;
+            }
+            target = sorted_targets[1].1;
+        }
+
+        if transform.translation.distance(target.translation) <= 100. {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            println!("Near target");
         }
     }
 }
