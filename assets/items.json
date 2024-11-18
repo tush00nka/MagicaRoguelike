@@ -31,6 +31,12 @@
         },
 
         {
+            "name": "Пропеллер",
+            "description": "Призовите воздушного духа",
+            "texture_name": "fan.png"  
+        },
+
+        {
             "name": "Тлеющий осколок",
             "description": "Призовите огненного духа",
             "texture_name": "fiery_shard.png"

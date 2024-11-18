@@ -29,6 +29,7 @@ fn apply_effect(
                 ItemType::Valve => Some(Spell::Steam),
                 ItemType::ElementWheel => Some(Spell::BlackHole),
                 ItemType::NotchedPickaxe => Some(Spell::EarthElemental),
+                ItemType::Fan => Some(Spell::AirElemental),
                 _ => None,
             };
 
