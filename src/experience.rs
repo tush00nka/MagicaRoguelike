@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{animation::AnimationConfig, player::Player, GameState};
+use crate::{animation::AnimationConfig, audio::PlayAudioEvent, player::Player, GameState};
 
 pub struct ExperiencePlugin;
 
@@ -69,6 +69,8 @@ fn lvl_up_popup(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut exp: ResMut<PlayerExperience>,
     player_query: Query<Entity, With<Player>>,
+
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 ) {
     let Ok(player_e) = player_query.get_single() else{
         return;
@@ -76,6 +78,8 @@ fn lvl_up_popup(
 
     if exp.popup_flag {
         exp.popup_flag = false;
+
+        ev_play_audio.send(PlayAudioEvent::from_file("lvlup.ogg"));
 
         let texture = asset_server.load("textures/lvl_up_popup.png");
         let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 8, 1, None, None);

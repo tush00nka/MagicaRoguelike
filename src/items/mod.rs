@@ -15,9 +15,6 @@ use amulet::AmuletPlugin;
 pub mod lizard_tail;
 use lizard_tail::LizardTailPlugin;
 
-pub mod resistance_items;
-use resistance_items::ResistanceItemsPlugin;
-
 pub mod ghost_in_the_shell;
 use ghost_in_the_shell::GhostInTheShellPlugin;
 
@@ -29,6 +26,12 @@ use blood_goblet::BloodGobletPlugin;
 
 pub mod blind_rage;
 use blind_rage::BlindRagePlugin;
+
+pub mod resistance_items;
+use resistance_items::ResistanceItemsPlugin;
+
+pub mod spell_unlock_items;
+use spell_unlock_items::SpellUnlocksPlugin;
 
 pub struct ItemEffectsPlugin;
 impl Plugin for ItemEffectsPlugin {
@@ -44,6 +47,7 @@ impl Plugin for ItemEffectsPlugin {
             VampireToothPlugin,
             BloodGobletPlugin,
             BlindRagePlugin,
+            SpellUnlocksPlugin,
         ));
     }
 }

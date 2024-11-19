@@ -7,9 +7,21 @@
         },
 
         {
+            "name": "Водолей",
+            "description": "Призовите водного духа",
+            "texture_name": "aquarius.png"
+        },
+
+        {
             "name": "Бекон",
             "description": "Неуязвимость после получения\nурона длится дольше",
             "texture_name": "bacon.png"
+        },
+
+        {
+            "name": "Пустышка",
+            "description": "Погодите, это из другой игры...",
+            "texture_name": "blank.png"
         },
 
         {
@@ -22,6 +34,24 @@
             "name": "Кубок с кровью",
             "description": "Здоровье медленно восстанавливается\nЗаклинания отнимают здоровье",
             "texture_name": "blood_goblet.png"
+        },
+
+        {
+            "name": "Колесо стихий",
+            "description": "Создайте чёрную дыру",
+            "texture_name": "element_wheel.png"  
+        },
+
+        {
+            "name": "Пропеллер",
+            "description": "Призовите воздушного духа",
+            "texture_name": "fan.png"  
+        },
+
+        {
+            "name": "Тлеющий осколок",
+            "description": "Призовите огненного духа",
+            "texture_name": "fiery_shard.png"
         },
 
         {
@@ -55,9 +85,27 @@
         },
 
         {
+            "name": "Зазубренная кирка",
+            "description": "Призовите земляного духа",
+            "texture_name": "notched_pickaxe.png"
+        },
+
+        {
+            "name": "Щит",
+            "description": "Создайте щит из воды и земли",
+            "texture_name": "shield.png"
+        },
+
+        {
             "name": "Снадобье скорости",
             "description": "Больше скорость ходьбы",
             "texture_name": "speed_potion.png"
+        },
+
+        {
+            "name": "Вентиль",
+            "description": "Комбинируйте огонь и воду в пар",
+            "texture_name": "valve.png"
         },
 
         {

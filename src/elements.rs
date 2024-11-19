@@ -15,8 +15,10 @@ impl Plugin for ElementsPlugin {
             .add_event::<ElementBarFilled>()
             .add_event::<ElementBarClear>()
             .insert_resource(ElementBar::default())
-            .add_systems(OnExit(GameState::MainMenu), init_bar)
-            .add_systems(Update, (fill_bar, cast_spell));
+            .add_systems(OnExit(GameState::MainMenu), init_spells)
+            .add_systems(Update, (fill_bar, cast_spell)
+                .run_if(in_state(GameState::InGame)
+                    .or_else(in_state(GameState::Hub))));
     }
 }
 
@@ -60,6 +62,65 @@ impl ElementType {
             ElementType::Earth => "earth.ogg",
             ElementType::Air => "air.ogg",
             ElementType::Steam => "air.ogg"
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy, PartialOrd, Ord, Eq)]
+pub enum Spell {
+    Fire,
+    Water,
+    Earth,
+    Air,
+    Steam,
+    Shield,
+    BlackHole,
+    Blank,
+    FireElemental,
+    WaterElemental,
+    EarthElemental,
+    AirElemental
+}
+
+#[derive(Resource)]
+pub struct SpellPool {
+    pool: Vec<Spell>,
+    unlocked: Vec<Spell>,
+}
+
+impl SpellPool {
+    fn is_unlocked(&self, spell: Spell) -> bool {
+        self.unlocked.contains(&spell)
+    }
+
+    pub fn unlock(&mut self, spell: Spell) {
+        if self.pool.contains(&spell)
+        && !self.unlocked.contains(&spell) {
+            self.pool.remove(self.pool.binary_search(&spell).unwrap());
+            self.unlocked.push(spell);
+        }
+    }
+}
+
+impl Default for SpellPool {
+    fn default() -> Self {
+        Self {
+            pool: vec![
+                Spell::Steam,
+                Spell::Shield,
+                Spell::BlackHole,
+                Spell::Blank,
+                Spell::FireElemental,
+                Spell::WaterElemental,
+                Spell::EarthElemental,
+                Spell::AirElemental
+            ],
+            unlocked: vec![
+                Spell::Fire,
+                Spell::Water,
+                Spell::Earth,
+                Spell::Air
+            ]
         }
     }
 }
@@ -139,10 +200,11 @@ pub struct ElementBarFilled(pub ElementType);
 #[derive(Event)]
 pub struct ElementBarClear;
 
-fn init_bar(
+fn init_spells(
     mut commands: Commands,
 ) {
     commands.insert_resource(ElementBar::default());
+    commands.insert_resource(SpellPool::default());
 }
 
 fn fill_bar(
@@ -176,6 +238,8 @@ fn cast_spell(
 
     wand_query: Query<&Transform, With<Wand>>,
     
+    spell_pool: Res<SpellPool>,
+
     mut player_query: Query<(&mut Health, Entity, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
 
@@ -237,7 +301,8 @@ fn cast_spell(
 
         // sub-element, cannot directly cast
         if bar.fire > 0 && bar.water > 0
-        && (bar.earth + bar.air) < (bar.fire + bar.water) {
+        && (bar.earth + bar.air) < (bar.fire + bar.water)
+        && spell_pool.is_unlocked(Spell::Steam) {
             element = ElementType::Steam;
         }
 
@@ -248,7 +313,8 @@ fn cast_spell(
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
-            if bar.water == 1 
+            if spell_pool.is_unlocked(Spell::Shield)
+            && bar.water == 1 
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
@@ -259,7 +325,8 @@ fn cast_spell(
                 return;
             }
 
-            if bar.water == 1
+            if spell_pool.is_unlocked(Spell::Blank)
+            && bar.water == 1
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
@@ -272,7 +339,8 @@ fn cast_spell(
                 return;
             }
 
-            if bar.fire == bar.water
+            if spell_pool.is_unlocked(Spell::BlackHole)
+            && bar.fire == bar.water
             && bar.water == bar.earth
             && bar.earth == bar.air 
             && bar.air == bar.fire {
@@ -296,7 +364,8 @@ fn cast_spell(
             }
 
             //spawn FireElemental
-            if bar.earth >= 1 
+            if spell_pool.is_unlocked(Spell::FireElemental)
+            && bar.earth >= 1 
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire == 2 {
@@ -305,7 +374,8 @@ fn cast_spell(
             }
             
             //spawn EarthElemental
-            if bar.earth == 2 
+            if spell_pool.is_unlocked(Spell::EarthElemental)
+            && bar.earth == 2 
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire >=1 {
@@ -314,7 +384,8 @@ fn cast_spell(
             }
 
             //spawn AirElemental
-            if bar.earth <= 0 
+            if spell_pool.is_unlocked(Spell::AirElemental)
+            && bar.earth <= 0 
             && bar.air == 2 
             && bar.water >= 1 
             && bar.fire >=1 {
