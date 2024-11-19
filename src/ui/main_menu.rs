@@ -412,6 +412,10 @@ fn spawn_view_spells(
                     "water" => "water_slot.png",
                     "earth" => "earth_slot.png",
                     "air" => "air_slot.png",
+                    "etc" => "ui/etc.png",
+                    "lower" => "ui/lower.png",
+                    "greater" => "ui/greater.png",
+                    "equals" => "ui/equals.png",
                     _ => ""
                 };
 

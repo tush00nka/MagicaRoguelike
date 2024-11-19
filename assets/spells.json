@@ -3,6 +3,8 @@
         {
             "name": "Огненный залп",
             "recipe": [
+                "fire",
+                "etc",
                 "fire"
             ]
         },
@@ -11,6 +13,7 @@
             "name": "Огненный шар",
             "recipe": [
                 "fire",
+                "greater",
                 "air"
             ]
         },
@@ -19,6 +22,7 @@
             "name": "Огненный взрыв",
             "recipe": [
                 "fire",
+                "greater",
                 "earth"
             ]
         },
@@ -26,6 +30,8 @@
         {
             "name": "Водный всплеск",
             "recipe": [
+                "water",
+                "etc",
                 "water"
             ]
         },
@@ -34,6 +40,7 @@
             "name": "Водяной взрыв",
             "recipe": [
                 "water",
+                "greater",
                 "earth"
             ]
         },
@@ -42,6 +49,7 @@
             "name": "Водяной шар",
             "recipe": [
                 "water",
+                "greater",
                 "air"
             ]
         },
@@ -49,6 +57,8 @@
         {
             "name": "Земляной взрыв",
             "recipe": [
+                "earth",
+                "etc",
                 "earth"
             ]
         },
@@ -57,6 +67,7 @@
             "name": "Земляной шар",
             "recipe": [
                 "earth",
+                "greater",
                 "air"
             ]
         },
@@ -64,6 +75,8 @@
         {
             "name": "Воздушный снаряд",
             "recipe": [
+                "air",
+                "etc",
                 "air"
             ]
         },
@@ -72,6 +85,7 @@
             "name": "Пар",
             "recipe": [
                 "fire",
+                "etc",
                 "water"
             ]
         },
@@ -81,6 +95,8 @@
             "recipe": [
                 "water",
                 "earth",
+                "earth",
+                "etc",
                 "earth"
             ]
         },
@@ -90,6 +106,8 @@
             "recipe": [
                 "water",
                 "air",
+                "air",
+                "etc",
                 "air"
             ]
         },
@@ -98,16 +116,21 @@
             "name": "Чёрная дыра",
             "recipe": [
                 "fire",
+                "equals",
                 "water",
+                "equals",
                 "earth",
+                "equals",
                 "air"
             ]
         },
 
         {
-            "name": "Призыв огненного элементаля",
+            "name": "Призыв огненного духа",
             "recipe": [
                 "fire",
+                "fire",
+                "etc",
                 "fire",
                 "water",
                 "earth"
@@ -115,21 +138,37 @@
         },
 
         {
-            "name": "Призыв земляного элементаля",
+            "name": "Призыв водного духа",
+            "recipe": [
+                "fire",
+                "water",
+                "water",
+                "etc",
+                "water",
+                "earth"
+            ]
+        },
+
+        {
+            "name": "Призыв земляного духа",
             "recipe": [
                 "fire",
                 "water",
                 "earth",
+                "earth",
+                "etc",
                 "earth"
             ]
         },
 
         {
-            "name": "Призыв воздушного элементаля",
+            "name": "Призыв воздушного духа",
             "recipe": [
                 "fire",
                 "water",
                 "air",
+                "air",
+                "etc",
                 "air"
             ]
         }
