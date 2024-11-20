@@ -395,7 +395,7 @@ pub fn spawn_map(
         .insert(Collider::circle(6.))
         .insert(Sensor)
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile]))
+        .insert(CollisionLayers::new(GameLayer::Interactable, [GameLayer::Player, GameLayer::Projectile, GameLayer::Enemy,]))
         .insert(Health::new(10))
         .insert(Obstacle)
         .insert(YSort(sorting_offset));

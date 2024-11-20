@@ -20,6 +20,8 @@ fn animate_mobs(
     time: Res<Time>,
     mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, (With<SearchAndPursue>, Without<MultistateAnimationFlag>))>,
     mut multistate_query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), (With<SearchAndPursue>, With<MultistateAnimationFlag>)>,
+    mut pathfinder_query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, (With<Pathfinder>, Without<MultistateAnimationFlag>, Without<SearchAndPursue>))>,
+    
 ) {
     fn animate(config: &mut AnimationConfig, atlas: &mut TextureAtlas, time: &Time) {
         // we track how long the current sprite has been displayed for
@@ -40,6 +42,10 @@ fn animate_mobs(
     }
 
     for (mut config, mut atlas) in query.iter_mut() {
+        animate(&mut config, &mut atlas, &time);
+    }
+
+    for (mut config, mut atlas) in pathfinder_query.iter_mut() {
         animate(&mut config, &mut atlas, &time);
     }
 
@@ -123,7 +129,7 @@ fn animate_mob_attack(
             let mob_e = mob_query.get(**parent);
             match mob_e{
                 Ok(ent) => {commands.entity(ent).insert(Done::Success);},
-                _=> {println!("NotFound");},
+                _=> {},
             }
         }
     }

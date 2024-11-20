@@ -128,7 +128,7 @@ impl Distribution<ItemType> for Standard {
 
 #[derive(Component)]
 pub struct Item {
-    item_type: ItemType,
+    pub item_type: ItemType,
     name: String,
     description: String,
 }

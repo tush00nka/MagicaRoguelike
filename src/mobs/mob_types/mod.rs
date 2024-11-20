@@ -18,3 +18,6 @@ pub use mob_type_orbital::*;
 
 mod mob_type_range;
 pub use mob_type_range::*;
+
+mod mob_type_special;
+pub use mob_type_special::*;

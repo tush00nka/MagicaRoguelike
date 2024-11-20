@@ -1,5 +1,5 @@
 //bundle for range mobs
-use {bevy::prelude::*, std::time::Duration, rand::Rng};
+use {bevy::prelude::*, std::time::Duration};
 
 use crate::{
     elements::{ElementResistance, ElementType},
@@ -45,14 +45,7 @@ impl RangeMobBundle {
                 ..default()
             },
             search_and_pursue: SearchAndPursue::range_units(),
-            path_finder: Pathfinder {
-                path: vec![],
-                update_path_timer: Timer::new(
-                    Duration::from_millis(rand::thread_rng().gen_range(500..999)),
-                    TimerMode::Repeating,
-                ),
-                speed: 2000.,
-            },
+            path_finder: Pathfinder::default(),
         }
     }
 }

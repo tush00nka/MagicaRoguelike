@@ -1,19 +1,24 @@
 //A* Pathfinding for enemies
 use bevy::prelude::*;
+use rand::Rng;
 use seldom_state::trigger::Done;
-
-use std::{collections::{HashMap, LinkedList}, time::Duration};
+use std::{
+    collections::{HashMap, LinkedList},
+    time::Duration,
+};
 
 use crate::{
     friend::Friend,
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
+    item::Item,
     mobs::{
-        damage_mobs, BusyRaising, CorpseRush, Enemy, Phasing, PlayerRush, RunawayRush, Summoning,
-        Teleport,
+        damage_mobs, BusyRaising, CorpseRush, Enemy, ExpTankRush, HPTankRush, ItemRush, ObstacleRush, Phasing, PickupItemQueue, PlayerRush, RunawayRush, Summoning, Teleport
     },
-    obstacles::Corpse,
+    obstacles::{Corpse, Obstacle},
     player::Player,
     GameState,
+    health_tank::HealthTank,
+    exp_tank::ExpTank,
 };
 
 pub struct PathfindingPlugin;
@@ -33,12 +38,21 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             (
-                change_target_appeared::<CorpseRush, RunawayRush, Corpse, Summoning>
+                (
+                    change_target_appeared::<RunawayRush, Corpse, Summoning>,
+                )
                     .after(damage_mobs),
-                change_to_player::<Corpse, CorpseRush, RunawayRush>.after(damage_mobs),
+                (
+                    change_target_empty_query::<Corpse, CorpseRush, RunawayRush, FriendRush>,
+                )
+                    .after(damage_mobs),
                 a_pathfinding::<Player, PlayerRush, PlayerRush, Player>,
                 a_pathfinding::<Corpse, CorpseRush, BusyRaising, Corpse>,
                 a_pathfinding::<Friend, FriendRush, Enemy, Enemy>,
+                a_pathfinding::<Obstacle, ObstacleRush, Corpse, Friend>,
+                a_pathfinding::<Item, ItemRush, Corpse, Friend>,
+                a_pathfinding::<ExpTank, ExpTankRush, Corpse, Friend>,
+                a_pathfinding::<HealthTank, HPTankRush, Corpse, Friend>,
             )
                 .run_if(in_state(GameState::InGame)),
         );
@@ -50,11 +64,15 @@ impl Plugin for PathfindingPlugin {
 pub struct EnemyRush;
 
 #[derive(Component, Clone)]
-pub struct FriendRush{pub timer: Timer,}
+pub struct FriendRush {
+    pub timer: Timer,
+}
 
-impl Default for FriendRush{
+impl Default for FriendRush {
     fn default() -> Self {
-        Self { timer: Timer::new(Duration::from_millis(1250), TimerMode::Repeating) }
+        Self {
+            timer: Timer::new(Duration::from_millis(1250), TimerMode::Repeating),
+        }
     }
 }
 
@@ -63,6 +81,19 @@ pub struct Pathfinder {
     pub path: Vec<(u16, u16)>,
     pub update_path_timer: Timer,
     pub speed: f32,
+}
+
+impl Default for Pathfinder {
+    fn default() -> Self {
+        Self {
+            path: vec![],
+            update_path_timer: Timer::new(
+                Duration::from_millis(rand::thread_rng().gen_range(500..999)),
+                TimerMode::Repeating,
+            ),
+            speed: 2000.,
+        }
+    }
 }
 
 // структура для графа, ноды хранят в себе позицию и тип тайла, цена для поиска пути и путь в другой структуре
@@ -116,25 +147,33 @@ impl CostNode {
         self.cost = cost_new;
     }
 }
-fn change_target_appeared<
-    After: Component + Default,
-    Before: Component,
-    Filter1: Component,
-    Filter2: Component,
->(
+fn change_target_appeared<Before: Component, Filter1: Component, Filter2: Component>(
     mut mob_query: Query<Entity, (With<Before>, With<Pathfinder>, With<Filter2>)>,
-    _target_query: Query<Entity, (Changed<Filter1>, With<Filter1>)>,
+    target_query: Query<Entity, (Changed<Filter1>, With<Filter1>)>,
     mut commands: Commands,
 ) {
     for mob in mob_query.iter_mut() {
+        let mut len = 0;
+        
+        for _ in target_query.iter() {
+            if len > 0{
+                break;
+            }
+            len += 1;   
+        }
+
+        if len == 0 {
+            println!("EMPTY");
+            commands.entity(mob).insert(Done::Failure);
+        }
         commands.entity(mob).insert(Done::Success);
     }
 }
 
-fn change_to_player<Check: Component, Before: Component, After: Component + Default>(
+fn change_target_empty_query<Check: Component, Before: Component, After: Component + Default, Filter: Component>(
     mob_query: Query<Entity, (With<Before>, With<Pathfinder>)>,
     mut commands: Commands,
-    check_query: Query<Entity, With<Check>>,
+    check_query: Query<Entity, (With<Check>, Without<Filter>)>,
 ) {
     let len = check_query.iter().len();
     if len == 0 {
@@ -419,167 +458,171 @@ fn a_pathfinding<
         pathfinder.update_path_timer.tick(time.delta());
         if pathfinder.update_path_timer.just_finished() {
             //получаем позицию игрока
-            if target_query.iter().len() != 0 {
-                let sorted_targets: Vec<(Entity, &Transform)> = target_query
-                    .iter()
-                    .sort_by::<&Transform>(|item1, item2| {
-                        item1
-                            .translation
-                            .distance(pathfinder_transform.translation)
-                            .total_cmp(&item2.translation.distance(pathfinder_transform.translation))
-                    })
-                    .collect();
+            if target_query.iter().len() == 0 {
+                if std::any::type_name::<T>() == std::any::type_name::<Obstacle>() {
+                    println!("empty target query");
+                }
+                commands.entity(pathfinder_e).insert(Done::Failure);
+                return;
+            }
+            let sorted_targets: Vec<(Entity, &Transform)> = target_query
+                .iter()
+                .sort_by::<&Transform>(|item1, item2| {
+                    item1
+                        .translation
+                        .distance(pathfinder_transform.translation)
+                        .total_cmp(&item2.translation.distance(pathfinder_transform.translation))
+                })
+                .collect();
 
-                    let (target_e, mut target) = sorted_targets[0];
+            let (target_e, mut target) = sorted_targets[0];
 
+            if target_e == pathfinder_e {
+                if sorted_targets.iter().len() < 2 {
+                    commands.entity(pathfinder_e).insert(Done::Success);
+                    continue;
+                }
+                target = sorted_targets[1].1;
+            }
+            //создаем нод где стоит моб
+            let start_node = Node::new(
+                TileType::Floor,
+                Vec2::new(
+                    pathfinder_transform.translation.x.floor(),
+                    pathfinder_transform.translation.y.floor(),
+                ),
+            );
 
-                    if target_e == pathfinder_e{
-                        if sorted_targets.iter().len() < 2{
-                            commands.entity(pathfinder_e).insert(Done::Success);
-                            continue;
-                        }
-                        target = sorted_targets[1].1;
-                    }
-                //создаем нод где стоит моб
-                let start_node = Node::new(
-                    TileType::Floor,
-                    Vec2::new(
-                        pathfinder_transform.translation.x.floor(),
-                        pathfinder_transform.translation.y.floor(),
-                    ),
+            let mut field: Vec<Vec<CostNode>> = Vec::new();
+
+            //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
+            for i in 0..ROOM_SIZE {
+                field.push(Vec::new());
+                for _ in 0..ROOM_SIZE {
+                    field[i as usize].push(CostNode::new(u8::MAX as u16));
+                }
+            }
+
+            //делаем на основе позиции игрока goal_node
+            let goal_node = get_node_where_object_is(
+                &mut graph_search,
+                &Vec2::new(target.translation.x.floor(), target.translation.y.floor()),
+            );
+
+            //задаем нод где стоит моб нулевой ценой
+            field[pathfinder_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
+                [pathfinder_transform.translation.y.floor() as usize / ROOM_SIZE as usize]
+                .change_cost(0);
+
+            //создаем хэшмапы для пройденных нодов и доступных
+            let mut reachable = HashMap::new();
+            let mut explored = HashMap::new();
+
+            //добавляем нод с мобом в хэшмапу для доступных нодов
+            reachable.insert(
+                (
+                    start_node.position.x as usize,
+                    start_node.position.y as usize,
+                ),
+                start_node,
+            );
+
+            while reachable.len() > 0 {
+                //функция выбора нода описана ниже
+                let node: Node = pick_node(
+                    reachable.values().cloned().collect(),
+                    goal_node.clone(),
+                    field.clone(),
                 );
 
-                let mut field: Vec<Vec<CostNode>> = Vec::new();
+                //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам?
+                if node == goal_node {
+                    field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
+                        [(goal_node.position.y / ROOM_SIZE as f32) as usize]
+                        .path
+                        .push_back((
+                            ((goal_node.position.x) / ROOM_SIZE as f32) as u16,
+                            ((goal_node.position.y) / ROOM_SIZE as f32) as u16,
+                        ));
 
-                //задаем поле с ценами, ставим их как большое число, чтобы потом пересчитывать во время работы алгоритма
-                for i in 0..ROOM_SIZE {
-                    field.push(Vec::new());
-                    for _ in 0..ROOM_SIZE {
-                        field[i as usize].push(CostNode::new(u8::MAX as u16));
+                    pathfinder.path = build_path(
+                        field[((goal_node.position.x) / ROOM_SIZE as f32) as usize]
+                            [((goal_node.position.y) / ROOM_SIZE as f32) as usize]
+                            .clone(),
+                    );
+                    break;
+                }
+
+                //записываем что мы прошли нод и убираем из доступных
+                reachable.remove(&(node.position.x as usize, node.position.y as usize));
+                explored.insert(
+                    (node.position.x as usize, node.position.y as usize),
+                    node.clone(),
+                );
+
+                //берем ноды в которые можно прийти
+                let new_reachable_potential = get_list(&mut graph_search, node.position);
+                let mut new_reachable: Vec<Node> = Vec::new();
+
+                //записываем ноды, которые не были еще посещены и записываем их в new_reachable
+                for potential in 0..new_reachable_potential.len() {
+                    match explored.get(&(
+                        new_reachable_potential[potential].position.x as usize,
+                        new_reachable_potential[potential].position.y as usize,
+                    )) {
+                        Some(_) => {}
+                        None => {
+                            new_reachable.push(new_reachable_potential[potential].clone());
+                        }
                     }
                 }
 
-                //делаем на основе позиции игрока goal_node
-                let goal_node = get_node_where_object_is(
-                    &mut graph_search,
-                    &Vec2::new(target.translation.x.floor(), target.translation.y.floor()),
-                );
+                //проходим по new_reachable, если нод уже есть в reachable, не добавляем
+                for adjacent in new_reachable {
+                    match reachable
+                        .get(&(adjacent.position.x as usize, adjacent.position.y as usize))
+                    {
+                        Some(_) => {}
+                        None => {
+                            reachable.insert(
+                                (adjacent.position.x as usize, adjacent.position.y as usize),
+                                adjacent.clone(),
+                            );
+                        }
+                    }
 
-                //задаем нод где стоит моб нулевой ценой
-                field[pathfinder_transform.translation.x.floor() as usize / ROOM_SIZE as usize]
-                    [pathfinder_transform.translation.y.floor() as usize / ROOM_SIZE as usize]
-                    .change_cost(0);
-
-                //создаем хэшмапы для пройденных нодов и доступных
-                let mut reachable = HashMap::new();
-                let mut explored = HashMap::new();
-
-                //добавляем нод с мобом в хэшмапу для доступных нодов
-                reachable.insert(
-                    (
-                        start_node.position.x as usize,
-                        start_node.position.y as usize,
-                    ),
-                    start_node,
-                );
-
-                while reachable.len() > 0 {
-                    //функция выбора нода описана ниже
-                    let node: Node = pick_node(
-                        reachable.values().cloned().collect(),
-                        goal_node.clone(),
-                        field.clone(),
-                    );
-
-                    //нужно придумать что делать если нашли целевой нод, в теории путь можно сохранять в структуру к мобам?
-                    if node == goal_node {
-                        field[(goal_node.position.x / ROOM_SIZE as f32) as usize]
-                            [(goal_node.position.y / ROOM_SIZE as f32) as usize]
+                    //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
+                    if field[((node.position.x) / ROOM_SIZE as f32) as usize]
+                        [((node.position.y) / ROOM_SIZE as f32) as usize]
+                        .cost
+                        + 1
+                        < field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
+                            [(adjacent.position.y / ROOM_SIZE as f32) as usize]
+                            .cost
+                    {
+                        field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
+                            [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
+                            .path = field[((node.position.x) / ROOM_SIZE as f32) as usize]
+                            [((node.position.y) / ROOM_SIZE as f32) as usize]
                             .path
-                            .push_back((
-                                ((goal_node.position.x) / ROOM_SIZE as f32) as u16,
-                                ((goal_node.position.y) / ROOM_SIZE as f32) as u16,
-                            ));
+                            .clone();
 
-                        pathfinder.path = build_path(
-                            field[((goal_node.position.x) / ROOM_SIZE as f32) as usize]
-                                [((goal_node.position.y) / ROOM_SIZE as f32) as usize]
-                                .clone(),
+                        let k = (
+                            ((node.position.x) / ROOM_SIZE as f32) as u16,
+                            ((node.position.y) / ROOM_SIZE as f32) as u16,
                         );
-                        break;
-                    }
 
-                    //записываем что мы прошли нод и убираем из доступных
-                    reachable.remove(&(node.position.x as usize, node.position.y as usize));
-                    explored.insert(
-                        (node.position.x as usize, node.position.y as usize),
-                        node.clone(),
-                    );
+                        field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
+                            [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
+                            .path
+                            .push_back(k);
 
-                    //берем ноды в которые можно прийти
-                    let new_reachable_potential = get_list(&mut graph_search, node.position);
-                    let mut new_reachable: Vec<Node> = Vec::new();
-
-                    //записываем ноды, которые не были еще посещены и записываем их в new_reachable
-                    for potential in 0..new_reachable_potential.len() {
-                        match explored.get(&(
-                            new_reachable_potential[potential].position.x as usize,
-                            new_reachable_potential[potential].position.y as usize,
-                        )) {
-                            Some(_) => {}
-                            None => {
-                                new_reachable.push(new_reachable_potential[potential].clone());
-                            }
-                        }
-                    }
-
-                    //проходим по new_reachable, если нод уже есть в reachable, не добавляем
-                    for adjacent in new_reachable {
-                        match reachable
-                            .get(&(adjacent.position.x as usize, adjacent.position.y as usize))
-                        {
-                            Some(_) => {}
-                            None => {
-                                reachable.insert(
-                                    (adjacent.position.x as usize, adjacent.position.y as usize),
-                                    adjacent.clone(),
-                                );
-                            }
-                        }
-
-                        //если цена нода больше чем цена текущего нода + 1, меняем кост в field, перерасчитываем путь
-                        if field[((node.position.x) / ROOM_SIZE as f32) as usize]
+                        field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
+                            [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
+                            .cost = field[((node.position.x) / ROOM_SIZE as f32) as usize]
                             [((node.position.y) / ROOM_SIZE as f32) as usize]
                             .cost
-                            + 1
-                            < field[(adjacent.position.x / ROOM_SIZE as f32) as usize]
-                                [(adjacent.position.y / ROOM_SIZE as f32) as usize]
-                                .cost
-                        {
-                            field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
-                                [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
-                                .path = field[((node.position.x) / ROOM_SIZE as f32) as usize]
-                                [((node.position.y) / ROOM_SIZE as f32) as usize]
-                                .path
-                                .clone();
-
-                            let k = (
-                                ((node.position.x) / ROOM_SIZE as f32) as u16,
-                                ((node.position.y) / ROOM_SIZE as f32) as u16,
-                            );
-
-                            field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
-                                [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
-                                .path
-                                .push_back(k);
-
-                            field[((adjacent.position.x) / ROOM_SIZE as f32) as usize]
-                                [((adjacent.position.y) / ROOM_SIZE as f32) as usize]
-                                .cost = field[((node.position.x) / ROOM_SIZE as f32) as usize]
-                                [((node.position.y) / ROOM_SIZE as f32) as usize]
-                                .cost
-                                + 1;
-                        }
+                            + 1;
                     }
                 }
             }

@@ -201,9 +201,9 @@ fn spawn_corpse(
                 texture_path = "textures/mob_corpse_placeholder.png";
                 can_be_spawned = true;
             }
-            MobType::TankEater => {
+            MobType::Thief => {
                 texture_path = "textures/mob_corpse_placeholder.png";
-                can_be_spawned = true;
+                can_be_spawned = false;
             }
         }
         let texture = asset_server.load(texture_path);

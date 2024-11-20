@@ -14,7 +14,7 @@ use crate::{
     level_completion::PortalManager,
     mobs::{MultistateAnimationFlag,mob::*, mob_types::*},
     obstacles::Corpse,
-    pathfinding::{EnemyRush, FriendRush,create_new_graph},
+    pathfinding::{FriendRush,create_new_graph},
     stun::Stun,
     GameState,
 };
@@ -42,13 +42,22 @@ impl Plugin for MobSpawnPlugin {
     }
 }
 
-const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage, MobType::EarthElemental];
+const DESERT_MOBS: &[MobType] = &[
+    MobType::Knight, 
+    MobType::FireMage, 
+    MobType::EarthElemental,
+    MobType::WaterElemental,
+    MobType::Thief,
+];
+
 const JUNGLE_MOBS: &[MobType] = &[
     MobType::Mossling,
     MobType::JungleTurret,
     MobType::WaterMage,
     MobType::AirElemental,
+    MobType::ClayGolem,
 ];
+
 const INFERNO_MOBS: &[MobType] = &[
     MobType::Necromancer,
     MobType::FireMage,
@@ -64,9 +73,6 @@ pub struct MobSpawnEvent {
     pub pos: Vec2,
     pub is_friendly: bool,
 }
-//enum for types of AI
-//#[derive(Component)]
-#[allow(dead_code)]
 pub enum MobAI {
     MeleeWithATK,
     RangeMoving,
@@ -75,6 +81,7 @@ pub enum MobAI {
     Turret,
     Phasing,
     Orbital,
+    Thief
     //etc, add later
 }
 //structures for init=======================================================================================================================
@@ -177,7 +184,8 @@ impl SpawnKit<'_> {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage4.png",
+            texture_path: "textures/mobs/clay_golem.png",
+            pixel_size: 36,
             ..default()
         }
     }
@@ -221,11 +229,14 @@ impl SpawnKit<'_> {
             ..default()
         }
     }
-    fn tank_eater() -> Self {
+    fn thief() -> Self {
         Self {
-            frame_count: 2,
-            fps: 3,
-            texture_path: "textures/mobs/fire_mage9.png",
+            frame_count: 6,
+            fps: 12,
+            texture_path: "textures/mobs/lurker_run.png",
+            can_flip: true,
+            ai_type: MobAI::Thief,
+            pixel_size: 24,
             ..default()
         }
     }
@@ -364,8 +375,8 @@ pub fn spawn_mob(
             MobType::SkeletRanger => {
                 spawn_kit = SpawnKit::skelet_ranger();
             }
-            MobType::TankEater => {
-                spawn_kit = SpawnKit::tank_eater();
+            MobType::Thief => {
+                spawn_kit = SpawnKit::thief();
             }
         }
 
@@ -440,7 +451,7 @@ pub fn spawn_mob(
                     ))
                     .id()
                 }else{
-                //need to create and fix later i guess
+                println!("Spawn is correct");
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -482,6 +493,7 @@ pub fn spawn_mob(
                     ))
                     .id()
             }
+
             MobAI::Turret => {
                 //done
                 mob = commands
@@ -494,7 +506,35 @@ pub fn spawn_mob(
                     ))
                     .id()
             }
-        }
+            MobAI::Thief => 
+                mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans_builder(nearest_interactable, |_: &RunawayRush, value|{
+                                Some(
+                                    match value{
+                                        Some(_) => PickTargetForSteal{target: value},
+                                        None =>  PickTargetForSteal{target: None}
+                                })
+                            })
+                            .trans_builder(pick_item_to_steal, |_: &PickTargetForSteal, value|{
+                                Some(match value{
+                                    0 => ItemPickedFlag::Some(ItemPicked::HPTank),
+                                    1 => ItemPickedFlag::Some(ItemPicked::EXPTank),
+                                    2 => ItemPickedFlag::Some(ItemPicked::Item),
+                                    3 => ItemPickedFlag::Some(ItemPicked::Obstacle),
+                                    _ => ItemPickedFlag::None,
+                                })
+                            })
+                            .trans::<ItemPickedFlag, _>(done(Some(Done::Success)), SearchingInteractableFlag)
+                            .trans::<ItemPickedFlag, _>(done(Some(Done::Failure)), RunawayRush)
+                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Success)), RunawayRush)
+                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Failure)), RunawayRush)
+                            .set_trans_logging(true),
+                            RunawayRush
+                    ))
+                    .id(),
+        };
         if ev.is_friendly {
             commands.entity(mob).insert(Friend);
         } else {
@@ -567,11 +607,17 @@ pub fn spawn_mob(
             MobType::AirElemental => {
                 commands.entity(mob).insert(OrbitalBundle::air_elemental());
             }
-            MobType::ClayGolem => {}
+            MobType::ClayGolem => {
+                commands.entity(mob)
+                    .insert(MeleeMobBundle::clay_golem())
+                    .insert(SearchAndPursue::default());        
+            }
             MobType::SkeletMage => {}
             MobType::SkeletWarrior => {}
             MobType::SkeletRanger => {}
-            MobType::TankEater => {}
+            MobType::Thief => {
+                commands.entity(mob).insert(ThiefBundle::default());
+            }
         }
 
         if spawn_kit.rotation_entity {
