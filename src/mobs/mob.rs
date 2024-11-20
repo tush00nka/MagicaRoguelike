@@ -16,7 +16,6 @@ pub const STATIC_MOBS: &[MobType] = &[
     MobType::EarthElemental,
 ];
 
-use crate::mobs::rotate_orbital;
 use crate::{animation::AnimationConfig, pathfinding::Pathfinder};
 use crate::{
     blank_spell::SpawnBlankEvent,
@@ -35,6 +34,10 @@ use crate::{
     stun::Stun,
     GameLayer, GameState,
 };
+use crate::{
+    invincibility::Invincibility,
+    mobs::{item_queue_update, rotate_orbital, set_state_thief, thief_collide, PushItemQueryEvent},
+};
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
@@ -43,31 +46,33 @@ impl Plugin for MobPlugin {
             .add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
             .add_systems(Startup, load_mob_database)
             .add_event::<MobDeathEvent>()
+            
+            .add_event::<PushItemQueryEvent>()
             .add_systems(
-            Update,
-            (
-                damage_mobs,
-                mob_death,
-                //                mob_shoot::<Friend, Enemy, Hostile>,
-                //                mob_shoot::<Enemy, Friend, Friendly>,
-                mob_attack::<Enemy>,
-                mob_attack::<Friend>,
-                hit_projectiles::<Player, Friend, Hostile>,
-                hit_projectiles::<Friend, Mob, Friendly>,
-                //                timer_shoot,
-                rotate_orbital::<Friend>,
-                rotate_orbital::<Enemy>,
-                timer_tick_orbital::<Enemy>,
-                timer_tick_orbital::<Friend>,
-                attack_hit::<Friend, Enemy>,
-                attack_hit::<Enemy, Friend>,
-                tick_attack_cooldown,
-                timer_empty_list,
-                before_attack_delay,
-                pos_pathfinder,
-            )
-                .run_if(in_state(GameState::InGame)),
-        );
+                Update,
+                (
+                    damage_mobs,
+                    mob_death,
+                    thief_collide,
+                    mob_attack::<Enemy>,
+                    mob_attack::<Friend>,
+                    hit_projectiles::<Player, Friend, Hostile>,
+                    hit_projectiles::<Friend, Mob, Friendly>,
+                    rotate_orbital::<Friend>,
+                    rotate_orbital::<Enemy>,
+                    timer_tick_orbital::<Enemy>,
+                    timer_tick_orbital::<Friend>,
+                    attack_hit::<Friend, Enemy>,
+                    attack_hit::<Enemy, Friend>,
+                    tick_attack_cooldown,
+                    timer_empty_list,
+                    before_attack_delay,
+                    item_queue_update,
+                    pos_pathfinder,
+                    set_state_thief,
+                )
+                    .run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
@@ -114,7 +119,7 @@ pub enum MobType {
     SkeletRanger,   // add arrow texture
     EarthElemental, //turret i guess? //done
     AirElemental,   // just an orbital?
-    TankEater,
+    Thief,
 }
 
 //projectile types
@@ -133,6 +138,7 @@ pub enum AttackType {
     Rush,
     Spear,
     Range,
+    Circle,
 }
 
 //Pure components=========================================================================================================================================
@@ -486,6 +492,8 @@ fn mob_attack<Who: Component + std::default::Default>(
 
         transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
         transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+        let mut multiple_to_spawn = false;
+        let mut amount_to_spawn = 1;
 
         match range.attack_type {
             AttackType::Slash => {
@@ -502,6 +510,16 @@ fn mob_attack<Who: Component + std::default::Default>(
                 if friendly {
                     texture_path = "textures/slash_horisontal3.png";
                 }
+            }
+            AttackType::Circle => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                } // change
+
+                multiple_to_spawn = true;
+                amount_to_spawn = 16;
             }
             AttackType::Rush => {
                 texture_path = "textures/slash_horisontal3_enemy.png";
@@ -560,7 +578,44 @@ fn mob_attack<Who: Component + std::default::Default>(
         let texture = asset_server.load(texture_path);
         let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 5, 1, None, None);
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
+        if multiple_to_spawn {
+            for i in 0..amount_to_spawn {
+                let dir_multiple = Vec2::from_angle(i as f32 * PI * 2. / amount_to_spawn as f32);
 
+                let mut transform_attack_multiple: Transform = Transform::from_xyz(0., 0., 0.);
+
+                let pos_new = Vec2::from_angle(dir_multiple.y.atan2(dir_multiple.x)) * range.range;
+
+                transform_attack_multiple.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
+                transform_attack_multiple.rotation =
+                    Quat::from_rotation_z(dir_multiple.normalize_or_zero().to_angle());
+
+                commands.entity(entity).with_children(|parent| {
+                    parent
+                        .spawn(SpriteBundle {
+                            texture: texture.clone(),
+                            transform: transform_attack_multiple,
+                            ..default()
+                        })
+                        .insert(animation_config.clone())
+                        .insert(Attack {
+                            damage: range.damage,
+                            element: range.element,
+                            dir: dir_multiple,
+                            hit_id: hit_id,
+                        })
+                        .insert(TextureAtlas {
+                            layout: texture_atlas_layout.clone(),
+                            index: 0,
+                        })
+                        .insert(Collider::rectangle(16., 16.))
+                        .insert(Sensor)
+                        .insert(LockedAxes::ROTATION_LOCKED)
+                        .insert(Who::default());
+                });
+            }
+            continue;
+        }
         commands.entity(entity).with_children(|parent| {
             parent
                 .spawn(SpriteBundle {
@@ -608,7 +663,7 @@ fn attack_hit<Who: Component, Target: Component>(
             &ElementResistance,
             &mut HitList,
         ),
-        (Without<Who>, With<Target>),
+        (Without<Who>, With<Target>, Without<Invincibility>),
     >,
 ) {
     for (entities, mut hp, el_res, mut hit_list) in target_query.iter_mut() {
@@ -631,98 +686,7 @@ fn attack_hit<Who: Component, Target: Component>(
         }
     }
 }
-//actual code==============================================================================================================================
-/*
-fn mob_shoot<Target: Component, Who: Component, ProjType: Component>(
-    mut commands: Commands,
-    spatial_query: SpatialQuery,
-    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut shoot_query: Query<
-        (Entity, &Transform, &mut ShootAbility),
-        (Without<Stun>, With<Who>, Without<Target>, With<ShootFlag>),
-    >,
-    target_query: Query<(Entity, &Transform), (With<Target>, Without<Who>)>,
-    avoid_query: Query<Entity, Or<(With<Obstacle>, With<Shield>, With<Blank>, With<Who>)>>,
-) {
-    for (mob_e, &mob_transform, can_shoot) in shoot_query.iter_mut() {
-        if target_query.iter().len() != 0 {
-            let mut target_transform: Transform = mob_transform.clone();
-            let mut target_e: Entity = mob_e;
-            let mut dist: f32 = f32::MAX;
-            for (temp_e, temp_pos) in target_query.iter() {
-                let temp_dist: f32 = (mob_transform.translation - temp_pos.translation)
-                    .x
-                    .powf(2.)
-                    + (mob_transform.translation - temp_pos.translation)
-                        .y
-                        .powf(2.);
-                if dist > temp_dist {
-                    dist = temp_dist;
-                    target_transform = *temp_pos;
-                    target_e = temp_e;
-                }
-            }
-            let dir = (target_transform.translation.truncate()
-                - mob_transform.translation.truncate())
-            .normalize_or_zero();
 
-            let Some(first_hit) = spatial_query.cast_ray_predicate(
-                mob_transform.translation.truncate(),
-                Dir2::new_unchecked(dir),
-                512.,
-                true,
-                SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
-                &|entity| entity != mob_e,
-            ) else {
-                commands.entity(mob_e).insert(Done::Failure);
-                continue;
-            };
-            let mut friendly_proj: bool = false;
-
-            if std::any::type_name::<ProjType>() == std::any::type_name::<Friendly>() {
-                friendly_proj = true;
-            }
-
-            if first_hit.entity == target_e {
-                let angle = dir.y.atan2(dir.x); //math
-                let texture_path: String;
-                let damage: u32;
-                match can_shoot.proj_type {
-                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                    ProjectileType::Circle => {
-                        texture_path = "textures/earthquake.png".to_string();
-                        damage = 20;
-                    }
-                    ProjectileType::Missile => {
-                        texture_path = "textures/fireball.png".to_string();
-                        damage = 25;
-                    }
-                    ProjectileType::Gatling => {
-                        texture_path = "textures/small_fire.png".to_string();
-                        damage = 10;
-                    }
-                }
-
-                let color = can_shoot.element.color();
-
-                ev_shoot.send(SpawnProjectileEvent {
-                    texture_path,
-                    color, //todo: change this fragment, that we could spawn different types of projectiles.
-                    translation: mob_transform.translation,
-                    angle,
-                    radius: 8.0,
-                    speed: 150.,
-                    damage,
-                    element: can_shoot.element,
-                    is_friendly: friendly_proj,
-                });
-            } else if first_hit.entity != target_e {
-                commands.entity(mob_e).insert(Done::Failure);
-            }
-        }
-    }
-}
- */
 fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Side>>,
@@ -907,31 +871,7 @@ fn mob_death(
         });
     }
 }
-/*
-pub fn timer_shoot(
-    mut shoot_query: Query<
-        (Entity, &mut ShootAbility, &Transform),
-        (Without<Idle>, Without<Pursue>),
-    >,
-    time: Res<Time>,
-    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
-    mut commands: Commands,
-) {
-    for (mob_e, mut timer, mob_transform) in shoot_query.iter_mut() {
-        timer.time_to_shoot.tick(time.delta());
-        if timer.time_to_shoot.just_finished() {
-            commands.entity(mob_e).insert(Done::Success);
-            ev_spawn_alert.send(SpawnAlertEvent {
-                position: mob_transform
-                    .translation
-                    .truncate()
-                    .with_y(mob_transform.translation.y + 16.),
-                attack_alert: true,
-            });
-        }
-    }
-}
-*/
+
 pub fn before_attack_delay(
     mut timer_query: Query<(Entity, &mut BeforeAttackDelay), Without<Stun>>,
     time: Res<Time>,
