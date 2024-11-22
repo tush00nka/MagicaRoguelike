@@ -1,8 +1,4 @@
 //bundle for melee only mobs
-use avian2d::prelude::*;
-use bevy::prelude::*;
-use seldom_state::prelude::*;
-
 use crate::{
     elements::{ElementResistance, ElementType},
     exp_tank::ExpTank,
@@ -13,6 +9,10 @@ use crate::{
     pathfinding::Pathfinder,
     GameLayer,
 };
+use avian2d::prelude::*;
+use bevy::prelude::*;
+use seldom_state::prelude::*;
+use std::time::Duration;
 
 #[derive(Component, Clone, Default)]
 pub struct ObstacleRush;
@@ -26,7 +26,6 @@ pub enum ItemPicked {
     EXPTank,
     Item,
     Obstacle,
-    None,
 }
 
 #[derive(PartialEq, Clone, Component)]
@@ -37,8 +36,8 @@ pub enum ItemPickedFlag {
 
 #[derive(PartialEq, Clone, Component)]
 pub struct PickupItem {
-    item_type: ItemPicked,
-    item_name: Option<ItemType>,
+    pub item_type: ItemPicked,
+    pub item_name: Option<ItemType>,
 }
 
 #[derive(Component)]
@@ -46,6 +45,10 @@ pub enum OnDeathEffect {
     CircleAttack,
 }
 
+#[derive(Component)]
+pub enum OnHitEffect {
+    DropItemFromBag,
+}
 #[derive(Event)]
 pub struct PushItemQueryEvent {
     pub thief_entity: Entity,
@@ -54,22 +57,34 @@ pub struct PushItemQueryEvent {
 
 #[derive(Component)]
 pub struct PickupItemQueue {
-    item_queue: Vec<Option<PickupItem>>,
-    amount_of_obstacles: u8,
+    pub item_queue: Vec<Option<PickupItem>>,
+    pub amount_of_obstacles: u8,
 }
 
 impl PickupItemQueue {
-    fn empty_queue(&mut self) {
+    pub fn empty_queue(&mut self) {
         for i in 0..self.item_queue.len() {
             self.item_queue[i] = None;
         }
     }
 
-    fn push_obstacle(&mut self) {
+    fn push_obstacle(&mut self) -> bool {
         self.amount_of_obstacles += 1;
         if self.amount_of_obstacles >= 8 {
-            self.empty_queue();
+            return true;
         }
+        return false;
+    }
+
+    fn get_len(&mut self) -> i32 {
+        let mut len = 0;
+        for i in self.item_queue.iter() {
+            match i {
+                None => break,
+                Some(_) => len += 1,
+            };
+        }
+        return len;
     }
 
     fn push_item(&mut self, item: PickupItem) {
@@ -98,6 +113,7 @@ pub struct ThiefBundle {
     path_finder: Pathfinder,
     items: PickupItemQueue,
     on_death_attack: OnDeathEffect,
+    on_hit_effect: OnHitEffect,
 }
 
 impl MobBundle {
@@ -139,17 +155,19 @@ impl Default for ThiefBundle {
             mob_bundle: MobBundle::thief(),
             path_finder: Pathfinder {
                 speed: 3200.,
+                update_path_timer: Timer::new(Duration::from_millis(200), TimerMode::Repeating),
                 ..default()
             },
             items: PickupItemQueue::default(),
             on_death_attack: OnDeathEffect::CircleAttack,
+            on_hit_effect: OnHitEffect::DropItemFromBag,
         }
     }
 }
 
 pub fn thief_collide(
     mut commands: Commands,
-    mut thief_query: Query<(Entity, &mut PickupItemQueue, &CollidingEntities)>,
+    mut thief_query: Query<(Entity, &mut PickupItemQueue, &CollidingEntities, &Transform)>,
     interactable_query: Query<
         Entity,
         (
@@ -157,12 +175,19 @@ pub fn thief_collide(
             Without<Corpse>,
         ),
     >,
+    exp_tank_rush_query: Query<&ExpTankRush, With<PickupItemQueue>>,
+    obstacle_rush_query: Query<&ObstacleRush, With<PickupItemQueue>>,
+    item_rush_query: Query<&ItemRush, With<PickupItemQueue>>,
+    health_tank_rush_query: Query<&HPTankRush, With<PickupItemQueue>>,
+
     mut item_push_ev: EventWriter<PushItemQueryEvent>,
     hp_tank_query: Query<&HealthTank>,
     exp_tank_query: Query<&ExpTank>,
     item_query: Query<&Item>,
+
+    mut ev_mob_death: EventWriter<MobDeathEvent>,
 ) {
-    for (mob_e, mut obstacle_count, colliding_e) in thief_query.iter_mut() {
+    for (mob_e, mut obstacle_count, colliding_e, transform) in thief_query.iter_mut() {
         for interactable_e in interactable_query.iter() {
             if colliding_e.contains(&interactable_e) {
                 let mut is_obstacle: bool = true;
@@ -190,7 +215,7 @@ pub fn thief_collide(
                     is_obstacle = !is_obstacle;
                 }
 
-                if hp_tank_query.contains(interactable_e) {
+                if item_query.contains(interactable_e) {
                     let item_type = item_query.get(interactable_e).unwrap();
                     item_push_ev.send(PushItemQueryEvent {
                         thief_entity: mob_e,
@@ -203,12 +228,47 @@ pub fn thief_collide(
                     is_obstacle = !is_obstacle;
                 }
 
+                commands.entity(interactable_e).despawn();
+                
+                let mut check = false;
+
                 if is_obstacle {
-                    obstacle_count.push_obstacle();
+                    check = obstacle_count.push_obstacle();
                 }
 
-                commands.entity(interactable_e).despawn();
+                if health_tank_rush_query.contains(mob_e) {
+                    commands.entity(mob_e).remove::<HPTankRush>();
+                    check = obstacle_count.push_obstacle();
+                }
+
+                if exp_tank_rush_query.contains(mob_e) {
+                    commands.entity(mob_e).remove::<ExpTankRush>();
+                    check = obstacle_count.push_obstacle();
+                }
+
+                if item_rush_query.contains(mob_e) {
+                    commands.entity(mob_e).remove::<ItemRush>();
+                    check = obstacle_count.push_obstacle();
+                }
+
+                if obstacle_rush_query.contains(mob_e) {
+                    commands.entity(mob_e).remove::<ObstacleRush>();
+                    check = obstacle_count.push_obstacle();
+                }
+
+                if check {
+                    commands.entity(mob_e).despawn();
+                    
+                    ev_mob_death.send(MobDeathEvent {
+                        orbs: 0,
+                        pos: transform.translation,
+                        dir: Vec3::ZERO,
+                    });
+                    
+                    break;
+                }
                 commands.entity(mob_e).insert(Done::Success);
+
                 break;
             }
         }
@@ -217,11 +277,17 @@ pub fn thief_collide(
 
 pub fn item_queue_update(
     mut item_push_ev: EventReader<PushItemQueryEvent>,
-    mut thief_query: Query<&mut PickupItemQueue>,
+    mut thief_query: Query<(Entity, &mut PickupItemQueue)>,
+    mut commands: Commands,
 ) {
     for ev in item_push_ev.read() {
         match thief_query.get_mut(ev.thief_entity) {
-            Ok(mut val) => val.push_item(ev.item.clone()),
+            Ok((entity, mut val)) => {
+                val.push_item(ev.item.clone());
+                if val.get_len() == 5 {
+                    commands.entity(entity).despawn();
+                }
+            }
             Err(error) => {
                 println!("{}", error);
                 continue;
@@ -236,12 +302,12 @@ pub fn nearest_interactable(
         (Entity, &Transform),
         (
             Without<Corpse>,
-            Or<(With<HealthTank>, With<ExpTank>, With<Item>, With<Obstacle>, With<PickupItemQueue>)>,
+            Or<(With<HealthTank>, With<ExpTank>, With<Item>, With<Obstacle>)>,
         ),
     >,
+    transforms_thief: Query<&Transform, With<PickupItemQueue>>,
 ) -> Option<Option<Entity>> {
-    
-    if transforms.iter().len() == 0{
+    if transforms.iter().len() == 0 {
         return None;
     }
 
@@ -250,20 +316,20 @@ pub fn nearest_interactable(
         .sort_by::<&Transform>(|item1, item2| {
             item1
                 .translation
-                .distance(transforms.get(entity).unwrap().1.translation)
+                .distance(transforms_thief.get(entity).unwrap().translation)
                 .total_cmp(
                     &item2
                         .translation
-                        .distance(transforms.get(entity).unwrap().1.translation),
+                        .distance(transforms_thief.get(entity).unwrap().translation),
                 )
         })
         .collect();
 
-    if sorted_targets.len() < 2 {
+    if sorted_targets.len() == 0 {
         return None;
     }
 
-    let (nearest_target, _) = sorted_targets[1];
+    let (nearest_target, _) = sorted_targets[0];
 
     return Some(Some(nearest_target));
 }
@@ -275,38 +341,37 @@ pub fn pick_item_to_steal(
     exp_tank_query: Query<&ExpTank>,
     obstacle_query: Query<&Obstacle, Without<Corpse>>,
     item_query: Query<&Item>,
-) -> Result<i8, i8> {
+) -> Option<Option<ItemPicked>> {
     let Ok(steal_target) = steal_query.get(entity) else {
-        return Err(ItemPicked::None as i8);
+        println!("wtf");
+        return None;
     };
     match steal_target.target {
-        None => return Err(4),
+        None => {
+            println!("You got this");
+            return None;
+        }
         Some(target_e) => {
             if hp_tank_query.contains(target_e) {
-                return Ok(ItemPicked::HPTank as i8);
+                return Some(Some(ItemPicked::HPTank));
             }
 
             if exp_tank_query.contains(target_e) {
-                return Ok(ItemPicked::EXPTank as i8);
+                return Some(Some(ItemPicked::EXPTank));
             }
 
             if item_query.contains(target_e) {
-                return Ok(ItemPicked::Item as i8);
+                return Some(Some(ItemPicked::Item));
             }
 
-            if obstacle_query.contains(target_e) {
-                return Ok(ItemPicked::Obstacle as i8);
-            }
+            return Some(Some(ItemPicked::Obstacle));
 
-            return Err(ItemPicked::None as i8);
+            //    return None;
         } // Check whether the target is within range. If it is, return `Ok` to trigger!
     };
 }
 
-pub fn set_state_thief(
-    mut commands: Commands,
-    mut thief_query: Query<(Entity, &ItemPickedFlag)>,
-) {
+pub fn set_state_thief(mut commands: Commands, mut thief_query: Query<(Entity, &ItemPickedFlag)>) {
     for (thief_e, item_picked) in thief_query.iter_mut() {
         match item_picked {
             ItemPickedFlag::None => commands.entity(thief_e).insert(Done::Failure),
@@ -323,10 +388,6 @@ pub fn set_state_thief(
                     }
                     ItemPicked::Obstacle => {
                         commands.entity(thief_e).insert(ObstacleRush);
-                    }
-                    _ => {
-                        commands.entity(thief_e).insert(Done::Failure);
-                        continue;
                     }
                 }
                 commands.entity(thief_e).insert(Done::Success)
