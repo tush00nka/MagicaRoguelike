@@ -31,9 +31,10 @@ impl Plugin for MobSpawnPlugin {
                 OnEnter(GameState::Loading),
                 first_spawn_mobs.after(spawn_mobs_location),
             )
+            .add_systems(Update, spawn_mob)
             .add_systems(
                 Update,
-                (spawn_mob, spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
+                (spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 OnEnter(GameState::LoadingBoss),
@@ -285,10 +286,11 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);
     let mut chance: f32;
+
     if chapter_manager.get_current_chapter() % 4 == 0 {
         mobs_amount = chapter_manager.get_current_chapter() as u16 / 4 as u16;
     }
-    println!("mobs amount {}", mobs_amount);
+
     while mobs_amount > 0 {
         for x in 1..ROOM_SIZE - 1 {
             for y in 1..ROOM_SIZE - 1 {
@@ -518,19 +520,22 @@ pub fn spawn_mob(
                                 })
                             })
                             .trans_builder(pick_item_to_steal, |_: &PickTargetForSteal, value|{
-                                Some(match value{
-                                    0 => ItemPickedFlag::Some(ItemPicked::HPTank),
-                                    1 => ItemPickedFlag::Some(ItemPicked::EXPTank),
-                                    2 => ItemPickedFlag::Some(ItemPicked::Item),
-                                    3 => ItemPickedFlag::Some(ItemPicked::Obstacle),
-                                    _ => ItemPickedFlag::None,
+                                Some(
+                                    match value{
+                                        Some(val) => 
+                                            match val{
+                                                ItemPicked::HPTank => ItemPickedFlag::Some(ItemPicked::HPTank),
+                                                ItemPicked::EXPTank => ItemPickedFlag::Some(ItemPicked::EXPTank),
+                                                ItemPicked::Item => ItemPickedFlag::Some(ItemPicked::Item),
+                                                ItemPicked::Obstacle => ItemPickedFlag::Some(ItemPicked::Obstacle),
+                                            },
+                                        None => ItemPickedFlag::None,
                                 })
                             })
                             .trans::<ItemPickedFlag, _>(done(Some(Done::Success)), SearchingInteractableFlag)
                             .trans::<ItemPickedFlag, _>(done(Some(Done::Failure)), RunawayRush)
                             .trans::<SearchingInteractableFlag, _>(done(Some(Done::Success)), RunawayRush)
-                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Failure)), RunawayRush)
-                            .set_trans_logging(true),
+                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Failure)), RunawayRush),
                             RunawayRush
                     ))
                     .id(),
@@ -663,6 +668,7 @@ pub fn first_spawn_mobs(
                     .mob_count = 0;
 
                 let mob_type: MobType;
+                println!("chapter  {}", chapter_manager.get_current_chapter());
                 let chapter: u8 = chapter_manager.get_current_chapter() % 4;
                 match chapter {
                     1 => {

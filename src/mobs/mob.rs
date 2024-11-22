@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use super::{ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
+
 //all things about mobs and their spawn/behaviour
 use {
     avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
@@ -13,7 +15,13 @@ pub const STATIC_MOBS: &[MobType] = &[
     MobType::EarthElemental,
 ];
 
-use crate::{animation::AnimationConfig, pathfinding::Pathfinder};
+use crate::{
+    animation::AnimationConfig,
+    exp_tank::SpawnExpTankEvent,
+    health_tank::SpawnHealthTankEvent,
+    item::{ItemType, SpawnItemEvent},
+    pathfinding::Pathfinder,
+};
 use crate::{
     blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},
@@ -41,6 +49,10 @@ impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MobDeathEvent>()
             .add_event::<PushItemQueryEvent>()
+            .add_event::<OnDeathEffectEvent>()
+            .add_event::<OnHitEffectEvent>()
+            .add_systems(Update, 
+                on_death_effects_handler.run_if(in_state(GameState::InGame)))
             .add_systems(
                 Update,
                 (
@@ -61,6 +73,7 @@ impl Plugin for MobPlugin {
                     timer_empty_list,
                     before_attack_delay,
                     item_queue_update,
+                    on_hit_effects,
                     pos_pathfinder,
                     set_state_thief,
                 )
@@ -76,6 +89,24 @@ pub struct MobDeathEvent {
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
+}
+
+#[derive(Event)]
+pub struct OnHitEffectEvent {
+    pub pos: Vec3,
+    pub dir: Vec3,
+    pub vec_of_objects: Vec<i32>,
+    pub on_hit_effect_type: OnHitEffect,
+    pub is_friendly: bool,
+}
+
+#[derive(Event)]
+pub struct OnDeathEffectEvent {
+    pub pos: Vec3,
+    pub dir: Vec3,
+    pub vec_of_objects: Vec<i32>,
+    pub on_death_effect_type: OnDeathEffect,
+    pub is_friendly: bool,
 }
 
 //Enum components========================================================================================================================================
@@ -745,6 +776,14 @@ pub fn damage_mobs(
     >,
     mut mob_map: ResMut<Map>,
     mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
+
+    on_hit_query: Query<&OnHitEffect>,
+    on_death_effect: Query<&OnDeathEffect>,
+
+    mut on_hit_event: EventWriter<OnHitEffectEvent>,
+    mut on_death_event: EventWriter<OnDeathEffectEvent>,
+
+    mut thief_query: Query<&mut PickupItemQueue>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -753,10 +792,66 @@ pub fn damage_mobs(
             // наносим урон
             health.damage(hit.damage);
 
+            if on_hit_query.contains(entity) {
+                let mut vec_objects = vec![];
+                let on_hit_eff;
+
+                match on_hit_query.get(entity).unwrap() {
+                    OnHitEffect::DropItemFromBag => {
+                        on_hit_eff = OnHitEffect::DropItemFromBag;
+                        let mut temp_bag = thief_query.get_mut(entity).unwrap();
+
+                        for i in temp_bag.item_queue.clone() {
+                            match i {
+                                None => break,
+                                Some(item) => match item.item_name {
+                                    Some(name) => {
+                                        vec_objects.push(item.item_type as i32);
+                                        vec_objects.push(name as i32);
+                                    }
+                                    None => {
+                                        vec_objects.push(item.item_type as i32);
+                                    }
+                                },
+                            }
+                        }
+
+                        temp_bag.empty_queue()
+                    }
+                }
+                on_hit_event.send(OnHitEffectEvent {
+                    pos: transform.translation,
+                    dir: hit.direction,
+                    vec_of_objects: vec_objects,
+                    on_hit_effect_type: on_hit_eff,
+                    is_friendly: false,
+                });
+            }
+
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
             // шлём ивент смерти
             if health.current <= 0 {
+                
+                if on_death_effect.contains(entity) {
+                    let mut vec_objects = vec![];
+                    let on_death_eff;
+
+                    match on_death_effect.get(entity).unwrap() {
+                        OnDeathEffect::CircleAttack => {
+                            on_death_eff = OnDeathEffect::CircleAttack;
+                            vec_objects = vec![ProjectileType::Gatling as i32; 16];
+                        }
+                    }
+                    on_death_event.send(OnDeathEffectEvent {
+                        pos: transform.translation,
+                        dir: hit.direction,
+                        vec_of_objects: vec_objects,
+                        on_death_effect_type: on_death_eff,
+                        is_friendly: false,
+                    });
+                }
+                
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
@@ -827,7 +922,7 @@ fn mob_death(
         for i in (-orb_count / 2)..half_count {
             // считаем точки, куда будем выбрасывать частицы опыта
             let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
-            let direction = Vec2::from_angle(angle) * 32.0;
+            let direction = Vec2::from_angle(angle) * 8.0;
             let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
 
             ev_spawn_orb.send(SpawnExpOrbEvent {
@@ -915,5 +1010,116 @@ fn pos_pathfinder(
             commands.entity(pathfinder_e).insert(Done::Success);
             println!("Near target");
         }
+    }
+}
+
+pub fn on_death_effects_handler(
+    mut ev_on_death: EventReader<OnDeathEffectEvent>,
+    mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
+) {
+    for ev in ev_on_death.read() {
+        match ev.on_death_effect_type {
+            OnDeathEffect::CircleAttack => {
+                for i in 0..ev.vec_of_objects.len() {
+                    let color = ElementType::Fire.color();
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color: color,
+                        translation: ev.pos,
+                        angle: (PI * i as f32 * 2.) / ev.vec_of_objects.len() as f32,
+                        radius: 8.0,
+                        speed: 150.,
+                        damage: 20,
+                        element: ElementType::Fire,
+                        is_friendly: ev.is_friendly,
+                    });
+                    println!("WTF");
+                }
+            }
+        }
+    }
+}
+
+fn convert_i32_to_item(pick: i32) -> ItemType {
+    match pick {
+        0 => ItemType::Amulet,
+        1 => ItemType::Bacon,
+        2 => ItemType::Heart,
+        3 => ItemType::LizardTail,
+        4 => ItemType::SpeedPotion,
+        5 => ItemType::WispInAJar,
+        6 => ItemType::WaterbendingScroll,
+        7 => ItemType::Mineral,
+        8 => ItemType::Glider,
+        9 => ItemType::GhostInTheShell,
+        10 => ItemType::VampireTooth,
+        11 => ItemType::BloodGoblet,
+        12 => ItemType::BlindRage,
+        _ => {
+            println!("Update function convert_i32_to_item, there's no such item");
+            ItemType::Amulet
+        }
+    }
+}
+
+pub fn on_hit_effects(
+    mut ev_on_hit: EventReader<OnHitEffectEvent>,
+    mut ev_spawn_item: EventWriter<SpawnItemEvent>,
+    mut ev_spawn_hp_tank: EventWriter<SpawnHealthTankEvent>,
+    mut ev_spawn_exp_tank: EventWriter<SpawnExpTankEvent>,
+) {
+    for ev in ev_on_hit.read() {
+        match ev.on_hit_effect_type {
+            OnHitEffect::DropItemFromBag => {
+                let mut is_item = false;
+                let mut count = 2;
+                let offset = PI / 12.;
+                for i in ev.vec_of_objects.iter() {
+
+                    let dir = ev.dir * Vec3::new(-1.,-1.,0.);
+
+                    let angle = dir.y.atan2(dir.x) + offset * count as f32;
+
+                    count += 1;
+
+                    let direction = Vec2::from_angle(angle) * 24.0;
+                    println!("direction is {}", direction);
+                    let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
+        
+                    if is_item {
+                        let item_type = convert_i32_to_item(*i);
+                        ev_spawn_item.send(SpawnItemEvent {
+                            pos: destination,
+                            item_type: item_type,
+                            texture_path: item_type.get_texture_path().to_string(),
+                            item_name: item_type.get_name().to_string(),
+                            item_description: item_type.get_description().to_string(),
+                        });
+                        is_item = false;
+                        continue;
+                    }
+                    if *i == ItemPicked::Item as i32{
+                        is_item = true;
+                        continue;
+                    }
+
+                    if *i == ItemPicked::HPTank as i32 {
+                        ev_spawn_hp_tank.send(SpawnHealthTankEvent {
+                            pos: destination,
+                            hp: 20,
+                        });
+                        continue;
+                    }
+
+                    if *i == ItemPicked::EXPTank as i32 {
+                        ev_spawn_exp_tank.send(SpawnExpTankEvent {
+                            pos: destination,
+                            orbs: 6,
+                        });
+                        continue;
+                    }
+                }
+            }
+        };
     }
 }
