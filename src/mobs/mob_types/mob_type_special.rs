@@ -339,7 +339,6 @@ pub fn pick_item_to_steal(
     steal_query: Query<&PickTargetForSteal>,
     hp_tank_query: Query<&HealthTank>,
     exp_tank_query: Query<&ExpTank>,
-    obstacle_query: Query<&Obstacle, Without<Corpse>>,
     item_query: Query<&Item>,
 ) -> Option<Option<ItemPicked>> {
     let Ok(steal_target) = steal_query.get(entity) else {

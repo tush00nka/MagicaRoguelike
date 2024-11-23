@@ -4,13 +4,14 @@ use super::{ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
-use super::{ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
-
 //all things about mobs and their spawn/behaviour
 use {
-    avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
-    std::f32::consts::PI,
+    avian2d::prelude::*,
+    bevy::prelude::*,
+    rand::Rng,
+    seldom_state::prelude::*,
     serde_json::{Map as JsonMap, Value},
+    std::f32::consts::PI,
 };
 ///add mobs with kinematic body type
 pub const STATIC_MOBS: &[MobType] = &[
@@ -24,7 +25,7 @@ use crate::{
     animation::AnimationConfig,
     exp_tank::SpawnExpTankEvent,
     health_tank::SpawnHealthTankEvent,
-    item::{ItemType, SpawnItemEvent},
+    item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent},
     pathfinding::Pathfinder,
 };
 use crate::{
@@ -52,16 +53,16 @@ pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
+        app.add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
             .add_systems(Startup, load_mob_database)
             .add_event::<MobDeathEvent>()
-            
             .add_event::<PushItemQueryEvent>()
             .add_event::<OnDeathEffectEvent>()
             .add_event::<OnHitEffectEvent>()
-            .add_systems(Update, 
-                on_death_effects_handler.run_if(in_state(GameState::InGame)))
+            .add_systems(
+                Update,
+                on_death_effects_handler.run_if(in_state(GameState::InGame)),
+            )
             .add_systems(
                 Update,
                 (
@@ -97,12 +98,9 @@ pub struct MobDatabase {
 }
 
 #[derive(Resource)]
-pub struct MobDatabaseHandle(pub Handle<MobDatabase>); 
+pub struct MobDatabaseHandle(pub Handle<MobDatabase>);
 
-fn load_mob_database(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn load_mob_database(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(MobDatabaseHandle(asset_server.load("mobs.json")));
 }
 
@@ -856,7 +854,6 @@ pub fn damage_mobs(
             commands.entity(entity).insert(Stun::new(0.5));
             // шлём ивент смерти
             if health.current <= 0 {
-                
                 if on_death_effect.contains(entity) {
                     let mut vec_objects = vec![];
                     let on_death_eff;
@@ -875,7 +872,7 @@ pub fn damage_mobs(
                         is_friendly: false,
                     });
                 }
-                
+
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
@@ -1091,6 +1088,9 @@ pub fn on_hit_effects(
     mut ev_spawn_item: EventWriter<SpawnItemEvent>,
     mut ev_spawn_hp_tank: EventWriter<SpawnHealthTankEvent>,
     mut ev_spawn_exp_tank: EventWriter<SpawnExpTankEvent>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
 ) {
     for ev in ev_on_hit.read() {
         match ev.on_hit_effect_type {
@@ -1099,8 +1099,7 @@ pub fn on_hit_effects(
                 let mut count = 2;
                 let offset = PI / 12.;
                 for i in ev.vec_of_objects.iter() {
-
-                    let dir = ev.dir * Vec3::new(-1.,-1.,0.);
+                    let dir = ev.dir * Vec3::new(-1., -1., 0.);
 
                     let angle = dir.y.atan2(dir.x) + offset * count as f32;
 
@@ -1108,21 +1107,29 @@ pub fn on_hit_effects(
 
                     let direction = Vec2::from_angle(angle) * 24.0;
                     println!("direction is {}", direction);
-                    let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
-        
+                    let destination =
+                        Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
+
                     if is_item {
                         let item_type = convert_i32_to_item(*i);
+
+                        let item_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["name"].as_str().unwrap().to_string();
+                        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["texture_name"].as_str().unwrap().to_string();
+                        let item_description: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["description"].as_str().unwrap().to_string();
+
+                        let texture_path = format!("textures/items/{}", texture_name);
+
                         ev_spawn_item.send(SpawnItemEvent {
                             pos: destination,
                             item_type: item_type,
-                            texture_path: item_type.get_texture_path().to_string(),
-                            item_name: item_type.get_name().to_string(),
-                            item_description: item_type.get_description().to_string(),
+                            texture_path: texture_path,
+                            item_name: item_name,
+                            item_description: item_description,
                         });
                         is_item = false;
                         continue;
                     }
-                    if *i == ItemPicked::Item as i32{
+                    if *i == ItemPicked::Item as i32 {
                         is_item = true;
                         continue;
                     }
