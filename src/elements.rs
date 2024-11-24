@@ -16,6 +16,7 @@ impl Plugin for ElementsPlugin {
             .add_event::<ElementBarClear>()
             .add_event::<CastSpellEvent>()
             .insert_resource(ElementBar::default())
+            .insert_resource(SpellPool::default())
             .add_systems(OnExit(GameState::MainMenu), init_spells)
             .add_systems(Update, (fill_bar, handle_recipe, cast_spell)
                 .run_if(in_state(GameState::InGame)
@@ -67,7 +68,7 @@ impl ElementType {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, PartialOrd, Ord, Eq)]
+#[derive(PartialEq, Clone, Copy, PartialOrd, Ord, Eq, Debug)]
 pub enum Spell {
     Fire,
     Water,
@@ -85,8 +86,7 @@ pub enum Spell {
 
 #[derive(Resource)]
 pub struct SpellPool {
-    pool: Vec<Spell>,
-    unlocked: Vec<Spell>,
+    pub unlocked: Vec<Spell>,
 }
 
 impl SpellPool {
@@ -95,9 +95,7 @@ impl SpellPool {
     }
 
     pub fn unlock(&mut self, spell: Spell) {
-        if self.pool.contains(&spell)
-        && !self.unlocked.contains(&spell) {
-            self.pool.remove(self.pool.binary_search(&spell).unwrap());
+        if !self.unlocked.contains(&spell) {
             self.unlocked.push(spell);
         }
     }
@@ -106,16 +104,6 @@ impl SpellPool {
 impl Default for SpellPool {
     fn default() -> Self {
         Self {
-            pool: vec![
-                Spell::Steam,
-                Spell::Shield,
-                Spell::BlackHole,
-                Spell::Blank,
-                Spell::FireElemental,
-                Spell::WaterElemental,
-                Spell::EarthElemental,
-                Spell::AirElemental
-            ],
             unlocked: vec![
                 Spell::Fire,
                 Spell::Water,
@@ -290,19 +278,14 @@ fn handle_recipe(
             element = ElementType::Air;
         }
 
-        // sub-element, cannot directly cast
-        if bar.fire > 0 && bar.water > 0
-        && (bar.earth + bar.air) < (bar.fire + bar.water)
-        && spell_pool.is_unlocked(Spell::Steam) {
-            element = ElementType::Steam;
-        }
-
         let mut dmg = player_stats.get_bonused_damage(element);
         dmg *= bar.len() as u32;
 
         let audio_file = element.audio();
 
         ev_play_audio.send(PlayAudioEvent::from_file(audio_file));
+
+        println!("{:?}", spell_pool.unlocked);
 
         if let Ok(wand_transform) = wand_query.get_single() {
 
@@ -348,7 +331,7 @@ fn handle_recipe(
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::BlackHole,
                     element,
-                    origin: Vec3::ZERO,
+                    origin: transform.translation,
                     damage: dmg,
                     bar
                 });
@@ -406,7 +389,6 @@ fn handle_recipe(
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire >=1 {
-                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::EarthElemental,
@@ -425,7 +407,6 @@ fn handle_recipe(
             && bar.air == 2 
             && bar.water >= 1 
             && bar.fire >=1 {
-                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::AirElemental,
@@ -438,7 +419,24 @@ fn handle_recipe(
                 return;
             }
 
-            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {   
+            // sub-element, cannot directly cast
+            if bar.fire > 0 && bar.water > 0
+            && (bar.earth + bar.air) < (bar.fire + bar.water)
+            && spell_pool.is_unlocked(Spell::Steam) {
+                element = ElementType::Steam;
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Steam,
+                    element,
+                    origin: wand_transform.translation,
+                    damage: dmg,
+                    bar
+                });
+
+                return;
+            }
+
+            if bar.fire > bar.water && bar.earth <= 0 && bar.air <= 0 {   
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Fire,
                     element,
@@ -450,7 +448,7 @@ fn handle_recipe(
                 return;
             }
         
-            if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
+            if bar.water > bar.fire && bar.earth <= 0 && bar.air <= 0 {
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Water,
@@ -474,7 +472,7 @@ fn handle_recipe(
                     bar
                 });
 
-                return
+                return;
             }
         
             if bar.air > 0 {    

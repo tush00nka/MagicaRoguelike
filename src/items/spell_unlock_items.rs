@@ -5,15 +5,14 @@ use crate::{
     item::{
         ItemPickedUpEvent,
         ItemType
-    }, GameState
+    }
 };
 
 pub struct SpellUnlocksPlugin;
 
 impl Plugin for SpellUnlocksPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, apply_effect
-            .run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, apply_effect);
     }
 }
 

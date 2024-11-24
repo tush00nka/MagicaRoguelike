@@ -34,7 +34,7 @@ impl Plugin for ItemPlugin {
 }
 
 #[allow(unused)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum ItemType { // Keep enum variants in alphabetical order or it will break, pls, thanks
     Amulet,
     Aquarius,
@@ -246,6 +246,8 @@ fn pick_up_item(
             ev_item_picked_up.send(ItemPickedUpEvent {
                 item_type: item.item_type,
             });
+
+            println!("Picked up: {:?}", item.item_type);
 
             let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item.item_type as usize]["texture_name"].as_str().unwrap().to_string();
             let texture_path = format!("textures/items/{}", texture_name);
