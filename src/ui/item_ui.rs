@@ -40,6 +40,14 @@ impl ItemInventory {
             self.0.remove(&item);
         }
     }
+
+    pub fn amount_of_item(&self, item: ItemType) -> &i32 {
+        if self.0.contains_key(&item) {
+            return self.0.get(&item).unwrap();
+        }
+
+        &0
+    }
 }
 
 #[derive(Event)]

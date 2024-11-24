@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    audio::PlayAudioEvent, black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::ItemPickupAnimation, mobs::{MobSpawnEvent, MobType}, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, wand::Wand, GameState
+    audio::PlayAudioEvent, black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::{ItemPickupAnimation, ItemType}, mobs::{MobSpawnEvent, MobType}, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, ui::ItemInventory, wand::Wand, GameState
 };
 
 pub struct ElementsPlugin;
@@ -14,11 +14,12 @@ impl Plugin for ElementsPlugin {
         app
             .add_event::<ElementBarFilled>()
             .add_event::<ElementBarClear>()
+            .add_event::<CastSpellEvent>()
             .insert_resource(ElementBar::default())
             .add_systems(OnExit(GameState::MainMenu), init_spells)
             .add_systems(Update, (fill_bar, cast_spell)
                 .run_if(in_state(GameState::InGame)
-                    .or_else(in_state(GameState::Hub))));
+                .or_else(in_state(GameState::Hub))));
     }
 }
 
@@ -232,7 +233,7 @@ fn fill_bar(
     });
 }
 
-fn cast_spell(
+fn handle_recipe(
     mouse_coords: Res<MouseCoords>,
     player_stats: Res<PlayerStats>,
 
@@ -242,15 +243,11 @@ fn cast_spell(
 
     mut player_query: Query<(&mut Health, Entity, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-
-    mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
-    mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
-    mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
-    mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
-    mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
     
     mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
+
+    mut ev_cast_spell: EventWriter<CastSpellEvent>,
 
     mut ev_play_audio: EventWriter<PlayAudioEvent>,
 
@@ -276,9 +273,6 @@ fn cast_spell(
 
         let bar = element_bar.clone();
         element_bar.clear();
-
-        let mut dmg = player_stats.get_bonused_damage();
-        dmg *= bar.len() as u32;
 
         let mut rng = rand::thread_rng();
 
@@ -306,6 +300,9 @@ fn cast_spell(
             element = ElementType::Steam;
         }
 
+        let mut dmg = player_stats.get_bonused_damage(element);
+        dmg *= bar.len() as u32;
+
         let color = element.color();
         let audio_file = element.audio();
 
@@ -318,8 +315,13 @@ fn cast_spell(
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
-                ev_spawn_shield.send(SpawnShieldEvent {
-                    duration: bar.earth as f32 * 2.
+                // ev_spawn_shield.send(SpawnShieldEvent {
+                //     duration: bar.earth as f32 * 2. + *inventory.amount_of_item(ItemType::Shield) as f32
+                // });
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Shield,
+                    bar
                 });
 
                 return;
@@ -330,12 +332,17 @@ fn cast_spell(
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
-                    ev_spawn_blank.send(SpawnBlankEvent {
-                    range: bar.air as f32 * 2.,
-                    position: transform.translation,
-                    speed: 10.0,
-                    side: true,
+                //     ev_spawn_blank.send(SpawnBlankEvent {
+                //     range: bar.air as f32 * 2.,
+                //     position: transform.translation,
+                //     speed: 10.0,
+                //     side: true,
+                // });
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Blank,
+                    bar
                 });
+
                 return;
             }
 
@@ -344,24 +351,31 @@ fn cast_spell(
             && bar.water == bar.earth
             && bar.earth == bar.air 
             && bar.air == bar.fire {
-                ev_spawn_black_hole.send(SpawnBlackHoleEvent {
-                    spawn_pos: wand_transform.translation.with_z(0.9),
-                    target_pos: mouse_coords.0.extend(0.9),
-                    lifetime: 1.5 * bar.len() as f32, // seconds
-                    strength: 1_000. * bar.len() as f32,
+                // ev_spawn_black_hole.send(SpawnBlackHoleEvent {
+                //     spawn_pos: wand_transform.translation.with_z(0.9),
+                //     target_pos: mouse_coords.0.extend(0.9),
+                //     lifetime: 1.5 * bar.len() as f32, // seconds
+                //     strength: 1_000. * bar.len() as f32,
+                // });
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::BlackHole,
+                    bar
                 });
 
                 return;
             }
             
-            //spawn ClayGolem
-            if bar.earth == 2 
-            && bar.air <= 0 
-            && bar.water >=2 
-            && bar.fire >=2 {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
-                return;
-            }
+            //spawn ClayGolem -- TODO: prolly delete? as we agreed golem to be a regualr enemy
+            // as we already have earth elemental???
+            // ---
+            // if bar.earth == 2 
+            // && bar.air <= 0 
+            // && bar.water >=2 
+            // && bar.fire >=2 {
+            //     ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
+            //     return;
+            // }
 
             //spawn FireElemental
             if spell_pool.is_unlocked(Spell::FireElemental)
@@ -369,7 +383,13 @@ fn cast_spell(
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire == 2 {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
+                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
+                
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::FireElemental,
+                    bar
+                });
+
                 return;
             }
             
@@ -379,7 +399,13 @@ fn cast_spell(
             && bar.air <= 0 
             && bar.water >=1 
             && bar.fire >=1 {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
+                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::EarthElemental,
+                    bar
+                });
+
                 return;
             }
 
@@ -389,88 +415,146 @@ fn cast_spell(
             && bar.air == 2 
             && bar.water >= 1 
             && bar.fire >=1 {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
+                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::AirElemental,
+                    bar
+                });
+
                 return;
             }
 
-            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {                
-                let offset = PI/12.0;
-                for _i in 0..bar.fire*3 {
-                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+            if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {   
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Fire,
+                    bar
+                });
 
-                    ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/small_fire.png".to_string(),
-                        color,
-                        translation: wand_transform.translation,
-                        angle,
-                        radius: 6.,
-                        speed: 150.0 + rng.gen_range(-25.0..25.0),
-                        damage: dmg / bar.fire as u32,
-                        element,
-                        is_friendly: true,
-                    });
-                }
+                return;
+
+                // let offset = PI/12.0;
+                // for _i in 0..bar.fire*3 {
+                //     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                //     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                //     ev_spawn_projectile.send(SpawnProjectileEvent {
+                //         texture_path: "textures/small_fire.png".to_string(),
+                //         color,
+                //         translation: wand_transform.translation,
+                //         angle,
+                //         radius: 6.,
+                //         speed: 150.0 + rng.gen_range(-25.0..25.0),
+                //         damage: dmg / bar.fire as u32,
+                //         element,
+                //         is_friendly: true,
+                //     });
+                // }
             }
         
             if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
-                let offset = PI/12.0;
-                for _i in 0..bar.water*3 {
+                // let offset = PI/12.0;
+                // for _i in 0..bar.water*3 {
 
-                    let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+                //     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                //     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
-                    ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/small_fire.png".to_string(),
-                        color,
-                        translation: wand_transform.translation,
-                        angle,
-                        radius: 6.,
-                        speed: 150.0 + rng.gen_range(-25.0..25.0),
-                        damage: dmg / bar.water as u32,
-                        element,
-                        is_friendly: true,
-                    });
-                }
+                //     ev_spawn_projectile.send(SpawnProjectileEvent {
+                //         texture_path: "textures/small_fire.png".to_string(),
+                //         color,
+                //         translation: wand_transform.translation,
+                //         angle,
+                //         radius: 6.,
+                //         speed: 150.0 + rng.gen_range(-25.0..25.0),
+                //         damage: dmg / bar.water as u32,
+                //         element,
+                //         is_friendly: true,
+                //     });
+                // }
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Water,
+                    bar
+                });
+
+                return;
             }
         
             if bar.earth > 0
             && bar.air <= 0 {    
-                let offset = (2.0*PI)/(bar.len()*3) as f32;
-                for i in 0..bar.len()*3 {
+                // let offset = (2.0*PI)/(bar.len()*3) as f32;
+                // for i in 0..bar.len()*3 {
 
-                    let angle = offset * i as f32;
+                //     let angle = offset * i as f32;
 
-                    ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/earthquake.png".to_string(),
-                        color,
-                        translation: wand_transform.translation,
-                        angle,
-                        radius: 12.,
-                        speed: 100.0,
-                        damage: dmg,
-                        element,
-                        is_friendly: true,
-                    });
-                }
+                //     ev_spawn_projectile.send(SpawnProjectileEvent {
+                //         texture_path: "textures/earthquake.png".to_string(),
+                //         color,
+                //         translation: wand_transform.translation,
+                //         angle,
+                //         radius: 12.,
+                //         speed: 100.0,
+                //         damage: dmg,
+                //         element,
+                //         is_friendly: true,
+                //     });
+                // }
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Earth,
+                    bar
+                });
+
+                return
             }
         
             if bar.air > 0 {    
-                let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
+                // let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
+                // let angle = dir.y.atan2(dir.x);
 
-                ev_spawn_projectile.send(SpawnProjectileEvent {
-                    texture_path: "textures/fireball.png".to_string(),
-                    color,
-                    translation: wand_transform.translation,
-                    angle,
-                    radius: 8.0,
-                    speed: 150.,
-                    damage: dmg,
-                    element,
-                    is_friendly: true,
+                // ev_spawn_projectile.send(SpawnProjectileEvent {
+                //     texture_path: "textures/fireball.png".to_string(),
+                //     color,
+                //     translation: wand_transform.translation,
+                //     angle,
+                //     radius: 8.0,
+                //     speed: 150.,
+                //     damage: dmg,
+                //     element,
+                //     is_friendly: true,
+                // });
+
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Air,
+                    bar
                 });
+
+                return;
             }
+        }
+    }
+}
+
+#[derive(Event)]
+struct CastSpellEvent {
+    spell: Spell,
+    bar: ElementBar,
+}
+
+fn cast_spell(
+    mut ev_cast_spell: EventReader<CastSpellEvent>,
+
+    mut ev_spawn_shield: EventWriter<SpawnShieldEvent>,
+    mut ev_spawn_blank: EventWriter<SpawnBlankEvent>,
+    mut ev_spawn_black_hole: EventWriter<SpawnBlackHoleEvent>,
+    mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
+    mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
+
+    inventory: Res<ItemInventory>,
+) {
+    for ev in ev_cast_spell.read() {
+        match ev.spell {
+            _ => {}
         }
     }
 }

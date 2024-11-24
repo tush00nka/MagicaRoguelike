@@ -6,7 +6,7 @@ use crate::camera::YSort;
 use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
-use crate::elements::ElementResistance;
+use crate::elements::{ElementResistance, ElementType};
 use crate::mobs::HitList;
 use crate::mouse_position::MouseCoords;
 use crate::GameLayer;
@@ -43,11 +43,13 @@ pub struct PlayerStats {
     pub health_regen: i32,
     pub spell_cast_hp_fee: i32,
     pub blind_rage_bonus: u32,
+    pub element_damage_percent: [f32; 5],
 }
 
 impl PlayerStats {
-    pub fn get_bonused_damage(&self) -> u32 {
-        return self.damage + self.blind_rage_bonus;
+    pub fn get_bonused_damage(&self, element: ElementType) -> u32 {
+        return (self.damage as f32 * (1.0 + self.element_damage_percent[element as usize])).round() as u32
+            + self.blind_rage_bonus;
     }
 }
 
@@ -62,6 +64,7 @@ impl Default for PlayerStats {
             health_regen: 0,
             spell_cast_hp_fee: 0,
             blind_rage_bonus: 0,
+            element_damage_percent: [0., 0., 0., 0., 0.]
         }
     }
 }
