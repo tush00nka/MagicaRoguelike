@@ -1,12 +1,17 @@
 use std::time::Duration;
 
+use super::{ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
+
 use bevy_common_assets::json::JsonAssetPlugin;
 
 //all things about mobs and their spawn/behaviour
 use {
-    avian2d::prelude::*, bevy::prelude::*, rand::Rng, seldom_state::prelude::*,
-    std::f32::consts::PI,
+    avian2d::prelude::*,
+    bevy::prelude::*,
+    rand::Rng,
+    seldom_state::prelude::*,
     serde_json::{Map as JsonMap, Value},
+    std::f32::consts::PI,
 };
 ///add mobs with kinematic body type
 pub const STATIC_MOBS: &[MobType] = &[
@@ -16,8 +21,13 @@ pub const STATIC_MOBS: &[MobType] = &[
     MobType::EarthElemental,
 ];
 
-use crate::animation::AnimationConfig;
-use crate::mobs::rotate_orbital;
+use crate::{
+    animation::AnimationConfig,
+    exp_tank::SpawnExpTankEvent,
+    health_tank::SpawnHealthTankEvent,
+    item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent},
+    pathfinding::Pathfinder,
+};
 use crate::{
     blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},
@@ -28,44 +38,57 @@ use crate::{
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
     mobs::timer_tick_orbital,
-    obstacles::{Corpse, CorpseSpawnEvent},
+    obstacles::CorpseSpawnEvent,
     particles::SpawnParticlesEvent,
     player::Player,
     projectile::{Friendly, Hostile, Projectile, SpawnProjectileEvent},
     stun::Stun,
     GameLayer, GameState,
 };
+use crate::{
+    invincibility::Invincibility,
+    mobs::{item_queue_update, rotate_orbital, set_state_thief, thief_collide, PushItemQueryEvent},
+};
 pub struct MobPlugin;
 
 impl Plugin for MobPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
+        app.add_plugins(JsonAssetPlugin::<MobDatabase>::new(&["json"]))
             .add_systems(Startup, load_mob_database)
             .add_event::<MobDeathEvent>()
+            .add_event::<PushItemQueryEvent>()
+            .add_event::<OnDeathEffectEvent>()
+            .add_event::<OnHitEffectEvent>()
             .add_systems(
-            Update,
-            (
-                damage_mobs,
-                mob_death,
-                mob_shoot::<Friend, ShootAbility, Friend, Friendly, Hostile>,
-                mob_shoot::<Mob, Friend, Friendly, Friend, Friendly>,
-                mob_attack::<Enemy>,
-                mob_attack::<Friend>,
-                hit_projectiles::<Player, Friend, Hostile>,
-                hit_projectiles::<Friend, Mob, Friendly>,
-                timer_shoot,
-                rotate_orbital::<Friend>,
-                rotate_orbital::<Enemy>,
-                timer_tick_orbital::<Enemy>,
-                timer_tick_orbital::<Friend>,
-                attack_hit::<Friend, Enemy>,
-                attack_hit::<Enemy, Friend>,
-                tick_attack_cooldown,
-                timer_empty_list,
+                Update,
+                on_death_effects_handler.run_if(in_state(GameState::InGame)),
             )
-                .run_if(in_state(GameState::InGame)),
-        );
+            .add_systems(
+                Update,
+                (
+                    damage_mobs,
+                    mob_death,
+                    thief_collide,
+                    mob_attack::<Enemy>,
+                    mob_attack::<Friend>,
+                    hit_projectiles::<Player, Friend, Hostile>,
+                    hit_projectiles::<Friend, Mob, Friendly>,
+                    rotate_orbital::<Friend>,
+                    rotate_orbital::<Enemy>,
+                    timer_tick_orbital::<Enemy>,
+                    timer_tick_orbital::<Friend>,
+                    attack_hit::<Friend, Enemy>,
+                    attack_hit::<Enemy, Friend>,
+                    tick_attack_cooldown,
+                    timer_empty_list,
+                    before_attack_delay,
+                    item_queue_update,
+                    on_hit_effects,
+                    pos_pathfinder,
+                    set_state_thief,
+                )
+                    .run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
@@ -75,12 +98,9 @@ pub struct MobDatabase {
 }
 
 #[derive(Resource)]
-pub struct MobDatabaseHandle(pub Handle<MobDatabase>); 
+pub struct MobDatabaseHandle(pub Handle<MobDatabase>);
 
-fn load_mob_database(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn load_mob_database(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(MobDatabaseHandle(asset_server.load("mobs.json")));
 }
 
@@ -91,6 +111,24 @@ pub struct MobDeathEvent {
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
+}
+
+#[derive(Event)]
+pub struct OnHitEffectEvent {
+    pub pos: Vec3,
+    pub dir: Vec3,
+    pub vec_of_objects: Vec<i32>,
+    pub on_hit_effect_type: OnHitEffect,
+    pub is_friendly: bool,
+}
+
+#[derive(Event)]
+pub struct OnDeathEffectEvent {
+    pub pos: Vec3,
+    pub dir: Vec3,
+    pub vec_of_objects: Vec<i32>,
+    pub on_death_effect_type: OnDeathEffect,
+    pub is_friendly: bool,
 }
 
 //Enum components========================================================================================================================================
@@ -112,12 +150,11 @@ pub enum MobType {
     SkeletRanger,   // add arrow texture
     EarthElemental, //turret i guess? //done
     AirElemental,   // just an orbital?
-    TankEater,
+    Thief,
 }
 
 //projectile types
 #[derive(Component, Clone)]
-#[allow(dead_code)]
 pub enum ProjectileType {
     // can use to create mobs with different types of projectiles
     Circle,  // spawn some projectiles around
@@ -131,22 +168,10 @@ pub enum AttackType {
     Slash,
     Rush,
     Spear,
+    Range,
+    Circle,
 }
 
-//targets for mob pathfinding as enum
-#[allow(unused)]
-#[derive(Component)]
-pub enum MobTarget {
-    Player,
-    Corpse,
-
-    // Для моба-вора? ну типа
-    HPTank,
-    EXPTank,
-
-    Runaway,
-    Noone,
-}
 //Pure components=========================================================================================================================================
 //If you want to add something (create new mob, or add new component), first of all, add components there (and check, maybe it exists already)
 //ability to teleport, contains timer and range in tiles from target
@@ -176,17 +201,6 @@ pub struct Summoning {
     pub time_to_spawn: Timer,
     pub is_static: bool,
 }
-
-//component to shoot, has timer, element and proj type according to enum ProjectileType
-#[derive(Component, Clone)]
-pub struct ShootAbility {
-    pub time_to_shoot: Timer,
-    pub element: ElementType,
-    pub proj_type: ProjectileType,
-}
-///flag to state system
-#[derive(Component, Clone)]
-pub struct ShootFlag;
 
 //component to deal contact damage
 #[derive(Component)]
@@ -244,6 +258,27 @@ impl Default for SearchAndPursue {
         }
     }
 }
+
+impl SearchAndPursue {
+    pub fn range_units() -> Self {
+        let mut rays: Vec<Ray> = vec![];
+        for i in 0..16 {
+            rays.push(Ray {
+                direction: Vec2::from_angle(i as f32 * PI / 8.),
+                weight: 0.0,
+            })
+        }
+
+        Self {
+            speed: 2000.0,
+            search_time: Timer::from_seconds(5., TimerMode::Once),
+            wander_timer: Timer::from_seconds(3., TimerMode::Repeating),
+            pursue_radius: 512.0,
+            last_target_dir: Vec2::ZERO,
+            rays,
+        }
+    }
+}
 //Component to raising mobs from the dead
 #[derive(Component)]
 pub struct Raising {
@@ -265,7 +300,7 @@ pub struct HitList {
 impl Default for HitList {
     fn default() -> Self {
         Self {
-            timer_to_clear: Timer::new(Duration::from_millis(5000), TimerMode::Repeating),
+            timer_to_clear: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
             been_punched: false,
             id_list: vec![],
         }
@@ -305,6 +340,19 @@ pub struct BusyRaising;
 #[derive(Component, Clone)]
 pub struct Idle;
 
+#[derive(Component, Clone)]
+pub struct BeforeAttackDelay {
+    timer: Timer,
+}
+
+impl Default for BeforeAttackDelay {
+    fn default() -> Self {
+        Self {
+            timer: Timer::new(Duration::from_millis(350), TimerMode::Once),
+        }
+    }
+}
+
 /// This state should be applied to STATIC mob entity if it doesn't need to do anything in particular(for state machines)
 #[derive(Component, Clone)]
 pub struct IdleStatic;
@@ -336,6 +384,22 @@ pub struct AttackComponent {
     pub attacked: bool,
     pub damage: i32,
     pub element: Option<ElementType>,
+    pub proj_type: Option<ProjectileType>,
+}
+
+impl Default for AttackComponent {
+    fn default() -> Self {
+        Self {
+            range: 28.,
+            attack_type: AttackType::Slash,
+            target: None,
+            cooldown: Timer::new(Duration::from_millis(2000), TimerMode::Repeating),
+            attacked: true,
+            damage: 1,
+            element: None,
+            proj_type: None,
+        }
+    }
 }
 
 //Bundles===========================================================================================================================================
@@ -424,15 +488,21 @@ fn mob_attack<Who: Component + std::default::Default>(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
     transform_query: Query<&Transform>,
+    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
 ) {
     for (entity, _a, mob_transform, range) in mob_query.iter() {
         let dir;
         match range.target {
             None => continue,
             Some(parent) => {
-                dir = transform_query.get(parent).unwrap().translation.truncate()
-                    - mob_transform.translation.truncate();
-                commands.entity(entity).insert(Done::Success);
+                if transform_query.contains(parent) {
+                    dir = transform_query.get(parent).unwrap().translation.truncate()
+                        - mob_transform.translation.truncate();
+                    commands.entity(entity).insert(Done::Success);
+                } else {
+                    commands.entity(entity).insert(Done::Success);
+                    continue;
+                }
             }
         };
 
@@ -446,6 +516,16 @@ fn mob_attack<Who: Component + std::default::Default>(
         if std::any::type_name::<Who>() == std::any::type_name::<Friend>() {
             friendly = true;
         }
+
+        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
+
+        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
+
+        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
+        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+        let mut multiple_to_spawn = false;
+        let mut amount_to_spawn = 1;
+
         match range.attack_type {
             AttackType::Slash => {
                 texture_path = "textures/slash_horisontal3_enemy.png";
@@ -462,6 +542,16 @@ fn mob_attack<Who: Component + std::default::Default>(
                     texture_path = "textures/slash_horisontal3.png";
                 }
             }
+            AttackType::Circle => {
+                texture_path = "textures/slash_horisontal3_enemy.png";
+
+                if friendly {
+                    texture_path = "textures/slash_horisontal3.png";
+                } // change
+
+                multiple_to_spawn = true;
+                amount_to_spawn = 16;
+            }
             AttackType::Rush => {
                 texture_path = "textures/slash_horisontal3_enemy.png";
 
@@ -469,19 +559,94 @@ fn mob_attack<Who: Component + std::default::Default>(
                     texture_path = "textures/slash_horisontal3.png";
                 }
             } // todo: change to choose from mob type?
+
+            AttackType::Range => {
+                commands.entity(entity).insert(Done::Success);
+
+                let angle = dir.y.atan2(dir.x); //math
+                let texture_path: String;
+                let damage: u32;
+                match range.proj_type {
+                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
+                    Some(ProjectileType::Circle) => {
+                        texture_path = "textures/earthquake.png".to_string();
+                        damage = 20;
+                    }
+                    Some(ProjectileType::Missile) => {
+                        texture_path = "textures/fireball.png".to_string();
+                        damage = 25;
+                    }
+                    Some(ProjectileType::Gatling) => {
+                        texture_path = "textures/small_fire.png".to_string();
+                        damage = 10;
+                    }
+                    None => continue,
+                };
+
+                let color = range
+                    .element
+                    .expect("Range attack without element, refactor this code.")
+                    .color();
+
+                ev_shoot.send(SpawnProjectileEvent {
+                    texture_path,
+                    color, //todo: change this fragment, that we could spawn different types of projectiles.
+                    translation: mob_transform.translation,
+                    angle,
+                    radius: 8.0,
+                    speed: 150.,
+                    damage,
+                    element: range
+                        .element
+                        .expect("Range attack without element, refactor this code."),
+                    is_friendly: friendly,
+                });
+
+                continue;
+            }
         };
 
         let texture = asset_server.load(texture_path);
         let layout = TextureAtlasLayout::from_grid(UVec2::splat(16), 5, 1, None, None);
         let texture_atlas_layout = texture_atlas_layouts.add(layout);
+        if multiple_to_spawn {
+            for i in 0..amount_to_spawn {
+                let dir_multiple = Vec2::from_angle(i as f32 * PI * 2. / amount_to_spawn as f32);
 
-        let mut transform_attack: Transform = Transform::from_xyz(0., 0., 0.);
+                let mut transform_attack_multiple: Transform = Transform::from_xyz(0., 0., 0.);
 
-        let pos_new = Vec2::from_angle(dir.y.atan2(dir.x)) * range.range;
+                let pos_new = Vec2::from_angle(dir_multiple.y.atan2(dir_multiple.x)) * range.range;
 
-        transform_attack.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
-        transform_attack.rotation = Quat::from_rotation_z(dir.normalize_or_zero().to_angle());
+                transform_attack_multiple.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
+                transform_attack_multiple.rotation =
+                    Quat::from_rotation_z(dir_multiple.normalize_or_zero().to_angle());
 
+                commands.entity(entity).with_children(|parent| {
+                    parent
+                        .spawn(SpriteBundle {
+                            texture: texture.clone(),
+                            transform: transform_attack_multiple,
+                            ..default()
+                        })
+                        .insert(animation_config.clone())
+                        .insert(Attack {
+                            damage: range.damage,
+                            element: range.element,
+                            dir: dir_multiple,
+                            hit_id: hit_id,
+                        })
+                        .insert(TextureAtlas {
+                            layout: texture_atlas_layout.clone(),
+                            index: 0,
+                        })
+                        .insert(Collider::rectangle(16., 16.))
+                        .insert(Sensor)
+                        .insert(LockedAxes::ROTATION_LOCKED)
+                        .insert(Who::default());
+                });
+            }
+            continue;
+        }
         commands.entity(entity).with_children(|parent| {
             parent
                 .spawn(SpriteBundle {
@@ -523,17 +688,22 @@ fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackCompone
 fn attack_hit<Who: Component, Target: Component>(
     mut attack_query: Query<(Entity, &mut Attack), (With<Who>, Without<Target>)>,
     mut target_query: Query<
-        (&CollidingEntities, &mut Health, &ElementResistance, &mut HitList),
-        (Without<Who>, With<Target>),
+        (
+            &CollidingEntities,
+            &mut Health,
+            &ElementResistance,
+            &mut HitList,
+        ),
+        (Without<Who>, With<Target>, Without<Invincibility>),
     >,
 ) {
     for (entities, mut hp, el_res, mut hit_list) in target_query.iter_mut() {
         //maybe apply el_res?
         for (attack_e, attack) in attack_query.iter_mut() {
-            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id){
+            if entities.contains(&attack_e) && !hit_list.id_list.contains(&attack.hit_id) {
                 let mut damage = attack.damage;
                 el_res.calculate_for(&mut damage, attack.element);
-                
+
                 hit_list.id_list.push(attack.hit_id);
                 hit_list.been_punched = true;
                 hit_list.timer_to_clear.reset();
@@ -543,107 +713,6 @@ fn attack_hit<Who: Component, Target: Component>(
                     element: attack.element,
                     direction: Vec3::new(attack.dir.x, attack.dir.y, 1.0),
                 });
-            }
-        }
-    }
-}
-//actual code==============================================================================================================================
-fn mob_shoot<
-    Target: Component,
-    Shoot: Component,
-    Filter1: Component,
-    Filter2: Component,
-    ProjType: Component,
->(
-    mut commands: Commands,
-    spatial_query: SpatialQuery,
-    mut ev_shoot: EventWriter<SpawnProjectileEvent>,
-    mut shoot_query: Query<
-        (Entity, &Transform, &mut ShootAbility),
-        (
-            With<Shoot>,
-            Without<Stun>,
-            Without<Filter1>,
-            With<ShootFlag>,
-        ),
-    >,
-    target_query: Query<(Entity, &Transform), (With<Target>, Without<Filter2>)>,
-    avoid_query: Query<Entity, With<Corpse>>,
-) {
-    for (mob_e, &mob_transform, can_shoot) in shoot_query.iter_mut() {
-        if target_query.iter().len() != 0 {
-            let mut target_transform: Transform = mob_transform.clone();
-            let mut target_e: Entity = mob_e;
-            let mut dist: f32 = f32::MAX;
-            for (temp_e, temp_pos) in target_query.iter() {
-                let temp_dist: f32 = (mob_transform.translation - temp_pos.translation)
-                    .x
-                    .powf(2.)
-                    + (mob_transform.translation - temp_pos.translation)
-                        .y
-                        .powf(2.);
-                if dist > temp_dist {
-                    dist = temp_dist;
-                    target_transform = *temp_pos;
-                    target_e = temp_e;
-                }
-            }
-            let dir = (target_transform.translation.truncate()
-                - mob_transform.translation.truncate())
-            .normalize_or_zero();
-
-            let Some(first_hit) = spatial_query.cast_ray_predicate(
-                mob_transform.translation.truncate(),
-                Dir2::new_unchecked(dir),
-                512.,
-                true,
-                SpatialQueryFilter::default().with_excluded_entities(&avoid_query),
-                &|entity| entity != mob_e,
-            ) else {
-                commands.entity(mob_e).insert(Done::Failure);
-                continue;
-            };
-            let mut friendly_proj: bool = false;
-
-            if std::any::type_name::<ProjType>() == std::any::type_name::<Friendly>() {
-                friendly_proj = true;
-            }
-
-            if first_hit.entity == target_e {
-                let angle = dir.y.atan2(dir.x); //math
-                let texture_path: String;
-                let damage: u32;
-                match can_shoot.proj_type {
-                    //todo: change this fragment, that we could spawn small and circle projs, maybe change event?
-                    ProjectileType::Circle => {
-                        texture_path = "textures/earthquake.png".to_string();
-                        damage = 20;
-                    }
-                    ProjectileType::Missile => {
-                        texture_path = "textures/fireball.png".to_string();
-                        damage = 25;
-                    }
-                    ProjectileType::Gatling => {
-                        texture_path = "textures/small_fire.png".to_string();
-                        damage = 10;
-                    }
-                }
-
-                let color = can_shoot.element.color();
-
-                ev_shoot.send(SpawnProjectileEvent {
-                    texture_path,
-                    color, //todo: change this fragment, that we could spawn different types of projectiles.
-                    translation: mob_transform.translation,
-                    angle,
-                    radius: 8.0,
-                    speed: 150.,
-                    damage,
-                    element: can_shoot.element,
-                    is_friendly: friendly_proj,
-                });
-            } else if first_hit.entity != target_e {
-                commands.entity(mob_e).insert(Done::Failure);
             }
         }
     }
@@ -729,6 +798,14 @@ pub fn damage_mobs(
     >,
     mut mob_map: ResMut<Map>,
     mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
+
+    on_hit_query: Query<&OnHitEffect>,
+    on_death_effect: Query<&OnDeathEffect>,
+
+    mut on_hit_event: EventWriter<OnHitEffectEvent>,
+    mut on_death_event: EventWriter<OnDeathEffectEvent>,
+
+    mut thief_query: Query<&mut PickupItemQueue>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -737,10 +814,65 @@ pub fn damage_mobs(
             // наносим урон
             health.damage(hit.damage);
 
+            if on_hit_query.contains(entity) {
+                let mut vec_objects = vec![];
+                let on_hit_eff;
+
+                match on_hit_query.get(entity).unwrap() {
+                    OnHitEffect::DropItemFromBag => {
+                        on_hit_eff = OnHitEffect::DropItemFromBag;
+                        let mut temp_bag = thief_query.get_mut(entity).unwrap();
+
+                        for i in temp_bag.item_queue.clone() {
+                            match i {
+                                None => break,
+                                Some(item) => match item.item_name {
+                                    Some(name) => {
+                                        vec_objects.push(item.item_type as i32);
+                                        vec_objects.push(name as i32);
+                                    }
+                                    None => {
+                                        vec_objects.push(item.item_type as i32);
+                                    }
+                                },
+                            }
+                        }
+
+                        temp_bag.empty_queue()
+                    }
+                }
+                on_hit_event.send(OnHitEffectEvent {
+                    pos: transform.translation,
+                    dir: hit.direction,
+                    vec_of_objects: vec_objects,
+                    on_hit_effect_type: on_hit_eff,
+                    is_friendly: false,
+                });
+            }
+
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
             // шлём ивент смерти
             if health.current <= 0 {
+                if on_death_effect.contains(entity) {
+                    let mut vec_objects = vec![];
+                    let on_death_eff;
+
+                    match on_death_effect.get(entity).unwrap() {
+                        OnDeathEffect::CircleAttack => {
+                            on_death_eff = OnDeathEffect::CircleAttack;
+                            vec_objects = vec![ProjectileType::Gatling as i32; 16];
+                        }
+                    }
+                    on_death_event.send(OnDeathEffectEvent {
+                        pos: transform.translation,
+                        dir: hit.direction,
+                        vec_of_objects: vec_objects,
+                        on_death_effect_type: on_death_eff,
+                        is_friendly: false,
+                    });
+                }
+
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
@@ -765,22 +897,19 @@ pub fn damage_mobs(
                         side: false,
                     });
                 }
+                if STATIC_MOBS.contains(mob_type) {
+                    let mob_pos = (
+                        (transform.translation.x.floor() / 32.).floor() as u16,
+                        (transform.translation.y.floor() / 32.).floor() as u16,
+                    );
 
-                for i in STATIC_MOBS {
-                    if mob_type == i {
-                        let mob_pos = (
-                            (transform.translation.x.floor() / 32.).floor() as u16,
-                            (transform.translation.y.floor() / 32.).floor() as u16,
-                        );
+                    mob_map
+                        .map
+                        .get_mut(&(mob_pos.0, mob_pos.1))
+                        .unwrap()
+                        .mob_count -= 1;
 
-                        mob_map
-                            .map
-                            .get_mut(&(mob_pos.0, mob_pos.1))
-                            .unwrap()
-                            .mob_count -= 1;
-
-                        break;
-                    }
+                    break;
                 }
             }
         }
@@ -814,7 +943,7 @@ fn mob_death(
         for i in (-orb_count / 2)..half_count {
             // считаем точки, куда будем выбрасывать частицы опыта
             let angle = ev.dir.y.atan2(ev.dir.x) + offset * i as f32;
-            let direction = Vec2::from_angle(angle) * 32.0;
+            let direction = Vec2::from_angle(angle) * 8.0;
             let destination = Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
 
             ev_spawn_orb.send(SpawnExpOrbEvent {
@@ -837,15 +966,191 @@ fn mob_death(
     }
 }
 
-pub fn timer_shoot(
-    mut shoot_query: Query<(Entity, &mut ShootAbility)>,
+pub fn before_attack_delay(
+    mut timer_query: Query<(Entity, &mut BeforeAttackDelay), Without<Stun>>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (mob_e, mut timer) in shoot_query.iter_mut() {
-        timer.time_to_shoot.tick(time.delta());
-        if timer.time_to_shoot.just_finished() {
-            commands.entity(mob_e).insert(Done::Success);
+    for (timer_e, mut delay) in timer_query.iter_mut() {
+        delay.timer.tick(time.delta());
+        if delay.timer.just_finished() {
+            commands.entity(timer_e).insert(Done::Success);
         }
+    }
+}
+
+fn pos_pathfinder(
+    mut pathfinder_query: Query<
+        (
+            Entity,
+            &mut Pathfinder,
+            &Transform,
+            &mut crate::pathfinding::FriendRush,
+        ),
+        Without<Stun>,
+    >,
+    mut commands: Commands,
+    target_query: Query<(Entity, &Transform), With<Friend>>,
+    time: Res<Time>,
+) {
+    for (pathfinder_e, _pathfinder, transform, mut timer) in pathfinder_query.iter_mut() {
+        if target_query.iter().len() == 0 {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            return;
+        }
+
+        timer.timer.tick(time.delta());
+
+        if timer.timer.just_finished() {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            println!("Timer ticked");
+            continue;
+        }
+
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                item1
+                    .translation
+                    .distance(transform.translation)
+                    .total_cmp(&item2.translation.distance(transform.translation))
+            })
+            .collect();
+
+        let (target_e, mut target) = sorted_targets[0];
+
+        if target_e == pathfinder_e {
+            if sorted_targets.iter().len() < 2 {
+                commands.entity(pathfinder_e).insert(Done::Success);
+                continue;
+            }
+            target = sorted_targets[1].1;
+        }
+
+        if transform.translation.distance(target.translation) <= 100. {
+            commands.entity(pathfinder_e).insert(Done::Success);
+            println!("Near target");
+        }
+    }
+}
+
+pub fn on_death_effects_handler(
+    mut ev_on_death: EventReader<OnDeathEffectEvent>,
+    mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
+) {
+    for ev in ev_on_death.read() {
+        match ev.on_death_effect_type {
+            OnDeathEffect::CircleAttack => {
+                for i in 0..ev.vec_of_objects.len() {
+                    let color = ElementType::Fire.color();
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color: color,
+                        translation: ev.pos,
+                        angle: (PI * i as f32 * 2.) / ev.vec_of_objects.len() as f32,
+                        radius: 8.0,
+                        speed: 150.,
+                        damage: 20,
+                        element: ElementType::Fire,
+                        is_friendly: ev.is_friendly,
+                    });
+                    println!("WTF");
+                }
+            }
+        }
+    }
+}
+
+fn convert_i32_to_item(pick: i32) -> ItemType {
+    match pick {
+        0 => ItemType::Amulet,
+        1 => ItemType::Bacon,
+        2 => ItemType::Heart,
+        3 => ItemType::LizardTail,
+        4 => ItemType::SpeedPotion,
+        5 => ItemType::WispInAJar,
+        6 => ItemType::WaterbendingScroll,
+        7 => ItemType::Mineral,
+        8 => ItemType::Glider,
+        9 => ItemType::GhostInTheShell,
+        10 => ItemType::VampireTooth,
+        11 => ItemType::BloodGoblet,
+        12 => ItemType::BlindRage,
+        _ => {
+            println!("Update function convert_i32_to_item, there's no such item");
+            ItemType::Amulet
+        }
+    }
+}
+
+pub fn on_hit_effects(
+    mut ev_on_hit: EventReader<OnHitEffectEvent>,
+    mut ev_spawn_item: EventWriter<SpawnItemEvent>,
+    mut ev_spawn_hp_tank: EventWriter<SpawnHealthTankEvent>,
+    mut ev_spawn_exp_tank: EventWriter<SpawnExpTankEvent>,
+
+    item_database: Res<Assets<ItemDatabase>>,
+    handle: Res<ItemDatabaseHandle>,
+) {
+    for ev in ev_on_hit.read() {
+        match ev.on_hit_effect_type {
+            OnHitEffect::DropItemFromBag => {
+                let mut is_item = false;
+                let mut count = 2;
+                let offset = PI / 12.;
+                for i in ev.vec_of_objects.iter() {
+                    let dir = ev.dir * Vec3::new(-1., -1., 0.);
+
+                    let angle = dir.y.atan2(dir.x) + offset * count as f32;
+
+                    count += 1;
+
+                    let direction = Vec2::from_angle(angle) * 24.0;
+                    println!("direction is {}", direction);
+                    let destination =
+                        Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
+
+                    if is_item {
+                        let item_type = convert_i32_to_item(*i);
+
+                        let item_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["name"].as_str().unwrap().to_string();
+                        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["texture_name"].as_str().unwrap().to_string();
+                        let item_description: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["description"].as_str().unwrap().to_string();
+
+                        let texture_path = format!("textures/items/{}", texture_name);
+
+                        ev_spawn_item.send(SpawnItemEvent {
+                            pos: destination,
+                            item_type: item_type,
+                            texture_path: texture_path,
+                            item_name: item_name,
+                            item_description: item_description,
+                        });
+                        is_item = false;
+                        continue;
+                    }
+                    if *i == ItemPicked::Item as i32 {
+                        is_item = true;
+                        continue;
+                    }
+
+                    if *i == ItemPicked::HPTank as i32 {
+                        ev_spawn_hp_tank.send(SpawnHealthTankEvent {
+                            pos: destination,
+                            hp: 20,
+                        });
+                        continue;
+                    }
+
+                    if *i == ItemPicked::EXPTank as i32 {
+                        ev_spawn_exp_tank.send(SpawnExpTankEvent {
+                            pos: destination,
+                            orbs: 6,
+                        });
+                        continue;
+                    }
+                }
+            }
+        };
     }
 }

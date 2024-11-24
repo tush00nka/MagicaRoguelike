@@ -12,7 +12,7 @@ use crate::{
     gamemap::{Wall, ROOM_SIZE},
     mobs::mob::*,
     obstacles::Corpse,
-    pathfinding::Pathfinder,
+    pathfinding::{Pathfinder, EnemyRush, FriendRush},
     player::Player,
     shield_spell::Shield,
     stun::Stun,
@@ -27,7 +27,8 @@ impl Plugin for MobMovementPlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    move_mobs,
+                    move_mobs::<FriendRush>,
+                    move_mobs::<EnemyRush>,
                     runaway_mob,
                     phasing_mob::<Enemy, Friend>,
                     phasing_mob::<Friend, Enemy>,
@@ -42,8 +43,11 @@ impl Plugin for MobMovementPlugin {
             (
                 idle::<Enemy, Friend>,
                 pursue::<Enemy, Friend>,
+                idle_static::<Enemy, Friend>,
+
                 idle::<Friend, Enemy>,
                 pursue::<Friend, Enemy>,
+                idle_static::<Friend, Enemy>,
                 update_weights,
             ),
         );
@@ -56,8 +60,9 @@ fn teleport_mobs(
         (Entity, &mut Transform, &mut Teleport),
         (Without<Stun>, With<TeleportFlag>),
     >,
+    mut commands: Commands,
 ) {
-    for (_mob, mut transform, mut tp) in mob_query.iter_mut() {
+    for (mob, mut transform, mut tp) in mob_query.iter_mut() {
         if tp.place_to_teleport.len() > 0 {
             transform.translation = Vec3::new(
                 tp.place_to_teleport[0].0 as f32 * ROOM_SIZE as f32,
@@ -65,7 +70,7 @@ fn teleport_mobs(
                 1.0,
             );
             tp.place_to_teleport.remove(0);
-            //    commands.entity(mob).insert(Done::Success); maybe usefull for later? idk
+            commands.entity(mob).insert(Done::Success);
         }
     }
 }
@@ -114,6 +119,7 @@ fn phasing_mob<Side: Component, Target: Component>(
             Without<Target>,
         ),
     >,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     target_query: Query<(Entity, &Transform), (With<Target>, Without<Side>)>,
     time: Res<Time>,
     mut commands: Commands,
@@ -126,7 +132,9 @@ fn phasing_mob<Side: Component, Target: Component>(
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                item1.translation.distance(transform.translation)
+                item1
+                    .translation
+                    .distance(transform.translation)
                     .total_cmp(&item2.translation.distance(transform.translation))
             })
             .collect();
@@ -149,19 +157,26 @@ fn phasing_mob<Side: Component, Target: Component>(
             attack.target = Some(target_e);
             attack.attacked = true;
             linvel.0 = Vec2::ZERO;
-            println!("Phasing done");
+
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: transform
+                    .translation
+                    .truncate()
+                    .with_y(transform.translation.y + 16.),
+                attack_alert: true,
+            });
         }
     }
 }
 
-fn move_mobs(
+fn move_mobs<SideRush: Component>(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
         (
             Without<Stun>,
             Without<Teleport>,
             Without<RaisingFlag>,
-            Without<SearchAndPursue>,
+            Or<(With<SideRush>, Without<SearchAndPursue>)>,
         ),
     >,
     time: Res<Time>,
@@ -186,6 +201,76 @@ fn move_mobs(
         }
     }
 }
+fn idle_static<Who: Component, Target: Component>(
+    mut commands: Commands,
+    spatial_query: SpatialQuery,
+    mut mob_query: Query<
+        (Entity, &Transform, &mut SearchAndPursue, &mut AttackComponent),
+        (With<IdleStatic>, With<Who>, Without<Target>),
+    >,
+    target_query: Query<(Entity, &Transform), With<Target>>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Who>)>>,
+) {
+    for (mob_e, mob_transform, mut mob, mut attack_range) in mob_query.iter_mut() {
+        if target_query.iter().len() <= 0 {
+            return;
+        }
+
+        let sorted_targets: Vec<(Entity, &Transform)> = target_query
+            .iter()
+            .sort_by::<&Transform>(|item1, item2| {
+                item1
+                    .translation
+                    .distance(mob_transform.translation)
+                    .total_cmp(&item2.translation.distance(mob_transform.translation))
+            })
+            .collect();
+
+        let (target_e, target_transform) = sorted_targets[0];
+
+        let dir = (target_transform.translation - mob_transform.translation)
+            .truncate()
+            .normalize();
+
+        let Some(first_hit) = spatial_query.cast_ray_predicate(
+            mob_transform.translation.truncate(),
+            Dir2::new_unchecked(dir),
+            512.,
+            true,
+            SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
+            &|entity| entity != mob_e,
+        ) else {
+            continue;
+        };
+        if first_hit.entity == target_e {
+            mob.last_target_dir = dir;
+        }else{
+            commands.entity(mob_e).insert(Done::Failure);
+            continue;
+        }
+        if target_transform
+            .translation
+            .distance(mob_transform.translation)
+            < attack_range.range
+            && !attack_range.attacked
+        //melee range idk
+        {
+            commands.entity(mob_e).insert(Done::Success);
+            attack_range.attacked = true;
+            mob.last_target_dir = Vec2::ZERO;
+            attack_range.target = Some(target_e);
+            
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: mob_transform
+                    .translation
+                    .truncate()
+                    .with_y(mob_transform.translation.y + 16.),
+                attack_alert: true,
+            });
+        }
+    }
+}
 
 fn idle<Who: Component, Target: Component>(
     mut commands: Commands,
@@ -196,7 +281,7 @@ fn idle<Who: Component, Target: Component>(
     >,
     target_query: Query<(Entity, &Transform), With<Target>>,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
-    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Enemy>)>>,
+    ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Who>)>>,
     time: Res<Time>,
 ) {
     for (mob_e, mob_transform, mut mob) in mob_query.iter_mut() {
@@ -223,13 +308,16 @@ fn idle<Who: Component, Target: Component>(
 
         // --- Детектим цель ---
         if target_query.iter().len() <= 0 {
+            commands.entity(mob_e).insert(Done::Success);
             return;
         }
 
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                item1.translation.distance(mob_transform.translation)
+                item1
+                    .translation
+                    .distance(mob_transform.translation)
                     .total_cmp(&item2.translation.distance(mob_transform.translation))
             })
             .collect();
@@ -248,6 +336,7 @@ fn idle<Who: Component, Target: Component>(
             SpatialQueryFilter::default().with_excluded_entities(&ignore_query),
             &|entity| entity != mob_e,
         ) else {
+            commands.entity(mob_e).insert(Done::Success);
             continue;
         };
 
@@ -265,7 +354,10 @@ fn idle<Who: Component, Target: Component>(
                         .translation
                         .truncate()
                         .with_y(mob_transform.translation.y + 16.),
+                    attack_alert: false,
                 });
+            }else{
+                commands.entity(mob_e).insert(Done::Failure);
             }
         }
     }
@@ -286,6 +378,7 @@ fn pursue<Who: Component, Target: Component>(
     >,
     target_query: Query<(Entity, &Transform), With<Target>>,
     ignore_query: Query<Entity, Or<(With<Corpse>, With<Shield>, With<Blank>, With<Enemy>)>>,
+    mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
     time: Res<Time>,
 ) {
     for (mob_e, mut linvel, mob_transform, mut mob, mut attack_range) in mob_query.iter_mut() {
@@ -297,16 +390,18 @@ fn pursue<Who: Component, Target: Component>(
         let sorted_targets: Vec<(Entity, &Transform)> = target_query
             .iter()
             .sort_by::<&Transform>(|item1, item2| {
-                item1.translation.distance(mob_transform.translation)
+                item1
+                    .translation
+                    .distance(mob_transform.translation)
                     .total_cmp(&item2.translation.distance(mob_transform.translation))
             })
             .collect();
 
         let (target_e, target_transform) = sorted_targets[0];
-        attack_range.target = Some(target_e);
         let direction = (target_transform.translation - mob_transform.translation)
             .truncate()
             .normalize();
+
         let ray_sum_dir: Vec2 = mob.rays.iter().map(|ray| ray.direction * ray.weight).sum();
 
         let Some(first_hit) = spatial_query.cast_ray_predicate(
@@ -324,7 +419,7 @@ fn pursue<Who: Component, Target: Component>(
         if first_hit.entity == target_e {
             mob.last_target_dir = direction;
         }
-
+            
         linvel.0 = (mob.last_target_dir + ray_sum_dir) * mob.speed * time.delta_seconds();
 
         mob.search_time.tick(time.delta());
@@ -348,8 +443,17 @@ fn pursue<Who: Component, Target: Component>(
         {
             commands.entity(mob_e).insert(Done::Success);
             attack_range.attacked = true;
+            attack_range.target = Some(target_e);
             linvel.0 = Vec2::ZERO;
             mob.last_target_dir = Vec2::ZERO;
+
+            ev_spawn_alert.send(SpawnAlertEvent {
+                position: mob_transform
+                    .translation
+                    .truncate()
+                    .with_y(mob_transform.translation.y + 16.),
+                attack_alert: true,
+            });
         }
     }
 }

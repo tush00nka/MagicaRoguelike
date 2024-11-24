@@ -12,9 +12,9 @@ use crate::{
     friend::Friend,
     gamemap::{Map, TileType, ROOM_SIZE},
     level_completion::PortalManager,
-    mobs::{mob::*, mob_types::*},
+    mobs::{MultistateAnimationFlag,mob::*, mob_types::*},
     obstacles::Corpse,
-    pathfinding::create_new_graph,
+    pathfinding::{FriendRush,create_new_graph},
     stun::Stun,
     GameState,
 };
@@ -31,9 +31,10 @@ impl Plugin for MobSpawnPlugin {
                 OnEnter(GameState::Loading),
                 first_spawn_mobs.after(spawn_mobs_location),
             )
+            .add_systems(Update, spawn_mob)
             .add_systems(
                 Update,
-                (spawn_mob, spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
+                (spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 OnEnter(GameState::LoadingBoss),
@@ -42,13 +43,22 @@ impl Plugin for MobSpawnPlugin {
     }
 }
 
-const DESERT_MOBS: &[MobType] = &[MobType::Knight, MobType::FireMage, MobType::EarthElemental];
+const DESERT_MOBS: &[MobType] = &[
+    MobType::Knight, 
+    MobType::FireMage, 
+    MobType::EarthElemental,
+    MobType::WaterElemental,
+    MobType::Thief,
+];
+
 const JUNGLE_MOBS: &[MobType] = &[
     MobType::Mossling,
     MobType::JungleTurret,
     MobType::WaterMage,
     MobType::AirElemental,
+    MobType::ClayGolem,
 ];
+
 const INFERNO_MOBS: &[MobType] = &[
     MobType::Necromancer,
     MobType::FireMage,
@@ -64,9 +74,6 @@ pub struct MobSpawnEvent {
     pub pos: Vec2,
     pub is_friendly: bool,
 }
-//enum for types of AI
-//#[derive(Component)]
-#[allow(dead_code)]
 pub enum MobAI {
     MeleeWithATK,
     RangeMoving,
@@ -75,6 +82,7 @@ pub enum MobAI {
     Turret,
     Phasing,
     Orbital,
+    Thief
     //etc, add later
 }
 //structures for init=======================================================================================================================
@@ -177,7 +185,8 @@ impl SpawnKit<'_> {
         Self {
             frame_count: 2,
             fps: 3,
-            texture_path: "textures/mobs/fire_mage4.png",
+            texture_path: "textures/mobs/clay_golem.png",
+            pixel_size: 36,
             ..default()
         }
     }
@@ -196,6 +205,7 @@ impl SpawnKit<'_> {
             frame_count: 2,
             fps: 3,
             texture_path: "textures/mobs/water_elemental.png",
+            ai_type: MobAI::RangeMoving,
             has_animation: false,
             ..default()
         }
@@ -220,11 +230,14 @@ impl SpawnKit<'_> {
             ..default()
         }
     }
-    fn tank_eater() -> Self {
+    fn thief() -> Self {
         Self {
-            frame_count: 2,
-            fps: 3,
-            texture_path: "textures/mobs/fire_mage9.png",
+            frame_count: 6,
+            fps: 12,
+            texture_path: "textures/mobs/lurker_run.png",
+            can_flip: true,
+            ai_type: MobAI::Thief,
+            pixel_size: 24,
             ..default()
         }
     }
@@ -273,9 +286,11 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);
     let mut chance: f32;
+
     if chapter_manager.get_current_chapter() % 4 == 0 {
         mobs_amount = chapter_manager.get_current_chapter() as u16 / 4 as u16;
     }
+
     while mobs_amount > 0 {
         for x in 1..ROOM_SIZE - 1 {
             for y in 1..ROOM_SIZE - 1 {
@@ -362,8 +377,8 @@ pub fn spawn_mob(
             MobType::SkeletRanger => {
                 spawn_kit = SpawnKit::skelet_ranger();
             }
-            MobType::TankEater => {
-                spawn_kit = SpawnKit::tank_eater();
+            MobType::Thief => {
+                spawn_kit = SpawnKit::thief();
             }
         }
 
@@ -399,7 +414,8 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), PhasingFlag),
                         PhasingFlag,
                     ))
@@ -412,8 +428,9 @@ pub fn spawn_mob(
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
@@ -421,27 +438,45 @@ pub fn spawn_mob(
             }
 
             MobAI::RangeMoving => {
-                //need to create and fix later i guess
+                if ev.is_friendly{
+                    mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<FriendRush, _>(done(Some(Done::Success)), Idle)
+                            .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
+                            .trans::<Idle, _>(done(Some(Done::Failure)), FriendRush::default())
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
+                        FriendRush::default(),
+                    ))
+                    .id()
+                }else{
+                println!("Spawn is correct");
                 mob = commands
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), ShootFlag)
+                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), Idle),
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
                         Idle,
                     ))
                     .id()
+                }
             }
-
             MobAI::RangeWithTP => {
                 //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<TeleportFlag, _>(done(Some(Done::Success)), ShootFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), TeleportFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), TeleportFlag),
+                            .trans::<TeleportFlag, _>(done(Some(Done::Success)), IdleStatic)
+                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<IdleStatic, _>(done(Some(Done::Failure)), TeleportFlag)
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), TeleportFlag),//change: need to create smth like tp -> check range -> alert -> shoot
                         TeleportFlag, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
@@ -460,19 +495,51 @@ pub fn spawn_mob(
                     ))
                     .id()
             }
+
             MobAI::Turret => {
                 //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<IdleStatic, _>(done(Some(Done::Success)), ShootFlag)
-                            .trans::<ShootFlag, _>(done(Some(Done::Failure)), IdleStatic)
-                            .trans::<ShootFlag, _>(done(Some(Done::Success)), IdleStatic),
+                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), IdleStatic),
                         IdleStatic, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
             }
-        }
+            MobAI::Thief => 
+                mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans_builder(nearest_interactable, |_: &RunawayRush, value|{
+                                Some(
+                                    match value{
+                                        Some(_) => PickTargetForSteal{target: value},
+                                        None =>  PickTargetForSteal{target: None}
+                                })
+                            })
+                            .trans_builder(pick_item_to_steal, |_: &PickTargetForSteal, value|{
+                                Some(
+                                    match value{
+                                        Some(val) => 
+                                            match val{
+                                                ItemPicked::HPTank => ItemPickedFlag::Some(ItemPicked::HPTank),
+                                                ItemPicked::EXPTank => ItemPickedFlag::Some(ItemPicked::EXPTank),
+                                                ItemPicked::Item => ItemPickedFlag::Some(ItemPicked::Item),
+                                                ItemPicked::Obstacle => ItemPickedFlag::Some(ItemPicked::Obstacle),
+                                            },
+                                        None => ItemPickedFlag::None,
+                                })
+                            })
+                            .trans::<ItemPickedFlag, _>(done(Some(Done::Success)), SearchingInteractableFlag)
+                            .trans::<ItemPickedFlag, _>(done(Some(Done::Failure)), RunawayRush)
+                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Success)), RunawayRush)
+                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Failure)), RunawayRush),
+                            RunawayRush
+                    ))
+                    .id(),
+        };
         if ev.is_friendly {
             commands.entity(mob).insert(Friend);
         } else {
@@ -504,42 +571,24 @@ pub fn spawn_mob(
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::knight())
-                    .insert(SearchAndPursue::default());
+                    .insert(SearchAndPursue::default())
+                    .insert(MultistateAnimationFlag);
             }
             MobType::Mossling => {
                 commands
                     .entity(mob)
                     .insert(MeleeMobBundle::mossling())
-                    .insert(SearchAndPursue::default());
+                    .insert(SearchAndPursue::default())
+                    .insert(MultistateAnimationFlag);
             }
             MobType::FireMage => {
                 commands.entity(mob).insert(MageBundle::fire_mage());
-
-                mob_map
-                    .map
-                    .get_mut(&(
-                        (x / ROOM_SIZE as f32).floor() as u16,
-                        (y / ROOM_SIZE as f32).floor() as u16,
-                    ))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::WaterMage => {
                 commands.entity(mob).insert(MageBundle::water_mage());
-                mob_map
-                    .map
-                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::JungleTurret => {
                 commands.entity(mob).insert(TurretBundle::jungle_turret());
-
-                mob_map
-                    .map
-                    .get_mut(&((x / ROOM_SIZE as f32) as u16, (y / ROOM_SIZE as f32) as u16))
-                    .unwrap()
-                    .mob_count += 1;
             }
             MobType::Necromancer => {
                 commands.entity(mob).insert(SpawnerBundle::necromancer());
@@ -558,16 +607,22 @@ pub fn spawn_mob(
                     .insert(MeleePhasingBundle::fire_elemental());
             }
             MobType::WaterElemental => {
-                //                commands.entity(mob).insert(RamgeMobBundle::water_elemental());
+                commands.entity(mob).insert(RangeMobBundle::water_elemental());
             }
             MobType::AirElemental => {
                 commands.entity(mob).insert(OrbitalBundle::air_elemental());
             }
-            MobType::ClayGolem => {}
+            MobType::ClayGolem => {
+                commands.entity(mob)
+                    .insert(MeleeMobBundle::clay_golem())
+                    .insert(SearchAndPursue::default());        
+            }
             MobType::SkeletMage => {}
             MobType::SkeletWarrior => {}
             MobType::SkeletRanger => {}
-            MobType::TankEater => {}
+            MobType::Thief => {
+                commands.entity(mob).insert(ThiefBundle::default());
+            }
         }
 
         if spawn_kit.rotation_entity {
@@ -580,6 +635,19 @@ pub fn spawn_mob(
                     })
                     .insert(RotationEntity);
             });
+        }
+
+        if STATIC_MOBS.contains(&ev.mob_type) {
+            let mob_pos = (
+                (x.floor() / 32.).floor() as u16,
+                (y.floor() / 32.).floor() as u16,
+            );
+
+            mob_map
+                .map
+                .get_mut(&(mob_pos.0, mob_pos.1))
+                .unwrap()
+                .mob_count += 1;
         }
     }
 }
@@ -600,6 +668,7 @@ pub fn first_spawn_mobs(
                     .mob_count = 0;
 
                 let mob_type: MobType;
+                println!("chapter  {}", chapter_manager.get_current_chapter());
                 let chapter: u8 = chapter_manager.get_current_chapter() % 4;
                 match chapter {
                     1 => {

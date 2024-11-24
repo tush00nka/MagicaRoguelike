@@ -108,7 +108,7 @@ fn load_item_database(
 
 #[derive(Component)]
 pub struct Item {
-    item_type: ItemType,
+    pub item_type: ItemType,
     name: String,
     description: String,
 }

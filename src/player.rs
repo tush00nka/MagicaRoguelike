@@ -6,6 +6,8 @@ use crate::camera::YSort;
 use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
+use crate::elements::ElementResistance;
+use crate::level_completion::PortalManager;
 use crate::elements::{ElementResistance, ElementType};
 use crate::mobs::HitList;
 use crate::mouse_position::MouseCoords;
@@ -202,6 +204,7 @@ fn player_death(
     mut ev_death_popup: EventWriter<DeathAvoidPopupEvent>,
     mut player_query: Query<&mut Health, With<Player>>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut portal_manager: ResMut<PortalManager>,
 ) {
     for ev in ev_player_death.read(){
         if let Ok(mut health) = player_query.get_single_mut() {
@@ -215,6 +218,8 @@ fn player_death(
 
                 return;
             }
+
+            portal_manager.set_mob(0);
 
             commands.entity(ev.0).despawn();
             game_state.set(GameState::GameOver);

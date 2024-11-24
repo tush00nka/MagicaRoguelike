@@ -86,6 +86,10 @@ impl PortalManager {
     pub fn push_mob(&mut self) {
         self.mobs += 1;
     }
+    
+    pub fn set_mob(&mut self, amount: u32){
+        self.mobs = amount;
+    }
 }
 
 #[derive(Event)]
