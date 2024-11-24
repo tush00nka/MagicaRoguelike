@@ -106,7 +106,7 @@ fn spawn_projectile(
         
         if ev.is_friendly{ //check which flag to add
             projectile.insert(Friendly);
-        }else{
+        } else {
             projectile
                 .insert(Hostile)
                 .insert(CollisionLayers::new(

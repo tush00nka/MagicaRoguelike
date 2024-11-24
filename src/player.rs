@@ -6,7 +6,6 @@ use crate::camera::YSort;
 use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
-use crate::elements::ElementResistance;
 use crate::level_completion::PortalManager;
 use crate::elements::{ElementResistance, ElementType};
 use crate::mobs::HitList;

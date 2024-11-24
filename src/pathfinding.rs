@@ -12,7 +12,7 @@ use crate::{
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
     item::Item,
     mobs::{
-        damage_mobs, BusyRaising, CorpseRush, Enemy, ExpTankRush, HPTankRush, ItemRush, ObstacleRush, Phasing, PickupItemQueue, PlayerRush, RunawayRush, Summoning, Teleport
+        damage_mobs, BusyRaising, CorpseRush, Enemy, ExpTankRush, HPTankRush, ItemRush, ObstacleRush, Phasing, PlayerRush, RunawayRush, Summoning, Teleport
     },
     obstacles::{Corpse, Obstacle},
     player::Player,

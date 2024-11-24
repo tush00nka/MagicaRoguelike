@@ -17,7 +17,7 @@ impl Plugin for ElementsPlugin {
             .add_event::<CastSpellEvent>()
             .insert_resource(ElementBar::default())
             .add_systems(OnExit(GameState::MainMenu), init_spells)
-            .add_systems(Update, (fill_bar, cast_spell)
+            .add_systems(Update, (fill_bar, handle_recipe, cast_spell)
                 .run_if(in_state(GameState::InGame)
                 .or_else(in_state(GameState::Hub))));
     }
@@ -234,7 +234,6 @@ fn fill_bar(
 }
 
 fn handle_recipe(
-    mouse_coords: Res<MouseCoords>,
     player_stats: Res<PlayerStats>,
 
     wand_query: Query<&Transform, With<Wand>>,
@@ -274,8 +273,6 @@ fn handle_recipe(
         let bar = element_bar.clone();
         element_bar.clear();
 
-        let mut rng = rand::thread_rng();
-
         let mut element: ElementType;
         let elements_to_comapre = vec![bar.fire, bar.water, bar.earth, bar.air];
 
@@ -303,7 +300,6 @@ fn handle_recipe(
         let mut dmg = player_stats.get_bonused_damage(element);
         dmg *= bar.len() as u32;
 
-        let color = element.color();
         let audio_file = element.audio();
 
         ev_play_audio.send(PlayAudioEvent::from_file(audio_file));
@@ -315,12 +311,12 @@ fn handle_recipe(
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
-                // ev_spawn_shield.send(SpawnShieldEvent {
-                //     duration: bar.earth as f32 * 2. + *inventory.amount_of_item(ItemType::Shield) as f32
-                // });
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Shield,
+                    element,
+                    origin: transform.translation,
+                    damage: dmg,
                     bar
                 });
 
@@ -332,14 +328,11 @@ fn handle_recipe(
             && bar.air > 1
             && bar.fire <= 0
             && bar.earth <= 0 {
-                //     ev_spawn_blank.send(SpawnBlankEvent {
-                //     range: bar.air as f32 * 2.,
-                //     position: transform.translation,
-                //     speed: 10.0,
-                //     side: true,
-                // });
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Blank,
+                    element,
+                    origin: transform.translation,
+                    damage: dmg,
                     bar
                 });
 
@@ -351,15 +344,12 @@ fn handle_recipe(
             && bar.water == bar.earth
             && bar.earth == bar.air 
             && bar.air == bar.fire {
-                // ev_spawn_black_hole.send(SpawnBlackHoleEvent {
-                //     spawn_pos: wand_transform.translation.with_z(0.9),
-                //     target_pos: mouse_coords.0.extend(0.9),
-                //     lifetime: 1.5 * bar.len() as f32, // seconds
-                //     strength: 1_000. * bar.len() as f32,
-                // });
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::BlackHole,
+                    element,
+                    origin: Vec3::ZERO,
+                    damage: dmg,
                     bar
                 });
 
@@ -382,17 +372,34 @@ fn handle_recipe(
             && bar.earth >= 1 
             && bar.air <= 0 
             && bar.water >=1 
-            && bar.fire == 2 {
-                // ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
-                
+            && bar.fire == 2 {                
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::FireElemental,
+                    element,
+                    origin: Vec3::ZERO,
+                    damage: dmg,
                     bar
                 });
 
                 return;
             }
             
+            if spell_pool.is_unlocked(Spell::WaterElemental)
+            && bar.earth >= 1 
+            && bar.air <= 0 
+            && bar.water == 2 
+            && bar.fire >= 1 {
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::WaterElemental,
+                    element,
+                    origin: Vec3::ZERO,
+                    damage: dmg,
+                    bar
+                });
+
+                return;
+            }
+
             //spawn EarthElemental
             if spell_pool.is_unlocked(Spell::EarthElemental)
             && bar.earth == 2 
@@ -403,6 +410,9 @@ fn handle_recipe(
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::EarthElemental,
+                    element,
+                    origin: Vec3::ZERO,
+                    damage: dmg,
                     bar
                 });
 
@@ -419,6 +429,9 @@ fn handle_recipe(
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::AirElemental,
+                    element,
+                    origin: Vec3::ZERO,
+                    damage: dmg,
                     bar
                 });
 
@@ -428,52 +441,22 @@ fn handle_recipe(
             if bar.fire > 0 && bar.earth <= 0 && bar.air <= 0 {   
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Fire,
+                    element,
+                    origin: wand_transform.translation,
+                    damage: dmg,
                     bar
                 });
 
                 return;
-
-                // let offset = PI/12.0;
-                // for _i in 0..bar.fire*3 {
-                //     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                //     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-
-                //     ev_spawn_projectile.send(SpawnProjectileEvent {
-                //         texture_path: "textures/small_fire.png".to_string(),
-                //         color,
-                //         translation: wand_transform.translation,
-                //         angle,
-                //         radius: 6.,
-                //         speed: 150.0 + rng.gen_range(-25.0..25.0),
-                //         damage: dmg / bar.fire as u32,
-                //         element,
-                //         is_friendly: true,
-                //     });
-                // }
             }
         
             if bar.water > 0 && bar.earth <= 0 && bar.air <= 0 {
-                // let offset = PI/12.0;
-                // for _i in 0..bar.water*3 {
-
-                //     let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                //     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
-
-                //     ev_spawn_projectile.send(SpawnProjectileEvent {
-                //         texture_path: "textures/small_fire.png".to_string(),
-                //         color,
-                //         translation: wand_transform.translation,
-                //         angle,
-                //         radius: 6.,
-                //         speed: 150.0 + rng.gen_range(-25.0..25.0),
-                //         damage: dmg / bar.water as u32,
-                //         element,
-                //         is_friendly: true,
-                //     });
-                // }
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Water,
+                    element,
+                    origin: wand_transform.translation,
+                    damage: dmg,
                     bar
                 });
 
@@ -482,26 +465,12 @@ fn handle_recipe(
         
             if bar.earth > 0
             && bar.air <= 0 {    
-                // let offset = (2.0*PI)/(bar.len()*3) as f32;
-                // for i in 0..bar.len()*3 {
-
-                //     let angle = offset * i as f32;
-
-                //     ev_spawn_projectile.send(SpawnProjectileEvent {
-                //         texture_path: "textures/earthquake.png".to_string(),
-                //         color,
-                //         translation: wand_transform.translation,
-                //         angle,
-                //         radius: 12.,
-                //         speed: 100.0,
-                //         damage: dmg,
-                //         element,
-                //         is_friendly: true,
-                //     });
-                // }
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Earth,
+                    element,
+                    origin: wand_transform.translation,
+                    damage: dmg,
                     bar
                 });
 
@@ -509,23 +478,12 @@ fn handle_recipe(
             }
         
             if bar.air > 0 {    
-                // let dir = (mouse_coords.0 - wand_transform.translation.truncate()).normalize_or_zero();
-                // let angle = dir.y.atan2(dir.x);
-
-                // ev_spawn_projectile.send(SpawnProjectileEvent {
-                //     texture_path: "textures/fireball.png".to_string(),
-                //     color,
-                //     translation: wand_transform.translation,
-                //     angle,
-                //     radius: 8.0,
-                //     speed: 150.,
-                //     damage: dmg,
-                //     element,
-                //     is_friendly: true,
-                // });
 
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Air,
+                    element,
+                    origin: wand_transform.translation,
+                    damage: dmg,
                     bar
                 });
 
@@ -538,6 +496,9 @@ fn handle_recipe(
 #[derive(Event)]
 struct CastSpellEvent {
     spell: Spell,
+    element: ElementType,
+    origin: Vec3,
+    damage: u32,
     bar: ElementBar,
 }
 
@@ -550,11 +511,146 @@ fn cast_spell(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
 
+    mouse_coords: Res<MouseCoords>,
     inventory: Res<ItemInventory>,
 ) {
     for ev in ev_cast_spell.read() {
+        let bar = ev.bar;
+
+        let element = ev.element;
+        let color = element.color();
+        let origin = ev.origin;
+        let dmg = ev.damage;
+
+        let mut rng = rand::thread_rng();
+
         match ev.spell {
-            _ => {}
+            Spell::Fire => {
+                let offset = PI/10.0;
+                for _i in 0..bar.fire*3 {
+                    let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: origin,
+                        angle,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.fire as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            },
+            Spell::Water => {
+                let offset = PI/12.0;
+                for _i in 0..bar.water*3 {
+
+                    let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: origin,
+                        angle,
+                        radius: 6.,
+                        speed: 200.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / bar.water as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            },
+            Spell::Earth => {
+                let offset = (2.0*PI)/(bar.len()*3) as f32;
+                for i in 0..bar.len()*3 {
+
+                    let angle = offset * i as f32;
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/earthquake.png".to_string(),
+                        color,
+                        translation: origin,
+                        angle,
+                        radius: 12.,
+                        speed: 100.0,
+                        damage: dmg,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            },
+            Spell::Air => {
+                let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
+                let angle = dir.y.atan2(dir.x);
+
+                ev_spawn_projectile.send(SpawnProjectileEvent {
+                    texture_path: "textures/fireball.png".to_string(),
+                    color,
+                    translation: origin,
+                    angle,
+                    radius: 8.0,
+                    speed: 100.,
+                    damage: dmg,
+                    element,
+                    is_friendly: true,
+                });
+            },
+            Spell::Steam => {
+                let offset = PI/10.0;
+                for _i in 0..(bar.fire+bar.water)*3 {
+                    let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
+                    let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/small_fire.png".to_string(),
+                        color,
+                        translation: origin,
+                        angle,
+                        radius: 6.,
+                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        damage: dmg / (bar.fire+bar.water) as u32,
+                        element,
+                        is_friendly: true,
+                    });
+                }
+            },
+            Spell::Shield => {
+                ev_spawn_shield.send(SpawnShieldEvent {
+                    duration: bar.earth as f32 * 2. + *inventory.amount_of_item(ItemType::Shield) as f32
+                });
+            },
+            Spell::BlackHole => {
+                ev_spawn_black_hole.send(SpawnBlackHoleEvent {
+                    spawn_pos: origin.with_z(0.9),
+                    target_pos: mouse_coords.0.extend(0.9),
+                    lifetime: 1.5 * bar.len() as f32, // seconds
+                    strength: 1_000. * bar.len() as f32,
+                });
+            },
+            Spell::Blank => {
+                ev_spawn_blank.send(SpawnBlankEvent {
+                    range: bar.air as f32 * 2.,
+                    position: origin,
+                    speed: 10.0,
+                    side: true,
+                });
+            },
+            Spell::FireElemental => {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
+            },
+            Spell::WaterElemental => {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::WaterElemental, pos: mouse_coords.0, is_friendly: true });
+            },
+            Spell::EarthElemental => {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
+            },
+            Spell::AirElemental => {
+                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
+            },
         }
     }
 }
