@@ -1042,19 +1042,18 @@ pub fn on_death_effects_handler(
         match ev.on_death_effect_type {
             OnDeathEffect::CircleAttack => {
                 for i in 0..ev.vec_of_objects.len() {
-                    let color = ElementType::Fire.color();
+                    let color = Color::WHITE;
                     ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/small_fire.png".to_string(),
-                        color: color,
+                        texture_path: "textures/rib.png".to_string(),
+                        color,
                         translation: ev.pos,
                         angle: (PI * i as f32 * 2.) / ev.vec_of_objects.len() as f32,
                         radius: 8.0,
-                        speed: 150.,
+                        speed: 100.,
                         damage: 20,
-                        element: ElementType::Fire,
+                        element: ElementType::Steam,
                         is_friendly: ev.is_friendly,
                     });
-                    println!("WTF");
                 }
             }
         }
