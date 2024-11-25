@@ -26,7 +26,7 @@ use crate::{
     exp_tank::SpawnExpTankEvent,
     health_tank::SpawnHealthTankEvent,
     item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent},
-    pathfinding::Pathfinder,
+    pathfinding::Pathfinder, save::{Save, SaveHandle},
 };
 use crate::{
     blank_spell::SpawnBlankEvent,
@@ -108,6 +108,7 @@ fn load_mob_database(mut commands: Commands, asset_server: Res<AssetServer>) {
 ///event for mob death, contains amount of orbs, position of mob and direction where exp orbs will drop
 #[derive(Event)]
 pub struct MobDeathEvent {
+    pub mob_unlock_tag: String,
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
@@ -876,8 +877,29 @@ pub fn damage_mobs(
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
+                let mob_unlock_tag = match mob_type {
+                    MobType::Knight => "knight.png",
+                    MobType::Mossling => "mossling.png",
+                    MobType::FireMage => "fire_mage.png",
+                    MobType::WaterMage => "water_mage.png",
+                    MobType::JungleTurret => "plant.png",
+                    MobType::Necromancer => "necromancer.png",
+                    MobType::Koldun => "",
+                    MobType::ClayGolem => "golem.png",
+                    MobType::WaterElemental => "water_elemental.png",
+                    MobType::FireElemental => "fire_elemental.png",
+                    MobType::SkeletWarrior => "",
+                    MobType::SkeletMage => "",
+                    MobType::SkeletRanger => "",
+                    MobType::EarthElemental => "earth_elemental.png",
+                    MobType::AirElemental => "air_elemental.png",
+                    MobType::Thief => "lurker.png",
+                }
+                .to_string();
+
                 // события "поcле смерти"
                 ev_death.send(MobDeathEvent {
+                    mob_unlock_tag, 
                     orbs: loot.orbs,
                     pos: transform.translation,
                     dir: hit.direction,
@@ -925,6 +947,9 @@ fn mob_death(
     mut ev_spawn_particles: EventWriter<SpawnParticlesEvent>,
 
     mut ev_mob_death: EventReader<MobDeathEvent>,
+
+    mut saves: ResMut<Assets<Save>>,
+    save_handle: Res<SaveHandle>,
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
@@ -934,6 +959,11 @@ fn mob_death(
             ev_spawn_portal.send(PortalEvent {
                 pos: portal_manager.get_pos(),
             });
+        }
+
+        let save= saves.get_mut(save_handle.0.id()).unwrap();
+        if !save.seen_mobs.contains(&ev.mob_unlock_tag) {
+            save.seen_mobs.push((ev.mob_unlock_tag).to_string());
         }
 
         let orb_count = (ev.orbs + player_experience.orb_bonus) as i32;
