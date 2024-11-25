@@ -202,7 +202,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::Thief => {
-                texture_path = "textures/mobs/corpses/lurker.png";
+                texture_path = "textures/mobs/corpses/lurker_corpse.png";
                 can_be_spawned = false;
             }
         }
