@@ -85,7 +85,7 @@ fn pull_mobs(
 fn despawn_black_hole_on_timer(
     mut commands: Commands,
     mut black_hole_query: Query<(Entity, &mut BlackHole)>,
-    // mut mob_query: Query<&mut ExternalForce, With<Mob>>,
+    mut mob_query: Query<&mut ExternalForce, With<Mob>>,
     time: Res<Time>,
 ) {
     for (entity, mut black_hole) in black_hole_query.iter_mut() {
@@ -93,9 +93,9 @@ fn despawn_black_hole_on_timer(
 
         if black_hole.timer.just_finished() {
 
-            // for mut external_force in mob_query.iter_mut() {
-            //     external_force.clear();
-            // }
+            for mut external_force in mob_query.iter_mut() {
+                external_force.clear();
+            }
 
             commands.entity(entity).despawn();
         }
