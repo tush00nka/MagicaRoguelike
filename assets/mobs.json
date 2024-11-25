@@ -58,6 +58,18 @@
             "name": "Воздушный дух",
             "description": "Летает вокруг союзников, защищая их",
             "texture_name": "air_elemental.png"
+        },
+
+        {
+            "name": "Голем",
+            "description": "Тяжёлый противник, атакующий вокруг себя",
+            "texture_name": "golem.png"
+        },
+
+        {
+            "name": "Подкрадуля",
+            "description": "Ворует зелья и опыт у игрока и убегает",
+            "texture_name": "lurker.png"
         }
     ]
 }

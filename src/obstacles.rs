@@ -178,7 +178,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::WaterElemental => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/water_elemental_corpse.png";
                 can_be_spawned = true;
             }
             MobType::AirElemental => {
