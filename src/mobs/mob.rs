@@ -528,35 +528,35 @@ fn mob_attack<Who: Component + std::default::Default>(
 
         match range.attack_type {
             AttackType::Slash => {
-                texture_path = "textures/slash_horisontal3_enemy.png";
+                texture_path = "textures/slash_horisontal_enemy.png";
 
                 if friendly {
-                    texture_path = "textures/slash_horisontal3.png";
+                    texture_path = "textures/slash_horisontal.png";
                     println!("GOT heRe");
                 }
             }
             AttackType::Spear => {
-                texture_path = "textures/slash_horisontal3_enemy.png";
+                texture_path = "textures/pierce_enemy.png";
 
                 if friendly {
-                    texture_path = "textures/slash_horisontal3.png";
+                    texture_path = "textures/pierce.png";
                 }
             }
             AttackType::Circle => {
-                texture_path = "textures/slash_horisontal3_enemy.png";
+                texture_path = "textures/slash_horisontal_enemy.png";
 
                 if friendly {
-                    texture_path = "textures/slash_horisontal3.png";
+                    texture_path = "textures/slash_horisontal.png";
                 } // change
 
                 multiple_to_spawn = true;
                 amount_to_spawn = 16;
             }
             AttackType::Rush => {
-                texture_path = "textures/slash_horisontal3_enemy.png";
+                texture_path = "textures/slash_horisontal_enemy.png";
 
                 if friendly {
-                    texture_path = "textures/slash_horisontal3.png";
+                    texture_path = "textures/slash_horisontal.png";
                 }
             } // todo: change to choose from mob type?
 

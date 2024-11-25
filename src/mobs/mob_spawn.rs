@@ -183,10 +183,10 @@ impl SpawnKit<'_> {
     }
     fn clay_golem() -> Self {
         Self {
-            frame_count: 2,
-            fps: 3,
+            frame_count: 4,
+            fps: 12,
             texture_path: "textures/mobs/clay_golem.png",
-            pixel_size: 36,
+            pixel_size: 32,
             ..default()
         }
     }

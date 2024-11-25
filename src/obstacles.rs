@@ -186,7 +186,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::ClayGolem => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/clay_golem_corpse.png";
                 can_be_spawned = true;
             }
             MobType::SkeletMage => {
@@ -202,7 +202,7 @@ fn spawn_corpse(
                 can_be_spawned = true;
             }
             MobType::Thief => {
-                texture_path = "textures/mob_corpse_placeholder.png";
+                texture_path = "textures/mobs/corpses/lurker.png";
                 can_be_spawned = false;
             }
         }
