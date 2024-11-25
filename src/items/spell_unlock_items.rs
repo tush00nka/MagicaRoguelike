@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    elements::{Spell, SpellPool},
+    elements::{ElementType, Spell, SpellPool},
     item::{
         ItemPickedUpEvent,
         ItemType
-    }
+    }, player::PlayerStats
 };
 
 pub struct SpellUnlocksPlugin;
@@ -18,7 +18,8 @@ impl Plugin for SpellUnlocksPlugin {
 
 fn apply_effect(
     mut ev_item_picked_up: EventReader<ItemPickedUpEvent>,
-    mut spell_pool: ResMut<SpellPool>
+    mut spell_pool: ResMut<SpellPool>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
     for ev in ev_item_picked_up.read() {
 
@@ -37,6 +38,10 @@ fn apply_effect(
 
         if spell_to_unlock.is_some() {
             spell_pool.unlock(spell_to_unlock.unwrap());
+        
+            if spell_to_unlock.unwrap() == Spell::Steam {
+                player_stats.element_damage_percent[ElementType::Steam as usize] += 0.1;
+            }
         }
     }
 }

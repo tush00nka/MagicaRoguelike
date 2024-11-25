@@ -108,7 +108,7 @@ pub fn damage_friends(
                         range: 8.,
                         position: transform.translation,
                         speed: 10.,
-                        side: true,
+                        is_friendly: true,
                     });
                 }
 

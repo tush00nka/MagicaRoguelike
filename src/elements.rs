@@ -625,16 +625,16 @@ fn cast_spell(
                 ev_spawn_black_hole.send(SpawnBlackHoleEvent {
                     spawn_pos: origin.with_z(0.9),
                     target_pos: mouse_coords.0.extend(0.9),
-                    lifetime: 1.5 * bar.len() as f32, // seconds
+                    lifetime: 1.5 * bar.len() as f32 + *inventory.amount_of_item(ItemType::ElementWheel) as f32, // seconds
                     strength: 1_000. * bar.len() as f32,
                 });
             },
             Spell::Blank => {
                 ev_spawn_blank.send(SpawnBlankEvent {
-                    range: bar.air as f32 * 2.,
+                    range: bar.air as f32 * 2. + *inventory.amount_of_item(ItemType::Blank) as f32,
                     position: origin,
                     speed: 10.0,
-                    side: true,
+                    is_friendly: true,
                 });
             },
             Spell::FireElemental => {

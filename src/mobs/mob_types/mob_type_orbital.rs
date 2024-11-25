@@ -170,16 +170,19 @@ pub fn timer_tick_orbital<Side: Component>(
         }
         orbital.time_to_live.tick(time.delta());
         if orbital.time_to_live.just_finished() {
-            let mut side: bool = true;
+            
+            let is_friendly: bool;
             if std::any::type_name::<Side>() == std::any::type_name::<Enemy>() {
-                side = false;
+                is_friendly = false;
                 portal_manager.pop_mob();
             }
+            else { is_friendly = true; }
+
             spawn_blank_ev.send(SpawnBlankEvent {
                 range: 32.,
                 position: pos.translation,
                 speed: 10.,
-                side: side,
+                is_friendly,
             });
             commands.entity(elemental_e).insert(Done::Success);
             commands.entity(elemental_e).despawn();

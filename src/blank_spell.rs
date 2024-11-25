@@ -28,7 +28,7 @@ pub struct SpawnBlankEvent {
     pub range: f32,
     pub position: Vec3,
     pub speed: f32,
-    pub side: bool, //true - friend
+    pub is_friendly: bool, //true - friend
 }
 
 fn spawn_blank(
@@ -64,7 +64,7 @@ fn spawn_blank(
                 [GameLayer::Projectile],
             ))
             .id();
-        if ev.side {
+        if ev.is_friendly {
             commands.entity(blank).insert(Friend);
             continue;
         }

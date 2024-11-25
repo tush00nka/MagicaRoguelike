@@ -894,7 +894,7 @@ pub fn damage_mobs(
                         range: 8.,
                         position: transform.translation,
                         speed: 10.,
-                        side: false,
+                        is_friendly: false,
                     });
                 }
                 if STATIC_MOBS.contains(mob_type) {
