@@ -119,6 +119,9 @@ use particles::ParticlesPlguin;
 mod audio;
 use audio::AudioPlugin;
 
+mod save;
+use save::SavePlugin;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
     #[default]
@@ -212,5 +215,6 @@ fn main() {
         .add_plugins(FriendPlugin)
         .add_plugins(ParticlesPlguin)
         .add_plugins(AudioPlugin)
+        .add_plugins(SavePlugin)
         .run();
 }

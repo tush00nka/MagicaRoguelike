@@ -260,6 +260,7 @@ pub fn thief_collide(
                     commands.entity(mob_e).despawn();
                     
                     ev_mob_death.send(MobDeathEvent {
+                        mob_unlock_tag: "lurker.png".to_string(),
                         orbs: 0,
                         pos: transform.translation,
                         dir: Vec3::ZERO,

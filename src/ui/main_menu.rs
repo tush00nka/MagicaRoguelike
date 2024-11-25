@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::{
-    audio::PlayAudioEvent, item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, GameState, MainMenuState
+    audio::PlayAudioEvent, item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, save::{Save, SaveHandle}, GameState, MainMenuState
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -343,6 +343,8 @@ fn spawn_view_spells(
     asset_server: Res<AssetServer>,
     spell_books: ResMut<Assets<SpellBook>>,
     spell_book_handle: Res<SpellBookHandle>,
+    saves: Res<Assets<Save>>,
+    save_handle: Res<SaveHandle>,
 ) {
     let canvas = commands.spawn(ImageBundle { 
         style: Style {
@@ -389,6 +391,9 @@ fn spawn_view_spells(
         let name = spell.get("name").unwrap().as_str().unwrap();
         let recipe = spell.get("recipe").unwrap().as_array().unwrap();
 
+        let save = saves.get(save_handle.0.id()).unwrap();
+        let seen: bool = save.seen_spells.contains(&spell.get("tag").unwrap().as_str().unwrap().to_string());
+
         let entry = commands.spawn((
             ImageBundle {
                 style: Style {
@@ -425,13 +430,16 @@ fn spawn_view_spells(
                         height: Val::Px(32.),
                         ..default()
                     },
-                    image: UiImage::new(asset_server.load(format!("textures/{}", texture_path))),
+                    image: UiImage::new(asset_server.load(format!("textures/{}", texture_path)))
+                        .with_color(if seen { Color::WHITE } else { Color::BLACK }),
                     ..default()
                 });
             }
     
+            let display_name: &str = if seen { name } else { "???" };
+
             parent.spawn(TextBundle::from_section(
-            name,
+            display_name,
             TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 32.0,
@@ -487,6 +495,8 @@ fn spawn_view_items(
     asset_server: Res<AssetServer>,
     item_database: Res<Assets<ItemDatabase>>,
     handle: Res<ItemDatabaseHandle>,
+    saves: Res<Assets<Save>>,
+    save_handle: Res<SaveHandle>,
 ) {
     let canvas = commands.spawn(ImageBundle { 
         style: Style {
@@ -534,12 +544,16 @@ fn spawn_view_items(
 
     let mut entries: Vec<Entity> = vec![];
 
+    let save = saves.get(save_handle.0.id()).unwrap();
+
     for item in items.iter() {
         let name = item["name"].as_str().unwrap();
         let description = item["description"].as_str().unwrap();
         let texture_name = item["texture_name"].as_str().unwrap();
 
         let texture_path = format!("textures/items/{}", texture_name);
+
+        let seen: bool = save.seen_items.contains(&item.get("texture_name").unwrap().as_str().unwrap().to_string());
 
         let entry = commands.spawn((
             ImageBundle {
@@ -561,7 +575,8 @@ fn spawn_view_items(
         .with_children(|parent| { 
 
             parent.spawn(ImageBundle {
-                image: UiImage::new(asset_server.load(texture_path)),
+                image: UiImage::new(asset_server.load(texture_path))
+                    .with_color(if seen { Color::WHITE } else { Color::BLACK }),
                 style: Style {
                     width: Val::Px(48.),
                     height: Val::Px(48.),
@@ -570,8 +585,11 @@ fn spawn_view_items(
                 ..default()
             });
 
+            let display_name = if seen { name } else { "???" };
+            let display_description = if seen { description } else { "???" };
+
             parent.spawn(TextBundle::from_sections([
-                TextSection::new(format!("{}\n\n", name), TextStyle {
+                TextSection::new(format!("{}\n\n", display_name), TextStyle {
                         font: asset_server.load("fonts/ebbe_bold.ttf"),
                         font_size: 16.0,
                         color: Color::BLACK,
@@ -579,7 +597,7 @@ fn spawn_view_items(
                     },
                 ),
 
-                TextSection::new(description, TextStyle {
+                TextSection::new(display_description, TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 10.0,
                     color: Color::BLACK,
@@ -634,6 +652,8 @@ fn spawn_view_mobs(
     asset_server: Res<AssetServer>,
     mob_database: Res<Assets<MobDatabase>>,
     handle: Res<MobDatabaseHandle>,
+    saves: Res<Assets<Save>>,
+    save_handle: Res<SaveHandle>,
 ) {
     let canvas = commands.spawn(ImageBundle { 
         style: Style {
@@ -680,6 +700,7 @@ fn spawn_view_mobs(
     let items = &mob_database.get(handle.0.id()).unwrap().mobs;
 
     let mut entries: Vec<Entity> = vec![];
+    let save = saves.get(save_handle.0.id()).unwrap();
 
     for item in items.iter() {
         let name = item["name"].as_str().unwrap();
@@ -687,6 +708,8 @@ fn spawn_view_mobs(
         let texture_name = item["texture_name"].as_str().unwrap();
 
         let texture_path = format!("textures/ui/mob_portraits/{}", texture_name);
+
+        let seen: bool = save.seen_mobs.contains(&texture_name.to_string());
 
         let entry = commands.spawn((
             ImageBundle {
@@ -708,7 +731,8 @@ fn spawn_view_mobs(
         .with_children(|parent| { 
 
             parent.spawn(ImageBundle {
-                image: UiImage::new(asset_server.load(texture_path)),
+                image: UiImage::new(asset_server.load(texture_path))
+                    .with_color(if seen { Color::WHITE } else { Color::BLACK }),
                 style: Style {
                     width: Val::Px(48.),
                     height: Val::Px(48.),
@@ -717,8 +741,11 @@ fn spawn_view_mobs(
                 ..default()
             });
 
+            let display_name = if seen { name } else { "???" };
+            let display_description = if seen { description } else { "???" };
+
             parent.spawn(TextBundle::from_sections([
-                TextSection::new(format!("{}\n\n", name), TextStyle {
+                TextSection::new(format!("{}\n\n", display_name), TextStyle {
                         font: asset_server.load("fonts/ebbe_bold.ttf"),
                         font_size: 16.0,
                         color: Color::BLACK,
@@ -726,7 +753,7 @@ fn spawn_view_mobs(
                     },
                 ),
 
-                TextSection::new(description, TextStyle {
+                TextSection::new(display_description, TextStyle {
                     font: asset_server.load("fonts/ebbe_bold.ttf"),
                     font_size: 10.0,
                     color: Color::BLACK,

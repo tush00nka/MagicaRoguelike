@@ -10,7 +10,7 @@ use rand::{
 };
 use serde_json::{Map, Value};
 
-use crate::{camera::YSort, mouse_position::MouseCoords, player::Player};
+use crate::{camera::YSort, mouse_position::MouseCoords, player::Player, save::{Save, SaveHandle}};
 
 pub struct ItemPlugin;
 
@@ -236,10 +236,15 @@ fn pick_up_item(
 
     item_database: Res<Assets<ItemDatabase>>,
     handle: Res<ItemDatabaseHandle>,
+
+    mut saves: ResMut<Assets<Save>>,
+    save_handle: Res<SaveHandle>
 ) {
     let Ok((player_e, colliding_e)) = player_query.get_single() else {
         return;
     };
+
+    let save = saves.get_mut(save_handle.0.id()).unwrap();
 
     for (item_e, item) in item_query.iter() {
         if colliding_e.contains(&item_e) {
@@ -251,6 +256,10 @@ fn pick_up_item(
 
             let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item.item_type as usize]["texture_name"].as_str().unwrap().to_string();
             let texture_path = format!("textures/items/{}", texture_name);
+
+            if !save.seen_items.contains(&texture_name) {
+                save.seen_items.push(texture_name);
+            }
 
             commands.entity(player_e)
                 .insert(ItemPickupAnimation {
