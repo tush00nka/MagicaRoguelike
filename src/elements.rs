@@ -288,13 +288,11 @@ fn handle_recipe(
             && bar.earth > 1
             && bar.fire <= 0
             && bar.air <= 0 {
-
-                ev_cast_spell.send(CastSpellEvent {
-                    spell: Spell::Shield,
-                    element,
-                    origin: transform.translation,
-                    damage: dmg,
-                    bar
+                ev_spawn_shield.send(SpawnShieldEvent {
+                    duration: bar.earth as f32 * 2.,
+                    owner: player_e,
+                    is_friendly: true,
+                    size: 32,
                 });
 
                 return;

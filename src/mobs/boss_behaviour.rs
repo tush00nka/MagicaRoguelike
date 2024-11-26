@@ -2,11 +2,13 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use rand::Rng;
+use seldom_state::trigger::Done;
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
 use crate::health::Health;
+use crate::shield_spell::SpawnShieldEvent;
 use crate::{
     elements::ElementType,
     gamemap::{ROOM_SIZE, TILE_SIZE},
@@ -23,8 +25,15 @@ pub struct BossBehavoiurPlugin;
 
 impl Plugin for BossBehavoiurPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<BossAttackEvent>()
-            .add_systems(Update, (recalculate_weights, perform_attack));
+        app.add_event::<BossAttackEvent>().add_systems(
+            Update,
+            (
+                recalculate_weights,
+                perform_attack,
+                tick_cooldown_boss,
+                cast_shield,
+            ),
+        );
     }
 }
 
@@ -34,11 +43,6 @@ pub struct BossAttackSystem {
     pub cooldown_array: Vec<Timer>,
     pub cooldown_between_attacks: Timer,
     pub cooldown_mask: u32,
-}
-
-#[derive(Component)]
-pub struct Boss {
-    pub attack_cooldown: Timer,
 }
 
 const WALL_DIRECTIONS: [Vec2; 4] = [
@@ -76,29 +80,30 @@ enum BossAttackType {
 struct BossAttackEvent(BossAttackType);
 
 fn charge_attack(
-    mut boss_query: Query<&mut Boss>,
+    mut boss_query: Query<&mut BossAttackSystem>,
     time: Res<Time>,
     mut ev_boss_attack: EventWriter<BossAttackEvent>,
 ) {
     let Ok(mut boss) = boss_query.get_single_mut() else {
         return;
     };
+    /*
+        boss.attack_cooldown.tick(time.delta());
 
-    boss.attack_cooldown.tick(time.delta());
+        let mut rng = rand::thread_rng();
 
-    let mut rng = rand::thread_rng();
-
-    if boss.attack_cooldown.just_finished() {
-        match rng.gen_range(0..2) {
-            0 => {
-                ev_boss_attack.send(BossAttackEvent(BossAttackType::Wall));
+        if boss.attack_cooldown.just_finished() {
+            match rng.gen_range(0..2) {
+                0 => {
+                    ev_boss_attack.send(BossAttackEvent(BossAttackType::Wall));
+                }
+                1 => {
+                    ev_boss_attack.send(BossAttackEvent(BossAttackType::Radial));
+                }
+                _ => {}
             }
-            1 => {
-                ev_boss_attack.send(BossAttackEvent(BossAttackType::Radial));
-            }
-            _ => {}
         }
-    }
+    */
 }
 
 fn perform_attack(
@@ -279,14 +284,14 @@ pub fn recalculate_weights(
 
         match BossAttackType::try_from(i).unwrap() {
             BossAttackType::SpawnEarthElemental => {
-                base_weight += (phase == 3) as i16 * i16::MIN; 
+                base_weight += (phase == 3) as i16 * i16::MIN;
 
                 mob_spawn = MobType::EarthElemental;
                 attack_flag = BossAttackFlag::SpawnSpells;
             }
             BossAttackType::SpawnAirElemental => {
-                base_weight += (phase != 1) as i16 * i16::MIN; 
-                
+                base_weight += (phase != 1) as i16 * i16::MIN;
+
                 mob_spawn = MobType::AirElemental;
                 attack_flag = BossAttackFlag::SpawnSpells;
             }
@@ -321,7 +326,7 @@ pub fn recalculate_weights(
                 attack_flag = BossAttackFlag::DefensiveSpells;
             }
             BossAttackType::Wall => {
-                base_weight += (phase == 1) as i16 * i16::MIN;  //add bonus when player near walls
+                base_weight += (phase == 1) as i16 * i16::MIN; //add bonus when player near walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
             BossAttackType::MegaStan => {
@@ -357,11 +362,9 @@ pub fn recalculate_weights(
 
             BossAttackFlag::ProjectileSpells => {
                 base_weight += ((boss_hp.max - boss_hp.current) / 20) as i16 + dist * 10;
-
             }
 
             BossAttackFlag::SpawnSpells => {
-
                 base_weight += (summon_list.queue.len()
                     - summon_list
                         .queue
@@ -385,30 +388,63 @@ pub fn recalculate_weights(
     }
     //calculate all factors, phase included once in a time like in 1 second
 }
-pub fn tick_cooldown_boss(mut attack_timers: Query<&mut BossAttackSystem>, time: Res<Time>) {
-    let Ok(mut attack_system) = attack_timers.get_single_mut() else {
+
+pub fn tick_cooldown_boss(
+    mut commands: Commands,
+    mut attack_timers: Query<(Entity, &mut BossAttackSystem)>,
+    time: Res<Time>,
+) {
+    //add on cooldown state, so we don't tick timer during attack
+    let Ok((boss_e, mut attack_system)) = attack_timers.get_single_mut() else {
         println!("Boss attack system error!");
         return;
     };
+    attack_system.cooldown_between_attacks.tick(time.delta());
+
+    if attack_system.cooldown_between_attacks.just_finished() {
+        commands.entity(boss_e).insert(Done::Success);
+    }
 
     for i in 0..attack_system.cooldown_array.iter_mut().len() {
         if attack_system.cooldown_mask & 2u32.pow(i as u32) != 0 {
             attack_system.cooldown_array[i].tick(time.delta());
 
             if attack_system.cooldown_array[i].just_finished() {
-                attack_system.cooldown_mask |= 2u32.pow(i as u32);
+                attack_system.cooldown_mask |= 1 << i as u32;
             }
         }
     }
 }
+
 pub fn cast_blank() {
     //when weight overcomes certain value - cast and cooldown
 }
-pub fn cast_shield() {
+
+pub fn cast_shield(
+    mut boss_query: Query<(Entity, &mut BossAttackSystem)>,
+    mut cast_shield: EventWriter<SpawnShieldEvent>,
+) {
+    let Ok((boss_e, mut attack_system)) = boss_query.get_single_mut() else {
+        println!("no attack system to cast shield");
+        return;
+    };
+
+    if attack_system.weight_array[BossAttackType::Shield as usize] > 2500 {
+        attack_system.cooldown_mask ^= 1 << BossAttackType::Shield as usize;
+        cast_shield.send(SpawnShieldEvent {
+            duration: 4.,
+            owner: boss_e,
+            is_friendly: false,
+            size: 64,
+        });
+    }
     //when weight overcomes certain value - cast and cooldown
 }
-pub fn pick_attack_to_perform_koldun(In(entity): In<Entity>, mut attack_system: Query<&mut BossAttackSystem>) -> Option<BossAttackType> {
-    let Ok(mut attack_system) = attack_system.get_mut(entity) else{
+pub fn pick_attack_to_perform_koldun(
+    In(entity): In<Entity>,
+    mut attack_system: Query<&mut BossAttackSystem>,
+) -> Option<BossAttackType> {
+    let Ok(mut attack_system) = attack_system.get_mut(entity) else {
         println!("No attacks system?");
         return None;
     };
@@ -416,29 +452,29 @@ pub fn pick_attack_to_perform_koldun(In(entity): In<Entity>, mut attack_system: 
     let mut pick_2 = -1;
 
     let mut largest_value = attack_system.weight_array[0];
-    
-    for i in 0 .. attack_system.weight_array.len(){
-        if attack_system.weight_array[i] > largest_value{
+
+    for i in 0..attack_system.weight_array.len() {
+        if attack_system.weight_array[i] > largest_value {
             largest_value = attack_system.weight_array[i];
 
             pick_2 = pick_1;
             pick_1 = i as i16;
-        } 
+        }
     }
 
-    let chance_to_pick = rand::thread_rng().gen_range(0.0 .. 1.0);
+    let chance_to_pick = rand::thread_rng().gen_range(0.0..1.0);
 
-    if chance_to_pick >= 0.9 && pick_2 > 0{
+    if chance_to_pick >= 0.9 && pick_2 > 0 {
         return Some(BossAttackType::try_from(pick_2 as usize).unwrap());
     }
 
-    if largest_value < 0{
+    if largest_value < 0 {
         println!("ERROR VALUE");
         return None;
-    } 
-    
+    }
+
     return Some(BossAttackType::try_from(pick_1 as usize).unwrap());
-    
+
     //pick with random attack including weights, like idk, use coeff or smth
 }
 

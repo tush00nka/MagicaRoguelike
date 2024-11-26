@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::{Boss, ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
+use super::{BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -809,7 +809,7 @@ pub fn damage_mobs(
     mut on_hit_event: EventWriter<OnHitEffectEvent>,
     mut on_death_event: EventWriter<OnDeathEffectEvent>,
 
-    boss_query: Query<&Boss>,
+    boss_query: Query<&BossAttackSystem>,
 
     mut thief_query: Query<&mut PickupItemQueue>,
 ) {
