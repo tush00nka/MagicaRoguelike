@@ -18,14 +18,13 @@ use super::FirstPhase;
 use super::MobType;
 use super::SecondPhase;
 use super::SummonQueue;
-use super::ThirdPhase;
 
 pub struct BossBehavoiurPlugin;
 
 impl Plugin for BossBehavoiurPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BossAttackEvent>()
-            .add_systems(Update, (charge_attack, perform_attack));
+            .add_systems(Update, (recalculate_weights, perform_attack));
     }
 }
 
@@ -280,13 +279,13 @@ pub fn recalculate_weights(
 
         match BossAttackType::try_from(i).unwrap() {
             BossAttackType::SpawnEarthElemental => {
-                base_weight += (phase == 3) as i16 * i16::MIN; //does there are some turrets in angles
+                base_weight += (phase == 3) as i16 * i16::MIN; 
 
                 mob_spawn = MobType::EarthElemental;
                 attack_flag = BossAttackFlag::SpawnSpells;
             }
             BossAttackType::SpawnAirElemental => {
-                base_weight += (phase != 1) as i16 * i16::MIN; //if has more than 5-6 airelementals - turn to 0
+                base_weight += (phase != 1) as i16 * i16::MIN; 
                 
                 mob_spawn = MobType::AirElemental;
                 attack_flag = BossAttackFlag::SpawnSpells;
@@ -322,20 +321,20 @@ pub fn recalculate_weights(
                 attack_flag = BossAttackFlag::DefensiveSpells;
             }
             BossAttackType::Wall => {
-                base_weight += (phase == 1) as i16 * i16::MIN;
+                base_weight += (phase == 1) as i16 * i16::MIN;  //add bonus when player near walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
             BossAttackType::MegaStan => {
                 base_weight += (phase <= 2) as i16 * i16::MIN;
-                attack_flag = BossAttackFlag::ProjectileSpells;
+                attack_flag = BossAttackFlag::ProjectileSpells; //dd bonus when player far away from walls
             }
             BossAttackType::FastPierce => {
                 base_weight += (phase == 1) as i16 * i16::MIN;
-                attack_flag = BossAttackFlag::ProjectileSpells;
+                attack_flag = BossAttackFlag::ProjectileSpells; // add bonus when player far from boss
             }
 
             BossAttackType::ProjectilePattern => {
-                base_weight += (phase != 3) as i16 * i16::MIN;
+                base_weight += (phase != 3) as i16 * i16::MIN; //add bonus when player far away from walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
         }
@@ -358,7 +357,7 @@ pub fn recalculate_weights(
 
             BossAttackFlag::ProjectileSpells => {
                 base_weight += ((boss_hp.max - boss_hp.current) / 20) as i16 + dist * 10;
-                
+
             }
 
             BossAttackFlag::SpawnSpells => {
@@ -397,7 +396,7 @@ pub fn tick_cooldown_boss(mut attack_timers: Query<&mut BossAttackSystem>, time:
             attack_system.cooldown_array[i].tick(time.delta());
 
             if attack_system.cooldown_array[i].just_finished() {
-                attack_system.cooldown_mask | 2u32.pow(i as u32);
+                attack_system.cooldown_mask |= 2u32.pow(i as u32);
             }
         }
     }
@@ -408,8 +407,38 @@ pub fn cast_blank() {
 pub fn cast_shield() {
     //when weight overcomes certain value - cast and cooldown
 }
-pub fn pick_attack_to_perform_koldun(In(entity): In<Entity>) -> Option<BossAttackType> {
-    return Some(BossAttackType::Blank);
+pub fn pick_attack_to_perform_koldun(In(entity): In<Entity>, mut attack_system: Query<&mut BossAttackSystem>) -> Option<BossAttackType> {
+    let Ok(mut attack_system) = attack_system.get_mut(entity) else{
+        println!("No attacks system?");
+        return None;
+    };
+    let mut pick_1 = 0;
+    let mut pick_2 = -1;
+
+    let mut largest_value = attack_system.weight_array[0];
+    
+    for i in 0 .. attack_system.weight_array.len(){
+        if attack_system.weight_array[i] > largest_value{
+            largest_value = attack_system.weight_array[i];
+
+            pick_2 = pick_1;
+            pick_1 = i as i16;
+        } 
+    }
+
+    let chance_to_pick = rand::thread_rng().gen_range(0.0 .. 1.0);
+
+    if chance_to_pick >= 0.9 && pick_2 > 0{
+        return Some(BossAttackType::try_from(pick_2 as usize).unwrap());
+    }
+
+    if largest_value < 0{
+        println!("ERROR VALUE");
+        return None;
+    } 
+    
+    return Some(BossAttackType::try_from(pick_1 as usize).unwrap());
+    
     //pick with random attack including weights, like idk, use coeff or smth
 }
 
