@@ -8,17 +8,18 @@ use std::{
 };
 
 use crate::{
+    exp_tank::ExpTank,
     friend::Friend,
     gamemap::{spawn_map, LevelGenerator, Map, TileType, ROOM_SIZE},
+    health_tank::HealthTank,
     item::Item,
     mobs::{
-        damage_mobs, BusyRaising, CorpseRush, Enemy, ExpTankRush, HPTankRush, ItemRush, ObstacleRush, Phasing, PlayerRush, RunawayRush, Summoning, Teleport
+        damage_mobs, BusyRaising, CorpseRush, Enemy, ExpTankRush, HPTankRush, ItemRush,
+        ObstacleRush, Phasing, PlayerRush, RunawayRush, Summoning, Teleport,
     },
     obstacles::{Corpse, Obstacle},
     player::Player,
     GameState,
-    health_tank::HealthTank,
-    exp_tank::ExpTank,
 };
 
 pub struct PathfindingPlugin;
@@ -38,13 +39,8 @@ impl Plugin for PathfindingPlugin {
         .add_systems(
             Update,
             (
-                (
-                    change_target_appeared::<RunawayRush, Corpse, Summoning>,
-                )
-                    .after(damage_mobs),
-                (
-                    change_target_empty_query::<Corpse, CorpseRush, RunawayRush, FriendRush>,
-                )
+                (change_target_appeared::<RunawayRush, Corpse, Summoning>,).after(damage_mobs),
+                (change_target_empty_query::<Corpse, CorpseRush, RunawayRush, FriendRush>,)
                     .after(damage_mobs),
                 a_pathfinding::<Player, PlayerRush, PlayerRush, Player>,
                 a_pathfinding::<Corpse, CorpseRush, BusyRaising, Corpse>,
@@ -154,12 +150,12 @@ fn change_target_appeared<Before: Component, Filter1: Component, Filter2: Compon
 ) {
     for mob in mob_query.iter_mut() {
         let mut len = 0;
-        
+
         for _ in target_query.iter() {
-            if len > 0{
+            if len > 0 {
                 break;
             }
-            len += 1;   
+            len += 1;
         }
 
         if len == 0 {
@@ -170,7 +166,12 @@ fn change_target_appeared<Before: Component, Filter1: Component, Filter2: Compon
     }
 }
 
-fn change_target_empty_query<Check: Component, Before: Component, After: Component + Default, Filter: Component>(
+fn change_target_empty_query<
+    Check: Component,
+    Before: Component,
+    After: Component + Default,
+    Filter: Component,
+>(
     mob_query: Query<Entity, (With<Before>, With<Pathfinder>)>,
     mut commands: Commands,
     check_query: Query<Entity, (With<Check>, Without<Filter>)>,

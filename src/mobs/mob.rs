@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::{ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
+use super::{Boss, ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -809,6 +809,8 @@ pub fn damage_mobs(
     mut on_hit_event: EventWriter<OnHitEffectEvent>,
     mut on_death_event: EventWriter<OnDeathEffectEvent>,
 
+    boss_query: Query<&Boss>,
+
     mut thief_query: Query<&mut PickupItemQueue>,
 ) {
     for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
@@ -856,7 +858,11 @@ pub fn damage_mobs(
             }
 
             // кидаем стан
-            commands.entity(entity).insert(Stun::new(0.5));
+
+            if !boss_query.contains(entity) {
+                commands.entity(entity).insert(Stun::new(0.5));
+            }
+
             // шлём ивент смерти
             if health.current <= 0 {
                 if on_death_effect.contains(entity) {
@@ -1147,9 +1153,22 @@ pub fn on_hit_effects(
                     if is_item {
                         let item_type = convert_i32_to_item(*i);
 
-                        let item_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["name"].as_str().unwrap().to_string();
-                        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["texture_name"].as_str().unwrap().to_string();
-                        let item_description: String = item_database.get(handle.0.id()).unwrap().items[item_type as usize]["description"].as_str().unwrap().to_string();
+                        let item_name: String = item_database.get(handle.0.id()).unwrap().items
+                            [item_type as usize]["name"]
+                            .as_str()
+                            .unwrap()
+                            .to_string();
+                        let texture_name: String = item_database.get(handle.0.id()).unwrap().items
+                            [item_type as usize]["texture_name"]
+                            .as_str()
+                            .unwrap()
+                            .to_string();
+                        let item_description: String =
+                            item_database.get(handle.0.id()).unwrap().items[item_type as usize]
+                                ["description"]
+                                .as_str()
+                                .unwrap()
+                                .to_string();
 
                         let texture_path = format!("textures/items/{}", texture_name);
 

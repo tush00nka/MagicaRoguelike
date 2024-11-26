@@ -1,4 +1,4 @@
-use crate::blank_spell::SpawnBlankEvent;
+use crate::{blank_spell::SpawnBlankEvent, mobs::{OnDeathEffect, OnDeathEffectEvent, OnHitEffect, OnHitEffectEvent, PickupItemQueue, ProjectileType}};
 //all things about mobs and their spawn/behaviour
 ///add mobs with kinematic body type
 #[allow(unused)]
@@ -75,6 +75,14 @@ pub fn damage_friends(
     mut mob_map: ResMut<Map>,
 
     mut blank_spawn_ev: EventWriter<SpawnBlankEvent>,
+
+    on_hit_query: Query<&OnHitEffect>,
+    on_death_effect: Query<&OnDeathEffect>,
+
+    mut on_hit_event: EventWriter<OnHitEffectEvent>,
+    mut on_death_event: EventWriter<OnDeathEffectEvent>,
+
+    mut thief_query: Query<&mut PickupItemQueue>,
 ) {
     for (entity, mut health, _mob, transform, mob_type) in mob_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -83,10 +91,66 @@ pub fn damage_friends(
             // наносим урон
             health.damage(hit.damage);
 
+            if on_hit_query.contains(entity) {
+                let mut vec_objects = vec![];
+                let on_hit_eff;
+
+                match on_hit_query.get(entity).unwrap() {
+                    OnHitEffect::DropItemFromBag => {
+                        on_hit_eff = OnHitEffect::DropItemFromBag;
+                        let mut temp_bag = thief_query.get_mut(entity).unwrap();
+
+                        for i in temp_bag.item_queue.clone() {
+                            match i {
+                                None => break,
+                                Some(item) => match item.item_name {
+                                    Some(name) => {
+                                        vec_objects.push(item.item_type as i32);
+                                        vec_objects.push(name as i32);
+                                    }
+                                    None => {
+                                        vec_objects.push(item.item_type as i32);
+                                    }
+                                },
+                            }
+                        }
+
+                        temp_bag.empty_queue()
+                    }
+                }
+                on_hit_event.send(OnHitEffectEvent {
+                    pos: transform.translation,
+                    dir: hit.direction,
+                    vec_of_objects: vec_objects,
+                    on_hit_effect_type: on_hit_eff,
+                    is_friendly: false,
+                });
+            }
+
             // кидаем стан
             commands.entity(entity).insert(Stun::new(0.5));
             // шлём ивент смерти
             if health.current <= 0 {
+            
+                if on_death_effect.contains(entity) {
+                    let mut vec_objects = vec![];
+                    let on_death_eff;
+
+                    match on_death_effect.get(entity).unwrap() {
+                        OnDeathEffect::CircleAttack => {
+                            on_death_eff = OnDeathEffect::CircleAttack;
+                            vec_objects = vec![ProjectileType::Gatling as i32; 16];
+                        }
+                    }
+                    on_death_event.send(OnDeathEffectEvent {
+                        pos: transform.translation,
+                        dir: hit.direction,
+                        vec_of_objects: vec_objects,
+                        on_death_effect_type: on_death_eff,
+                        is_friendly: false,
+                    });
+                }
+            
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
                 /*
