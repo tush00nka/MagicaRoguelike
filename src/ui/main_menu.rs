@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::{
-    audio::PlayAudioEvent, item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, save::{Save, SaveHandle}, GameState, MainMenuState
+    audio::PlayAudioEvent, item::{ItemDatabase, ItemDatabaseHandle}, mobs::{MobDatabase, MobDatabaseHandle}, save::{DeleteSaveEvent, Save, SaveHandle}, GameState, MainMenuState
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -42,7 +42,8 @@ pub enum ButtonType {
     NewRun,
     Quit,
     MainMenu,
-    NaviagteMenu(MainMenuState)
+    NaviagteMenu(MainMenuState),
+    DeleteSave,
 }
 
 #[derive(Component)]
@@ -84,6 +85,10 @@ impl MainMenuButton {
     pub const VIEW_MOBS: Self = Self {
         button: ButtonType::NaviagteMenu(MainMenuState::ViewMobs),
         height: 360.
+    };
+    pub const DELETE_SAVE: Self = Self {
+        button: ButtonType::DeleteSave,
+        height: 32.
     };
 }
 
@@ -218,6 +223,7 @@ fn spawn_almanach_ui(
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             flex_direction: FlexDirection::Column,
+            row_gap: Val::Percent(10.0),
             ..default()
         },  
         background_color: BackgroundColor(Color::srgb(69. / 255., 35. / 255., 13. / 255.)),
@@ -334,8 +340,48 @@ fn spawn_almanach_ui(
         ));
     });
 
+    let delete_save_content = commands.spawn(NodeBundle {
+        style: Style {
+            width: Val::Px(196.0),
+            height: Val::Px(64.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        ..default()
+    }).id();
+
+    let delete_save_button = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(196.0),
+                height: Val::Px(32.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            image: UiImage::new(asset_server.load("textures/ui/button.png")),
+            ..default()
+        },
+        ImageScaleMode::Sliced(slicer.clone())
+    ))
+    .insert(MainMenuButton::DELETE_SAVE)
+    .insert(StateScoped(MainMenuState::AlmanachSelection))
+    .with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Сбросить прогресс",
+            TextStyle {
+                font: asset_server.load("fonts/ebbe_bold.ttf"),
+                font_size: 16.0,
+                color: Color::BLACK,
+            }
+        ).with_text_justify(JustifyText::Center));
+    }).id();
+
+    commands.entity(delete_save_content).push_children(&[delete_save_button]);
+
     commands.entity(content).push_children(&[option1, option2, option3]);
-    commands.entity(canvas).push_children(&[content]);
+    commands.entity(canvas).push_children(&[content, delete_save_content]);
 }
 
 fn spawn_view_spells(
@@ -809,6 +855,7 @@ pub fn handle_buttons(
     mut buttons_query: Query<(&Interaction, &MainMenuButton, &mut Style), Changed<Interaction>>,
     mut app_exit_events: ResMut<Events<bevy::app::AppExit>>,
     mut ev_play_audio: EventWriter<PlayAudioEvent>, 
+    mut ev_delete_save: EventWriter<DeleteSaveEvent>
 ) {
     for (interaction, button, mut style) in buttons_query.iter_mut() {
         match *interaction {
@@ -827,6 +874,9 @@ pub fn handle_buttons(
                     }, // в главное меню
                     ButtonType::NaviagteMenu(state) => {
                         main_menu_state.set(state);
+                    },
+                    ButtonType::DeleteSave => {
+                        ev_delete_save.send(DeleteSaveEvent);
                     }
                 }
             },
