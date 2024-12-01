@@ -12,12 +12,14 @@ use crate::{
     friend::Friend,
     gamemap::{Map, TileType, ROOM_SIZE},
     level_completion::PortalManager,
-    mobs::{MultistateAnimationFlag,mob::*, mob_types::*},
+    mobs::{mob::*, mob_types::*, MultistateAnimationFlag, OnCooldownFlag},
     obstacles::Corpse,
-    pathfinding::{FriendRush,create_new_graph},
+    pathfinding::{create_new_graph, FriendRush},
     stun::Stun,
     GameState,
 };
+
+use super::{pick_attack_to_perform_koldun, BossAttackFlagComp, BossAttackType, PickAttackFlag};
 
 pub struct MobSpawnPlugin;
 impl Plugin for MobSpawnPlugin {
@@ -44,8 +46,8 @@ impl Plugin for MobSpawnPlugin {
 }
 
 const DESERT_MOBS: &[MobType] = &[
-    MobType::Knight, 
-    MobType::FireMage, 
+    MobType::Knight,
+    MobType::FireMage,
     MobType::EarthElemental,
     MobType::WaterElemental,
     MobType::Thief,
@@ -82,7 +84,8 @@ pub enum MobAI {
     Turret,
     Phasing,
     Orbital,
-    Thief
+    Thief,
+    Koldun,
     //etc, add later
 }
 //structures for init=======================================================================================================================
@@ -260,6 +263,7 @@ impl SpawnKit<'_> {
             can_flip: true,
             has_animation: true,
             pixel_size: 48,
+            ai_type: MobAI::Koldun,
             ..default()
         }
     }
@@ -400,6 +404,28 @@ pub fn spawn_mob(
         let mob: Entity;
 
         match spawn_kit.ai_type {
+            MobAI::Koldun => {
+                mob = commands
+                    .spawn((
+                        StateMachine::default()
+                            .trans::<OnCooldownFlag, _>(done(Some(Done::Success)), PickAttackFlag)
+                            .trans_builder(
+                                pick_attack_to_perform_koldun,
+                                |_: &PickAttackFlag, attack_type| {
+                                    Some(match attack_type {
+                                        Some(val) => match val {
+                                            _ => {
+                                                BossAttackFlagComp{attack_picked: val}
+                                            }
+                                        },
+                                        None => BossAttackFlagComp{attack_picked: BossAttackType::Wall},
+                                    })
+                                },
+                            ).trans::<BossAttackFlagComp, _>( done(Some(Done::Success)), OnCooldownFlag),
+                        OnCooldownFlag,
+                    ))
+                    .id();
+            }
             MobAI::Orbital => {
                 mob = commands
                     .spawn((
@@ -414,7 +440,10 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<PhasingFlag, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<PhasingFlag, _>(
+                                done(Some(Done::Success)),
+                                BeforeAttackDelay::default(),
+                            )
                             .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), PhasingFlag),
                         PhasingFlag,
@@ -428,7 +457,10 @@ pub fn spawn_mob(
                     .spawn((
                         StateMachine::default()
                             .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<Pursue, _>(
+                                done(Some(Done::Success)),
+                                BeforeAttackDelay::default(),
+                            )
                             .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
                             .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
@@ -438,33 +470,45 @@ pub fn spawn_mob(
             }
 
             MobAI::RangeMoving => {
-                if ev.is_friendly{
+                if ev.is_friendly {
                     mob = commands
-                    .spawn((
-                        StateMachine::default()
-                            .trans::<FriendRush, _>(done(Some(Done::Success)), Idle)
-                            .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Idle, _>(done(Some(Done::Failure)), FriendRush::default())
-                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
-                            .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
-                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
-                        FriendRush::default(),
-                    ))
-                    .id()
-                }else{
-                println!("Spawn is correct");
-                mob = commands
-                    .spawn((
-                        StateMachine::default()
-                            .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
-                            .trans::<Pursue, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
-                            .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
-                            .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
-                            .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
-                        Idle,
-                    ))
-                    .id()
+                        .spawn((
+                            StateMachine::default()
+                                .trans::<FriendRush, _>(done(Some(Done::Success)), Idle)
+                                .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
+                                .trans::<Idle, _>(done(Some(Done::Failure)), FriendRush::default())
+                                .trans::<Pursue, _>(
+                                    done(Some(Done::Success)),
+                                    BeforeAttackDelay::default(),
+                                )
+                                .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                                .trans::<BeforeAttackDelay, _>(
+                                    done(Some(Done::Success)),
+                                    AttackFlag,
+                                )
+                                .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
+                            FriendRush::default(),
+                        ))
+                        .id()
+                } else {
+                    println!("Spawn is correct");
+                    mob = commands
+                        .spawn((
+                            StateMachine::default()
+                                .trans::<Idle, _>(done(Some(Done::Success)), Pursue)
+                                .trans::<Pursue, _>(
+                                    done(Some(Done::Success)),
+                                    BeforeAttackDelay::default(),
+                                )
+                                .trans::<Pursue, _>(done(Some(Done::Failure)), Idle)
+                                .trans::<BeforeAttackDelay, _>(
+                                    done(Some(Done::Success)),
+                                    AttackFlag,
+                                )
+                                .trans::<AttackFlag, _>(done(Some(Done::Success)), Idle),
+                            Idle,
+                        ))
+                        .id()
                 }
             }
             MobAI::RangeWithTP => {
@@ -473,10 +517,13 @@ pub fn spawn_mob(
                     .spawn((
                         StateMachine::default()
                             .trans::<TeleportFlag, _>(done(Some(Done::Success)), IdleStatic)
-                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<IdleStatic, _>(
+                                done(Some(Done::Success)),
+                                BeforeAttackDelay::default(),
+                            )
                             .trans::<IdleStatic, _>(done(Some(Done::Failure)), TeleportFlag)
                             .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
-                            .trans::<AttackFlag, _>(done(Some(Done::Success)), TeleportFlag),//change: need to create smth like tp -> check range -> alert -> shoot
+                            .trans::<AttackFlag, _>(done(Some(Done::Success)), TeleportFlag), //change: need to create smth like tp -> check range -> alert -> shoot
                         TeleportFlag, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
@@ -501,44 +548,60 @@ pub fn spawn_mob(
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans::<IdleStatic, _>(done(Some(Done::Success)), BeforeAttackDelay::default())
+                            .trans::<IdleStatic, _>(
+                                done(Some(Done::Success)),
+                                BeforeAttackDelay::default(),
+                            )
                             .trans::<BeforeAttackDelay, _>(done(Some(Done::Success)), AttackFlag)
                             .trans::<AttackFlag, _>(done(Some(Done::Success)), IdleStatic),
                         IdleStatic, //TODO: add impl for complex components w/ type of mobs, add
                     ))
                     .id()
             }
-            MobAI::Thief => 
+            MobAI::Thief => {
                 mob = commands
                     .spawn((
                         StateMachine::default()
-                            .trans_builder(nearest_interactable, |_: &RunawayRush, value|{
-                                Some(
-                                    match value{
-                                        Some(_) => PickTargetForSteal{target: value},
-                                        None =>  PickTargetForSteal{target: None}
+                            .trans_builder(nearest_interactable, |_: &RunawayRush, value| {
+                                Some(match value {
+                                    Some(_) => PickTargetForSteal { target: value },
+                                    None => PickTargetForSteal { target: None },
                                 })
                             })
-                            .trans_builder(pick_item_to_steal, |_: &PickTargetForSteal, value|{
-                                Some(
-                                    match value{
-                                        Some(val) => 
-                                            match val{
-                                                ItemPicked::HPTank => ItemPickedFlag::Some(ItemPicked::HPTank),
-                                                ItemPicked::EXPTank => ItemPickedFlag::Some(ItemPicked::EXPTank),
-                                                ItemPicked::Item => ItemPickedFlag::Some(ItemPicked::Item),
-                                                ItemPicked::Obstacle => ItemPickedFlag::Some(ItemPicked::Obstacle),
-                                            },
-                                        None => ItemPickedFlag::None,
+                            .trans_builder(pick_item_to_steal, |_: &PickTargetForSteal, value| {
+                                Some(match value {
+                                    Some(val) => match val {
+                                        ItemPicked::HPTank => {
+                                            ItemPickedFlag::Some(ItemPicked::HPTank)
+                                        }
+                                        ItemPicked::EXPTank => {
+                                            ItemPickedFlag::Some(ItemPicked::EXPTank)
+                                        }
+                                        ItemPicked::Item => ItemPickedFlag::Some(ItemPicked::Item),
+                                        ItemPicked::Obstacle => {
+                                            ItemPickedFlag::Some(ItemPicked::Obstacle)
+                                        }
+                                    },
+                                    None => ItemPickedFlag::None,
                                 })
                             })
-                            .trans::<ItemPickedFlag, _>(done(Some(Done::Success)), SearchingInteractableFlag)
+                            .trans::<ItemPickedFlag, _>(
+                                done(Some(Done::Success)),
+                                SearchingInteractableFlag,
+                            )
                             .trans::<ItemPickedFlag, _>(done(Some(Done::Failure)), RunawayRush)
-                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Success)), RunawayRush)
-                            .trans::<SearchingInteractableFlag, _>(done(Some(Done::Failure)), RunawayRush),
-                            RunawayRush
+                            .trans::<SearchingInteractableFlag, _>(
+                                done(Some(Done::Success)),
+                                RunawayRush,
+                            )
+                            .trans::<SearchingInteractableFlag, _>(
+                                done(Some(Done::Failure)),
+                                RunawayRush,
+                            ),
+                        RunawayRush,
                     ))
-                    .id(),
+                    .id()
+            }
         };
         if ev.is_friendly {
             commands.entity(mob).insert(Friend);
@@ -607,15 +670,18 @@ pub fn spawn_mob(
                     .insert(MeleePhasingBundle::fire_elemental());
             }
             MobType::WaterElemental => {
-                commands.entity(mob).insert(RangeMobBundle::water_elemental());
+                commands
+                    .entity(mob)
+                    .insert(RangeMobBundle::water_elemental());
             }
             MobType::AirElemental => {
                 commands.entity(mob).insert(OrbitalBundle::air_elemental());
             }
             MobType::ClayGolem => {
-                commands.entity(mob)
+                commands
+                    .entity(mob)
                     .insert(MeleeMobBundle::clay_golem())
-                    .insert(SearchAndPursue::default());        
+                    .insert(SearchAndPursue::default());
             }
             MobType::SkeletMage => {}
             MobType::SkeletWarrior => {}

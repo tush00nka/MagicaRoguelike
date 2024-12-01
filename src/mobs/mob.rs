@@ -344,7 +344,7 @@ pub struct Idle;
 
 #[derive(Component, Clone)]
 pub struct BeforeAttackDelay {
-    timer: Timer,
+    pub timer: Timer,
 }
 
 impl Default for BeforeAttackDelay {
