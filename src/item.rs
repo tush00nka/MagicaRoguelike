@@ -230,7 +230,9 @@ fn pick_up_item(
     asset_server: Res<AssetServer>,
 
     item_query: Query<(Entity, &Item)>,
-    player_query: Query<(Entity, &CollidingEntities), (With<Player>, Without<ItemPickupAnimation>)>,
+    player_query: Query<(Entity, &CollidingEntities), With<Player>>,
+
+    held_query: Query<Entity, With<HeldItem>>,
 
     mut ev_item_picked_up: EventWriter<ItemPickedUpEvent>,
 
@@ -246,8 +248,12 @@ fn pick_up_item(
 
     let save = saves.get_mut(save_handle.0.id()).unwrap();
 
+    if !held_query.is_empty() {
+        return;
+    } 
+
     for (item_e, item) in item_query.iter() {
-        if colliding_e.contains(&item_e) {
+        if colliding_e.contains(&item_e) {            
             ev_item_picked_up.send(ItemPickedUpEvent {
                 item_type: item.item_type,
             });
@@ -262,19 +268,20 @@ fn pick_up_item(
             }
 
             commands.entity(player_e)
-                .insert(ItemPickupAnimation {
-                    timer: Timer::from_seconds(1.0, TimerMode::Once),
-                })
-                .with_children(|parent| {
-                    parent.spawn(SpriteBundle {
-                        texture: asset_server.load(texture_path),
-                        transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
-                        ..default()
-                    }).insert(HeldItem);
-                });
-
+            .insert(ItemPickupAnimation {
+                timer: Timer::from_seconds(1.0, TimerMode::Once),
+            })
+            .with_children(|parent| {
+                parent.spawn(SpriteBundle {
+                    texture: asset_server.load(texture_path),
+                    transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
+                    ..default()
+                }).insert(HeldItem);
+            }); 
 
             commands.entity(item_e).despawn();
+
+            break;
         }
     }
 }
