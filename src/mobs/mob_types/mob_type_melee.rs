@@ -70,7 +70,7 @@ impl MobBundle {
             mob_type: MobType::ClayGolem,
             mob: Mob::new(20),
             health: Health::new(200),
-            loot: MobLoot { orbs: 8 },
+            exp_loot: MobLoot { orbs: 8 },
             ..default()
         }
     }

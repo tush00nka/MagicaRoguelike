@@ -22,8 +22,8 @@ pub struct ChapterManager {
 impl Default for ChapterManager {
     fn default() -> Self {
         Self {
-            current_level: 1,
-            current_chapter: 1,
+            current_level: 2,
+            current_chapter: 3,
             max_chapter: 4,
         }
     }

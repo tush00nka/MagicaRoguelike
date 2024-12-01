@@ -4,15 +4,25 @@ use bevy::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 use crate::{
-    audio::PlayAudioEvent, black_hole::SpawnBlackHoleEvent, blank_spell::SpawnBlankEvent, health::Health, item::{ItemPickupAnimation, ItemType}, mobs::{MobSpawnEvent, MobType}, mouse_position::MouseCoords, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::SpawnProjectileEvent, shield_spell::SpawnShieldEvent, ui::ItemInventory, wand::Wand, GameState
+    audio::PlayAudioEvent,
+    black_hole::SpawnBlackHoleEvent,
+    blank_spell::SpawnBlankEvent,
+    health::Health,
+    item::{ItemPickupAnimation, ItemType},
+    mobs::{MobSpawnEvent, MobType},
+    mouse_position::MouseCoords,
+    player::{Player, PlayerDeathEvent, PlayerStats},
+    projectile::SpawnProjectileEvent,
+    shield_spell::SpawnShieldEvent, ui::ItemInventory,
+    wand::Wand,
+    GameState,
 };
 
 pub struct ElementsPlugin;
 
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<ElementBarFilled>()
+        app.add_event::<ElementBarFilled>()
             .add_event::<ElementBarClear>()
             .add_event::<CastSpellEvent>()
             .insert_resource(ElementBar::default())
@@ -53,7 +63,7 @@ impl ElementType {
             ElementType::Water => Color::srgb(1.0, 1.5, 2.5),
             ElementType::Earth => Color::srgb(0.45, 0.15, 0.15),
             ElementType::Air => Color::srgb(1.5, 2.0, 1.5),
-            ElementType::Steam => Color::srgb(1.5, 2.0, 1.5)
+            ElementType::Steam => Color::srgb(1.5, 2.0, 1.5),
         }
     }
 
@@ -63,7 +73,7 @@ impl ElementType {
             ElementType::Water => "water.ogg",
             ElementType::Earth => "earth.ogg",
             ElementType::Air => "air.ogg",
-            ElementType::Steam => "air.ogg"
+            ElementType::Steam => "air.ogg",
         }
     }
 }
@@ -81,7 +91,7 @@ pub enum Spell {
     FireElemental,
     WaterElemental,
     EarthElemental,
-    AirElemental
+    AirElemental,
 }
 
 #[derive(Resource)]
@@ -131,17 +141,17 @@ impl ElementBar {
         self.air = 0;
     }
 
-    pub fn len(&self) -> u8{
+    pub fn len(&self) -> u8 {
         self.fire + self.water + self.earth + self.air
     }
 
     fn add(&mut self, element: ElementType) {
         if self.len() < self.max {
             match element {
-                ElementType::Fire => self.fire+=1,
-                ElementType::Water => self.water+=1,
-                ElementType::Earth => self.earth+=1,
-                ElementType::Air => self.air+=1,
+                ElementType::Fire => self.fire += 1,
+                ElementType::Water => self.water += 1,
+                ElementType::Earth => self.earth += 1,
+                ElementType::Air => self.air += 1,
                 ElementType::Steam => {}
             }
         }
@@ -169,7 +179,10 @@ impl ElementResistance {
     pub fn calculate_for(&self, damage: &mut i32, damage_element: Option<ElementType>) {
         if damage_element.is_some() {
             if self.elements.contains(&damage_element.unwrap()) {
-                *damage = (*damage as f32 * (1. - self.resistance_percent[damage_element.unwrap() as usize] as f32 / 100.)) as i32;
+                *damage = (*damage as f32
+                    * (1.
+                        - self.resistance_percent[damage_element.unwrap() as usize] as f32 / 100.))
+                    as i32;
             }
         }
     }
@@ -189,9 +202,7 @@ pub struct ElementBarFilled(pub ElementType);
 #[derive(Event)]
 pub struct ElementBarClear;
 
-fn init_spells(
-    mut commands: Commands,
-) {
+fn init_spells(mut commands: Commands) {
     commands.insert_resource(ElementBar::default());
     commands.insert_resource(SpellPool::default());
 }
@@ -206,18 +217,17 @@ fn fill_bar(
         let new_element: Option<ElementType>;
 
         match key {
-            KeyCode::Digit1 => { new_element = Some(ElementType::Fire) }
-            KeyCode::Digit2 => { new_element = Some(ElementType::Water) }
-            KeyCode::Digit3 => { new_element = Some(ElementType::Earth) }
-            KeyCode::Digit4 => { new_element = Some(ElementType::Air) }
-            _ => { new_element = None }
+            KeyCode::Digit1 => new_element = Some(ElementType::Fire),
+            KeyCode::Digit2 => new_element = Some(ElementType::Water),
+            KeyCode::Digit3 => new_element = Some(ElementType::Earth),
+            KeyCode::Digit4 => new_element = Some(ElementType::Air),
+            _ => new_element = None,
         }
 
         if new_element.is_some() && bar.len() < bar.max && !time.is_paused() {
             ev_bar_filled.send(ElementBarFilled(new_element.unwrap()));
             bar.add(new_element.unwrap());
         }
-
     });
 }
 
@@ -225,10 +235,13 @@ fn handle_recipe(
     player_stats: Res<PlayerStats>,
 
     wand_query: Query<&Transform, With<Wand>>,
-    
+
     spell_pool: Res<SpellPool>,
 
-    mut player_query: Query<(&mut Health, Entity, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut player_query: Query<
+        (&mut Health, Entity, &Transform),
+        (With<Player>, Without<ItemPickupAnimation>),
+    >,
     mut ev_death: EventWriter<PlayerDeathEvent>,
     
     mut element_bar: ResMut<ElementBar>,
@@ -241,7 +254,6 @@ fn handle_recipe(
     time: Res<Time<Virtual>>,
 ) {
     if mouse.just_pressed(MouseButton::Left) && element_bar.len() > 0 && !time.is_paused() {
-
         let Ok((mut player_health, player_e, transform)) = player_query.get_single_mut() else {
             return;
         };
@@ -250,7 +262,7 @@ fn handle_recipe(
         if player_stats.spell_cast_hp_fee > 0 {
             player_health.damage(player_stats.spell_cast_hp_fee);
             if player_health.current <= 0 {
-                ev_death.send(PlayerDeathEvent (player_e));
+                ev_death.send(PlayerDeathEvent(player_e));
             }
         }
 
@@ -265,14 +277,11 @@ fn handle_recipe(
         // need to rewrite to look better
         if *elements_to_comapre.iter().max().unwrap() == bar.fire {
             element = ElementType::Fire;
-        }
-        else if *elements_to_comapre.iter().max().unwrap() == bar.water {
+        } else if *elements_to_comapre.iter().max().unwrap() == bar.water {
             element = ElementType::Water;
-        }
-        else if *elements_to_comapre.iter().max().unwrap() == bar.earth {
+        } else if *elements_to_comapre.iter().max().unwrap() == bar.earth {
             element = ElementType::Earth;
-        }
-        else {
+        } else {
             element = ElementType::Air;
         }
 
@@ -282,12 +291,12 @@ fn handle_recipe(
         println!("{:?}", spell_pool.unlocked);
 
         if let Ok(wand_transform) = wand_query.get_single() {
-
             if spell_pool.is_unlocked(Spell::Shield)
-            && bar.water == 1 
-            && bar.earth > 1
-            && bar.fire <= 0
-            && bar.air <= 0 {
+                && bar.water == 1
+                && bar.earth > 1
+                && bar.fire <= 0
+                && bar.air <= 0
+            {
                 ev_spawn_shield.send(SpawnShieldEvent {
                     duration: bar.earth as f32 * 2.,
                     owner: player_e,

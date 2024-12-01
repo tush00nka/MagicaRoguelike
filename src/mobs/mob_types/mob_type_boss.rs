@@ -31,6 +31,13 @@ pub struct SummonQueue {
     pub amount_of_mobs: i32,
 }
 
+#[derive(Event)]
+pub struct PushMobQueueEvent{
+    pub owner: Entity,
+    pub mob_type: MobType,
+    pub mob_e: Entity,
+}
+
 #[derive(Bundle)]
 pub struct BossBundle {
     pub mob_bundle: MobBundle,
@@ -58,10 +65,11 @@ impl MobBundle {
             },
             mob_type: (MobType::Koldun),
             mob: Mob::new(40),
-            loot: MobLoot { orbs: 100 },
+            exp_loot: MobLoot { orbs: 100 },
             body_type: RigidBody::Dynamic,
             health: Health::new(3000),
             hit_list: HitList::default(),
+            ..default()
         }
     }
 }
@@ -73,9 +81,9 @@ impl BossBundle {
             boss_attacks: BossAttackSystem {
                 //4 tiers of attacks
                 weight_array: vec![0; 12], //amount of attacks
-                cooldown_array: vec![Timer::new(Duration::from_millis(7050), TimerMode::Once); 12],
+                cooldown_array: vec![Timer::new(Duration::from_millis(4050), TimerMode::Repeating); 12],
                 cooldown_between_attacks: Timer::new(
-                    Duration::from_millis(3500),
+                    Duration::from_millis(1500),
                     TimerMode::Repeating,
                 ),
                 cooldown_mask: 0b0000111111111111, //bitmask for cooldown, use bitwise to get what you need, equal to 4095
@@ -92,7 +100,7 @@ impl BossBundle {
                         entity: None,
                         mob_type: MobType::Mossling
                     };
-                    100
+                    20
                 ],
                 amount_of_mobs: 0,
             },

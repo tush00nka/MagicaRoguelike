@@ -30,7 +30,7 @@ impl MobBundle {
                 resistance_percent: vec![0, 0, 30, 0, 0],
             },
             mob_type: MobType::Necromancer,
-            loot: MobLoot { orbs: 5 },
+            exp_loot: MobLoot { orbs: 5 },
             health: Health::new(140),
             ..default()
         }

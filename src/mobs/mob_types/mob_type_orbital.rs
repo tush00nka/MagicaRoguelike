@@ -141,7 +141,6 @@ pub fn rotate_orbital<Side: Component>(
                     + Vec2::from_angle(orbital.speed * time.elapsed_seconds() / 2500.) * 32.;
 
                 transform_orb.translation = Vec3::new(pos_new.x, pos_new.y, 1.);
-                println!("Rotating");
             } // radius
             None => {commands.entity(orbital_e).insert(Done::Success);}
         };

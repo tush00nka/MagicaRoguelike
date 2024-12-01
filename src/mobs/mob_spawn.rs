@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use seldom_state::prelude::*;
 
 use rand::{thread_rng, Rng};
+use serde::de;
 
 use crate::{
     animation::AnimationConfig,
@@ -11,6 +12,7 @@ use crate::{
     chapter::ChapterManager,
     friend::Friend,
     gamemap::{Map, TileType, ROOM_SIZE},
+    item::ItemType,
     level_completion::PortalManager,
     mobs::{mob::*, mob_types::*, MultistateAnimationFlag, OnCooldownFlag},
     obstacles::Corpse,
@@ -19,12 +21,16 @@ use crate::{
     GameState,
 };
 
-use super::{pick_attack_to_perform_koldun, BossAttackFlagComp, BossAttackType, PickAttackFlag};
+use super::{
+    pick_attack_to_perform_koldun, BeforeAttackDelayBoss, BossAttackFlagComp, BossAttackType,
+    PickAttackFlag,
+};
 
 pub struct MobSpawnPlugin;
 impl Plugin for MobSpawnPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MobSpawnEvent>()
+            .add_event::<PushMobQueueEvent>()
             .add_systems(
                 OnEnter(GameState::Loading),
                 spawn_mobs_location.after(create_new_graph),
@@ -33,7 +39,7 @@ impl Plugin for MobSpawnPlugin {
                 OnEnter(GameState::Loading),
                 first_spawn_mobs.after(spawn_mobs_location),
             )
-            .add_systems(Update, spawn_mob)
+            .add_systems(Update, (spawn_mob, push_mob_to_queue))
             .add_systems(
                 Update,
                 (spawner_mob_spawn, handle_raising).run_if(in_state(GameState::InGame)),
@@ -75,6 +81,9 @@ pub struct MobSpawnEvent {
     pub mob_type: MobType,
     pub pos: Vec2,
     pub is_friendly: bool,
+    pub owner: Option<Entity>,
+    pub loot: Option<ItemPicked>,
+    pub exp_amount: i8,
 }
 pub enum MobAI {
     MeleeWithATK,
@@ -324,6 +333,7 @@ pub fn spawn_mob(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut ev_mob_spawn: EventReader<MobSpawnEvent>,
     mut portal_manager: ResMut<PortalManager>,
+    mut summon_queue_ev: EventWriter<PushMobQueueEvent>,
 ) {
     for ev in ev_mob_spawn.read() {
         if !ev.is_friendly {
@@ -414,14 +424,25 @@ pub fn spawn_mob(
                                 |_: &PickAttackFlag, attack_type| {
                                     Some(match attack_type {
                                         Some(val) => match val {
-                                            _ => {
-                                                BossAttackFlagComp{attack_picked: val}
-                                            }
+                                            _ => BossAttackFlagComp { attack_picked: val },
                                         },
-                                        None => BossAttackFlagComp{attack_picked: BossAttackType::Wall},
+                                        None => BossAttackFlagComp {
+                                            attack_picked: BossAttackType::Wall,
+                                        },
                                     })
                                 },
-                            ).trans::<BossAttackFlagComp, _>( done(Some(Done::Success)), OnCooldownFlag),
+                            )
+                            .trans::<BossAttackFlagComp, _>(
+                                done(Some(Done::Success)),
+                                OnCooldownFlag,
+                            )
+                            .on_enter::<BossAttackFlagComp>(move |entity| {
+                                entity.insert(BeforeAttackDelayBoss::default());
+                            })
+                            //         .on_exit::<BossAttackFlagComp>(|entity| {
+                            //             entity.remove::<BeforeAttackDelayBoss>();
+                            //         })
+                            .set_trans_logging(true),
                         OnCooldownFlag,
                     ))
                     .id();
@@ -658,7 +679,10 @@ pub fn spawn_mob(
                 //add necro bundles
             }
             MobType::Koldun => {
-                commands.entity(mob).insert(BossBundle::koldun());
+                commands
+                    .entity(mob)
+                    .insert(BossBundle::koldun())
+                    .insert(FirstPhase);
             }
 
             MobType::EarthElemental => {
@@ -715,6 +739,30 @@ pub fn spawn_mob(
                 .unwrap()
                 .mob_count += 1;
         }
+        if ev.owner.is_some() {
+            summon_queue_ev.send(PushMobQueueEvent {
+                owner: ev.owner.unwrap(),
+                mob_type: ev.mob_type.clone(),
+                mob_e: mob,
+            });
+        }
+        if ev.exp_amount >= 0 {
+            commands.entity(mob).remove::<MobLoot>();
+            commands.entity(mob).insert(MobLoot {
+                orbs: ev.exp_amount as u32,
+            });
+        }
+        if ev.loot.is_some() {
+            commands.entity(mob).remove::<PickupItem>();
+            let mut item: Option<ItemType> = None;
+            if ev.loot.clone().unwrap() == ItemPicked::Item {
+                item = Some(rand::random());
+            }
+            commands.entity(mob).insert(PickupItem {
+                item_type: ev.loot.clone().unwrap(),
+                item_name: item,
+            });
+        }
     }
 }
 
@@ -758,6 +806,9 @@ pub fn first_spawn_mobs(
                     mob_type,
                     pos: Vec2::new((x * ROOM_SIZE) as f32, (y * ROOM_SIZE) as f32),
                     is_friendly: false,
+                    owner: None, // can add smth
+                    loot: None,  //
+                    exp_amount: -1,
                 });
             }
         }
@@ -788,6 +839,9 @@ fn spawner_mob_spawn(
                 mob_type: raising.mob_type.clone(),
                 pos: raising.mob_pos.translation.truncate(),
                 is_friendly: false,
+                owner: None,
+                loot: None,
+                exp_amount: 0,
             });
 
             commands.entity(raising.corpse_id).despawn();
@@ -817,6 +871,76 @@ fn boss_spawn(
             (ROOM_SIZE / 2 - 5) as f32 * 32.,
         ),
         is_friendly: false,
+        owner: None,
+        loot: None,
+        exp_amount: -1,
     });
     game_state.set(GameState::InGame);
+}
+
+pub fn push_mob_to_queue(
+    mut push_mob_ev: EventReader<PushMobQueueEvent>,
+    mut commands: Commands,
+    mut list_query: Query<&mut SummonQueue>,
+    transform_query: Query<&Transform>,
+    mut ev_mob_death: EventWriter<MobDeathEvent>,
+) {
+    for ev in push_mob_ev.read() {
+        println!(
+            "add entity: {}, mob type to push - {}",
+            ev.mob_e,
+            ev.mob_type.clone() as u32
+        );
+
+        if list_query.contains(ev.owner) {
+            
+            let mut summoner = list_query.get_mut(ev.owner).unwrap();
+            let mut despawn_entity = SummonUnit {
+                entity: None,
+                mob_type: MobType::Mossling,
+            };
+
+            if summoner.queue[summoner.queue.len() - 1].entity.is_some() {
+                despawn_entity = summoner.queue[summoner.queue.len() - 1].clone();
+            }
+
+            for i in (1..summoner.queue.len() - 1).rev() {
+                summoner.queue[i] = summoner.queue[i - 1].clone();
+            }
+
+            summoner.queue[0] = SummonUnit {
+                entity: Some(ev.mob_e),
+                mob_type: ev.mob_type.clone(),
+            };
+
+            for i in summoner.queue.iter() {
+                println!(
+                    "entity:{} mob_type: {}",
+                    i.entity.is_some(),
+                    i.mob_type.clone() as u32
+                );
+            }
+
+            println!(
+                "despawn entity:{} mob_type: {}",
+                despawn_entity.entity.is_some(),
+                despawn_entity.mob_type as u32
+            );
+
+            if despawn_entity.entity.is_some() {
+                let transform = transform_query.get(despawn_entity.entity.unwrap()).unwrap();
+
+                commands
+                    .entity(despawn_entity.entity.unwrap())
+                    .despawn_recursive();
+                println!("wow");
+
+                ev_mob_death.send(MobDeathEvent {
+                    orbs: 0,
+                    pos: transform.translation,
+                    dir: Vec3::ZERO,
+                });
+            }
+        }
+    }
 }

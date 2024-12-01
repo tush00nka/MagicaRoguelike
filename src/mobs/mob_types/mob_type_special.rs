@@ -143,7 +143,7 @@ impl MobBundle {
                 resistance_percent: vec![30, 30, 30, 30, 0],
             },
             mob_type: MobType::Thief,
-            loot: MobLoot { orbs: 1 },
+            exp_loot: MobLoot { orbs: 1 },
             ..default()
         }
     }

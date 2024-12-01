@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::{BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItemQueue};
+use super::{BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -425,7 +425,8 @@ pub struct MobBundle {
     pub resistance: ElementResistance,
     pub mob_type: MobType,
     pub mob: Mob,
-    pub loot: MobLoot,
+    pub exp_loot: MobLoot,
+    pub item_loot: PickupItem,
     pub body_type: RigidBody,
     pub health: Health,
     pub hit_list: HitList,
@@ -472,7 +473,8 @@ impl Default for MobBundle {
             },
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
-            loot: MobLoot { orbs: 3 },
+            exp_loot: MobLoot { orbs: 3 },
+            item_loot: PickupItem { item_type: ItemPicked::Obstacle, item_name: None },
             body_type: RigidBody::Dynamic,
             health: Health::new(100),
             hit_list: HitList::default(),

@@ -18,9 +18,9 @@ use crate::{
     projectile::SpawnProjectileEvent,
 };
 
-use super::MobType;
 use super::SecondPhase;
 use super::SummonQueue;
+use super::{MobSpawnEvent, MobType};
 //use super::ThirdPhase;
 use super::FirstPhase;
 
@@ -37,6 +37,7 @@ impl Plugin for BossBehavoiurPlugin {
                 cast_blank,
                 warn_player_abt_attack,
                 perform_attack,
+                tick_every_spell_cooldown,
             ),
         );
     }
@@ -50,7 +51,6 @@ pub struct OnCooldownFlag;
 
 #[derive(Component, Clone)]
 pub struct PickAttackFlag;
-
 
 #[derive(Component)]
 pub struct BossAttackSystem {
@@ -127,12 +127,16 @@ fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
 
 fn perform_attack(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
-    boss_query: Query<(&BossAttackSystem, &BossAttackFlagComp, &Transform), Without<BeforeAttackDelayBoss>>,
+    boss_query: Query<
+        (Entity, &BossAttackSystem, &BossAttackFlagComp, &Transform),
+        Without<BeforeAttackDelayBoss>,
+    >,
     player_query: Query<&Transform, With<Player>>,
-//    phase3_query: Query<&ThirdPhase>,
+    mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
+    mut commands: Commands,
+    //    phase3_query: Query<&ThirdPhase>,
 ) {
-    let Ok((_boss_sys, attack_type, boss_position)) = boss_query.get_single() else {
-        println!("NO BOSS?");
+    let Ok((boss_e, _boss_sys, attack_type, boss_position)) = boss_query.get_single() else {
         return;
     };
 
@@ -142,9 +146,11 @@ fn perform_attack(
     };
 
     let element: ElementType = rand::random();
+    let mut amount_attack = 0;
 
     match attack_type.attack_picked {
         BossAttackType::Wall => {
+            println!("wall");
             let to_skip = rand::thread_rng().gen_range((ROOM_SIZE / 2 - 7)..(ROOM_SIZE / 2 + 8));
 
             let direction = pick_direction(player_pos.translation, boss_position.translation);
@@ -193,24 +199,21 @@ fn perform_attack(
         }
 
         BossAttackType::Radial => {
-            let amount = rand::thread_rng().gen_range(8..16);
+            println!("radial");
+            let amount_attack = rand::thread_rng().gen_range(8..16);
             let radius = rand::thread_rng().gen_range(500..800);
 
-            let Ok(player_transform) = player_query.get_single() else {
-                return;
-            };
+            let offset = 2.0 * PI / (amount_attack as f32);
 
-            let offset = 2.0 * PI / (amount as f32);
+            let to_skip = rand::thread_rng().gen_range(0..amount_attack);
 
-            let to_skip = rand::thread_rng().gen_range(0..amount);
-
-            for i in 0..amount {
+            for i in 0..amount_attack {
                 if i == to_skip {
                     continue;
                 }
 
                 let direction = -Vec2::from_angle(i as f32 * offset);
-                let position = (player_transform.translation.truncate()
+                let position = (player_pos.translation.truncate()
                     - direction * (radius as f32) / 10.)
                     .extend(1.0);
 
@@ -227,8 +230,134 @@ fn perform_attack(
                 });
             }
         }
-        _ => {}
+        BossAttackType::Blank => {
+            println!("how");
+        }
+
+        BossAttackType::Shield => {
+            println!("shield");
+        }
+        BossAttackType::FastPierce => {
+            println!("fast pierce");
+            amount_attack += 2;
+            let angle_disp = PI / (2 + amount_attack) as f32;
+            let mut angle = (boss_position.translation - player_pos.translation)
+                .truncate()
+                .to_angle()
+                - angle_disp;
+            for i in 0..amount_attack {
+                ev_spawn_projectile.send(SpawnProjectileEvent {
+                    texture_path: "textures/fireball.png".to_string(),
+                    color: element.color(),
+                    translation: boss_position.translation,
+                    angle: angle,
+                    radius: 1.0,
+                    speed: 50.0,
+                    damage: 20,
+                    element,
+                    is_friendly: false,
+                });
+                angle += angle_disp;
+            }
+        }
+
+        BossAttackType::SpawnAirElemental => {
+            println!("air");
+            amount_attack += 6;
+            let mut position_drift = -64.;
+            for _ in 0..amount_attack {
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: MobType::AirElemental,
+                    pos: Vec2::new(
+                        boss_position.translation.x + position_drift,
+                        boss_position.translation.y + 32.,
+                    ),
+                    is_friendly: false,
+                    loot: None,
+                    owner: Some(boss_e),
+                    exp_amount: 0,
+                });
+
+                position_drift += 16.;
+            }
+        }
+
+        BossAttackType::SpawnClayGolem => {
+            println!("golem");
+            amount_attack += 2;
+            let mut position_drift = -64.;
+            for _ in 0..amount_attack {
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: MobType::ClayGolem,
+                    pos: Vec2::new(
+                        boss_position.translation.x + position_drift,
+                        boss_position.translation.y + 32.,
+                    ),
+                    is_friendly: false,
+                    loot: None,
+                    owner: Some(boss_e),
+                    exp_amount: 0,
+                });
+
+                position_drift += 128.;
+            }
+        }
+        BossAttackType::SpawnEarthElemental => {
+            println!("earth");
+        }
+        BossAttackType::SpawnWaterElemental => {
+            println!("water");
+            amount_attack += 3;
+            let mut position_drift = -64.;
+            for _ in 0..amount_attack {
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: MobType::WaterElemental,
+                    pos: Vec2::new(
+                        boss_position.translation.x + position_drift,
+                        boss_position.translation.y + 32.,
+                    ),
+                    is_friendly: false,
+                    loot: None,
+                    owner: Some(boss_e),
+                    exp_amount: 0,
+                });
+
+                position_drift += 64.;
+            }
+        }
+        BossAttackType::ProjectilePattern => {
+            println!("pattern");
+        }
+        BossAttackType::MegaStan => {
+            println!("megastan");
+        }
+        BossAttackType::SpawnFireElemental => {
+            println!("fire");
+            amount_attack += 4;
+            let radius = 64.;
+            let mut angle = PI / 4.;
+
+            for _ in 0..amount_attack {
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: MobType::FireElemental,
+                    pos: Vec2::new(
+                        player_pos.translation.x + radius / angle.cos(),
+                        player_pos.translation.y + radius * angle.tan(),
+                    ),
+                    is_friendly: false,
+                    loot: None,
+                    owner: Some(boss_e),
+                    exp_amount: 0,
+                });
+                angle += PI / 2.;
+            }
+        }
+        _ => {
+            println!("what");
+        }
     }
+
+    commands.entity(boss_e).insert(Done::Success);
 }
 
 impl TryFrom<usize> for BossAttackType {
@@ -287,7 +416,6 @@ pub fn recalculate_weights(
     let Ok((boss_e, mut attack_system, summon_list, boss_hp, boss_transform)) =
         boss_query.get_single_mut()
     else {
-        println!("Boss attack system error!");
         return;
     };
     let Ok(player_transform) = player_query.get_single() else {
@@ -307,7 +435,7 @@ pub fn recalculate_weights(
     for i in 0..attack_system.weight_array.len() {
         let mut base_weight: i16 = i as i16 * 100;
 
-        if attack_system.cooldown_mask & 2u32.pow(i as u32) == 0 {
+        if attack_system.cooldown_mask & (1 << i) == 0 {
             attack_system.weight_array[i] = -10000;
             continue;
         }
@@ -428,21 +556,28 @@ pub fn tick_cooldown_boss(
 ) {
     //add on cooldown state, so we don't tick timer during attack
     let Ok((boss_e, mut attack_system)) = attack_timers.get_single_mut() else {
-        println!("Boss attack system error!");
         return;
     };
+
     attack_system.cooldown_between_attacks.tick(time.delta());
 
     if attack_system.cooldown_between_attacks.just_finished() {
         commands.entity(boss_e).insert(Done::Success);
     }
+}
 
-    for i in 0..attack_system.cooldown_array.iter_mut().len() {
-        if attack_system.cooldown_mask & 1 << i != 0 {
+pub fn tick_every_spell_cooldown(mut attack_timers: Query<&mut BossAttackSystem>, time: Res<Time>) {
+    let Ok(mut attack_system) = attack_timers.get_single_mut() else {
+        return;
+    };
+
+    for i in 0..attack_system.cooldown_array.len() {
+        if attack_system.cooldown_mask & (1 << i) != 1 {
             attack_system.cooldown_array[i].tick(time.delta());
 
             if attack_system.cooldown_array[i].just_finished() {
-                attack_system.cooldown_mask |= 1 << i as u32;
+                attack_system.cooldown_mask |= 1 << i;
+                println!("flags: {:#018b}", attack_system.cooldown_mask);
             }
         }
     }
@@ -505,25 +640,30 @@ impl Default for BeforeAttackDelayBoss {
 pub fn warn_player_abt_attack(
     time: Res<Time>,
     mut boss_query: Query<(
+        Entity,
         &mut BossAttackSystem,
         &BossAttackFlagComp,
         &mut BeforeAttackDelayBoss,
-        &Transform
+        &Transform,
     )>,
+    mut commands: Commands,
     mut ev_spawn_alert: EventWriter<SpawnAlertEvent>,
 ) {
-    let Ok((mut boss, attack_flag, mut delay, pos)) = boss_query.get_single_mut() else {
-        println!("boss is dead");
+    let Ok((boss_e, mut boss, attack_flag, mut delay, pos)) = boss_query.get_single_mut() else {
         return;
     };
     delay.timer.tick(time.delta());
     if delay.check {
-        ev_spawn_alert.send(SpawnAlertEvent { position: pos.translation.truncate().with_y(pos.translation.y + 24.), attack_alert: true });
+        ev_spawn_alert.send(SpawnAlertEvent {
+            position: pos.translation.truncate().with_y(pos.translation.y + 24.),
+            attack_alert: true,
+        });
         //spawn marker
         delay.check = false;
     }
     if delay.timer.just_finished() {
-        boss.cooldown_mask = boss.cooldown_mask << attack_flag.attack_picked.clone() as usize;
+        boss.cooldown_mask ^= 1 << attack_flag.attack_picked.clone() as usize;
+        commands.entity(boss_e).remove::<BeforeAttackDelayBoss>();
     }
 }
 pub fn pick_attack_to_perform_koldun(
@@ -550,7 +690,7 @@ pub fn pick_attack_to_perform_koldun(
 
     let chance_to_pick = rand::thread_rng().gen_range(0.0..1.0);
 
-    if chance_to_pick >= 0.9 && pick_2 > 0 {
+    if chance_to_pick >= 0.65 && pick_2 > 0 {
         return Some(Some(BossAttackType::try_from(pick_2 as usize).unwrap()));
     }
 
@@ -558,6 +698,7 @@ pub fn pick_attack_to_perform_koldun(
         println!("ERROR VALUE");
         return None;
     }
+
     return Some(Some(BossAttackType::try_from(pick_1 as usize).unwrap()));
     //pick with random attack including weights, like idk, use coeff or smth
 }
