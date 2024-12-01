@@ -236,8 +236,6 @@ fn handle_recipe(
 
     mut ev_cast_spell: EventWriter<CastSpellEvent>,
 
-    mut ev_play_audio: EventWriter<PlayAudioEvent>,
-
     mouse: Res<ButtonInput<MouseButton>>,
 
     time: Res<Time<Virtual>>,
@@ -280,10 +278,6 @@ fn handle_recipe(
 
         let mut dmg = player_stats.get_bonused_damage(element);
         dmg *= bar.len() as u32;
-
-        let audio_file = element.audio();
-
-        ev_play_audio.send(PlayAudioEvent::from_file(audio_file));
 
         println!("{:?}", spell_pool.unlocked);
 
@@ -509,6 +503,8 @@ fn cast_spell(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     mut ev_spawn_friend: EventWriter<MobSpawnEvent>,
 
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
+
     mouse_coords: Res<MouseCoords>,
     inventory: Res<ItemInventory>,
 ) {
@@ -519,6 +515,9 @@ fn cast_spell(
         let color = element.color();
         let origin = ev.origin;
         let dmg = ev.damage;
+
+        let audio_file = element.audio();
+        ev_play_audio.send(PlayAudioEvent::from_file(audio_file));
 
         let mut rng = rand::thread_rng();
 
