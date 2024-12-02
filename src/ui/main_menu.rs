@@ -176,7 +176,7 @@ fn spawn_main_menu_ui (
     
             parent.spawn((button.clone(), MainMenuButton::NEW_RUN)).with_children(|parent| {
                 parent.spawn(TextBundle::from_section(
-                    "вот решил опять попробовать", 
+                    "Начать игру", 
                     TextStyle {
                         font: asset_server.load("fonts/ebbe_bold.ttf"),
                         font_size: 16.0,
@@ -188,7 +188,7 @@ fn spawn_main_menu_ui (
 
             parent.spawn((button.clone(), MainMenuButton::ALMANACH)).with_children(|parent| {
                 parent.spawn(TextBundle::from_section(
-                    "книжка с картинками", 
+                    "Справочник", 
                     TextStyle {
                         font: asset_server.load("fonts/ebbe_bold.ttf"),
                         font_size: 16.0,
@@ -200,7 +200,7 @@ fn spawn_main_menu_ui (
 
             parent.spawn((button.clone(), MainMenuButton::QUIT)).with_children(|parent| {
                 parent.spawn(TextBundle::from_section(
-                    "что я наделал", 
+                    "Выход", 
                     TextStyle {
                         font: asset_server.load("fonts/ebbe_bold.ttf"),
                         font_size: 16.0,
