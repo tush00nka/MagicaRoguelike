@@ -38,6 +38,7 @@ impl Plugin for BossBehavoiurPlugin {
                 warn_player_abt_attack,
                 perform_attack,
                 tick_every_spell_cooldown,
+                switch_phase,
             ),
         );
     }
@@ -89,6 +90,18 @@ pub enum BossAttackType {
     Wall,
     SpawnClayGolem,
     MegaStan,
+}
+
+fn switch_phase(
+    mut commands: Commands,
+    query: Query<(Entity, &Health), With<FirstPhase>>, 
+) {
+    for (entity, health) in query.iter() {
+        if health.current == health.max / 2 {
+            commands.entity(entity).remove::<FirstPhase>();
+            commands.entity(entity).insert(SecondPhase);
+        }
+    }
 }
 
 fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
@@ -352,9 +365,6 @@ fn perform_attack(
                 angle += PI / 2.;
             }
         }
-        _ => {
-            println!("what");
-        }
     }
 
     commands.entity(boss_e).insert(Done::Success);
@@ -393,7 +403,8 @@ impl TryFrom<usize> for BossAttackType {
         }
     }
 }
-//weights depends on:
+
+//weights depend on:
 //Cooldown,
 //range to the player
 //phase
