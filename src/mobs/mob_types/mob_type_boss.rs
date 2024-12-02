@@ -67,7 +67,7 @@ impl MobBundle {
             mob: Mob::new(40),
             exp_loot: MobLoot { orbs: 100 },
             body_type: RigidBody::Dynamic,
-            health: Health::new(1000),
+            health: Health::new(3000),
             hit_list: HitList::default(),
             ..default()
         }
@@ -83,7 +83,7 @@ impl BossBundle {
                 weight_array: vec![0; 12], //amount of attacks
                 cooldown_array: vec![Timer::new(Duration::from_millis(4050), TimerMode::Repeating); 12],
                 cooldown_between_attacks: Timer::new(
-                    Duration::from_millis(5000),
+                    Duration::from_millis(3000),
                     TimerMode::Repeating,
                 ),
                 cooldown_mask: 0b0000111111111111, //bitmask for cooldown, use bitwise to get what you need, equal to 4095

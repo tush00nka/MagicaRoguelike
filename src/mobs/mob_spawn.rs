@@ -442,7 +442,7 @@ pub fn spawn_mob(
                             //         .on_exit::<BossAttackFlagComp>(|entity| {
                             //             entity.remove::<BeforeAttackDelayBoss>();
                             //         })
-                            .set_trans_logging(true),
+                            ,
                         OnCooldownFlag,
                     ))
                     .id();
@@ -886,12 +886,12 @@ pub fn push_mob_to_queue(
     mut ev_mob_death: EventWriter<MobDeathEvent>,
 ) {
     for ev in push_mob_ev.read() {
-        println!(
+   /*println!(
             "add entity: {}, mob type to push - {}",
             ev.mob_e,
             ev.mob_type.clone() as u32
         );
-
+ */     
         if list_query.contains(ev.owner) {
             
             let mut summoner = list_query.get_mut(ev.owner).unwrap();
@@ -913,8 +913,8 @@ pub fn push_mob_to_queue(
                 mob_type: ev.mob_type.clone(),
             };
 
-            for i in summoner.queue.iter() {
-                println!(
+        /*    for i in summoner.queue.iter() {
+               println!(
                     "entity:{} mob_type: {}",
                     i.entity.is_some(),
                     i.mob_type.clone() as u32
@@ -926,7 +926,7 @@ pub fn push_mob_to_queue(
                 despawn_entity.entity.is_some(),
                 despawn_entity.mob_type as u32
             );
-
+*/
             if despawn_entity.entity.is_some() {
                 let transform = transform_query.get(despawn_entity.entity.unwrap()).unwrap();
 

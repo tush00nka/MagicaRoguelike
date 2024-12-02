@@ -21,7 +21,7 @@ use crate::{
 use super::SecondPhase;
 use super::SummonQueue;
 use super::{MobSpawnEvent, MobType};
-//use super::ThirdPhase;
+use super::ThirdPhase;
 use super::FirstPhase;
 
 pub struct BossBehavoiurPlugin;
@@ -94,14 +94,31 @@ pub enum BossAttackType {
 
 fn switch_phase(
     mut commands: Commands,
-    query: Query<(Entity, &Health), With<FirstPhase>>, 
+    mut query: Query<(Entity, &Health), With<FirstPhase>>,   
 ) {
-    for (entity, health) in query.iter() {
-        if health.current == health.max / 2 {
+    let Ok((entity, health)) = query.get_single_mut() else{
+        println!("no boss with phases");
+        return;
+    };
+        if health.current <= health.max / 2 {
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
+            println!("PHASE CHANGED");
             commands.entity(entity).remove::<FirstPhase>();
             commands.entity(entity).insert(SecondPhase);
         }
-    }
+    
 }
 
 fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
@@ -147,7 +164,7 @@ fn perform_attack(
     player_query: Query<&Transform, With<Player>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
     mut commands: Commands,
-    //    phase3_query: Query<&ThirdPhase>,
+    phase3_query: Query<&ThirdPhase>,
 ) {
     let Ok((boss_e, _boss_sys, attack_type, boss_position)) = boss_query.get_single() else {
         return;
@@ -253,8 +270,8 @@ fn perform_attack(
         BossAttackType::FastPierce => {
             println!("fast pierce");
             amount_attack += 2;
-            let angle_disp = PI / (2 + amount_attack) as f32;
-            let mut angle = (boss_position.translation - player_pos.translation)
+            let angle_disp = PI / (8 + amount_attack) as f32;
+            let mut angle = (player_pos.translation - boss_position.translation)
                 .truncate()
                 .to_angle()
                 - angle_disp;
@@ -265,7 +282,7 @@ fn perform_attack(
                     translation: boss_position.translation,
                     angle: angle,
                     radius: 1.0,
-                    speed: 50.0,
+                    speed: 350.0,
                     damage: 20,
                     element,
                     is_friendly: false,
@@ -588,7 +605,6 @@ pub fn tick_every_spell_cooldown(mut attack_timers: Query<&mut BossAttackSystem>
 
             if attack_system.cooldown_array[i].just_finished() {
                 attack_system.cooldown_mask |= 1 << i;
-                println!("flags: {:#018b}", attack_system.cooldown_mask);
             }
         }
     }
@@ -599,7 +615,6 @@ pub fn cast_blank(
     mut boss_query: Query<(&mut BossAttackSystem, &Transform)>,
 ) {
     let Ok((mut attack_system, pos)) = boss_query.get_single_mut() else {
-        println!("no attack system to cast shield");
         return;
     };
 
@@ -619,7 +634,6 @@ pub fn cast_shield(
     mut cast_shield: EventWriter<SpawnShieldEvent>,
 ) {
     let Ok((boss_e, mut attack_system)) = boss_query.get_single_mut() else {
-        println!("no attack system to cast shield");
         return;
     };
 
