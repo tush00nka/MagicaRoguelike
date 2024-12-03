@@ -629,6 +629,13 @@ pub fn spawn_mob(
         } else {
             commands.entity(mob).insert(Enemy);
         }
+        
+        let mut ysort_size = spawn_kit.pixel_size as f32 / 2.; 
+        
+        if ev.mob_type == MobType::FireElemental || ev.mob_type == MobType::AirElemental{
+            ysort_size = 48.;
+        }
+
         commands
             .entity(mob)
             .insert(SpriteBundle {
@@ -636,7 +643,7 @@ pub fn spawn_mob(
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             })
-            .insert(YSort(spawn_kit.pixel_size as f32 / 2.));
+            .insert(YSort(ysort_size));
 
         if spawn_kit.has_animation {
             commands
