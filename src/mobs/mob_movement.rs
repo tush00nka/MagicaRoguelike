@@ -176,6 +176,7 @@ fn move_mobs<SideRush: Component>(
             Without<Stun>,
             Without<Teleport>,
             Without<RaisingFlag>,
+            Without<Phasing>,
             Or<(With<SideRush>, Without<SearchAndPursue>)>,
         ),
     >,

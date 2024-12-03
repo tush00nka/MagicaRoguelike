@@ -47,7 +47,7 @@ fn spawn_shield(
 
             match ev.size {
                 64 => {
-                    size = 64.;
+                    size = 32.;
                     path = "textures/shield-64.png";
                 }
                 32 => {
@@ -105,7 +105,6 @@ fn spawn_shield(
                 .entity(shield_e)
                 .insert(Enemy)
                 .insert(collision_layers);
-            println!("It's created");
         }
     }
 }
