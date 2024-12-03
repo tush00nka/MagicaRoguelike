@@ -27,3 +27,31 @@ pub fn get_random_index_with_weight(weights: Vec<usize>) -> usize {
     
     distribution.sample(&mut rng)
 }
+
+pub struct LifetimePlugin;
+
+impl Plugin for LifetimePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, despawn_on_lifetime);
+    }
+}
+
+/// Use this to automatically destroy entities over time
+#[derive(Component)]
+pub struct Lifetime(Timer);
+
+impl Lifetime {
+    pub fn new(duration: f32) -> Self {
+        Self(Timer::from_seconds(duration, TimerMode::Once))
+    }
+}
+
+pub fn despawn_on_lifetime(mut commands: Commands, mut query: Query<(Entity, &mut Lifetime)>, time: Res<Time>) {
+    for (entity, mut lifetime) in query.iter_mut() {
+        lifetime.0.tick(time.delta());
+
+        if lifetime.0.just_finished() {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}

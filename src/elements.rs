@@ -528,16 +528,27 @@ fn cast_spell(
                     let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
                     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
+                    let radius = 64.;
+                    let counter_clockwise = rand::thread_rng().gen_bool(0.5);
+
+                    let pivot = if counter_clockwise {
+                        origin.truncate() + Vec2::from_angle(angle + PI/2.) * radius
+                    } else {
+                        origin.truncate() - Vec2::from_angle(angle + PI/2.) * radius
+                    };
+
                     ev_spawn_projectile.send(SpawnProjectileEvent {
                         texture_path: "textures/small_fire.png".to_string(),
                         color,
                         translation: origin,
                         angle,
-                        radius: 6.,
-                        speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        collider_radius: 6.,
+                        // speed: 150.0 + rng.gen_range(-25.0..25.0),
+                        speed: 2.5,
                         damage: dmg / bar.fire as u32,
                         element,
                         is_friendly: true,
+                        trajectory: crate::projectile::Trajectory::Radial { radius, pivot, counter_clockwise },
                     });
                 }
             },
@@ -553,11 +564,12 @@ fn cast_spell(
                         color,
                         translation: origin,
                         angle,
-                        radius: 6.,
+                        collider_radius: 6.,
                         speed: 200.0 + rng.gen_range(-25.0..25.0),
                         damage: dmg / bar.water as u32,
                         element,
                         is_friendly: true,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             },
@@ -572,11 +584,12 @@ fn cast_spell(
                         color,
                         translation: origin,
                         angle,
-                        radius: 12.,
+                        collider_radius: 12.,
                         speed: 100.0,
                         damage: dmg,
                         element,
                         is_friendly: true,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             },
@@ -589,11 +602,12 @@ fn cast_spell(
                     color,
                     translation: origin,
                     angle,
-                    radius: 8.0,
+                    collider_radius: 8.0,
                     speed: 100.,
                     damage: dmg,
                     element,
                     is_friendly: true,
+                    trajectory: crate::projectile::Trajectory::Straight,
                 });
             },
             Spell::Steam => {
@@ -607,11 +621,12 @@ fn cast_spell(
                         color,
                         translation: origin,
                         angle,
-                        radius: 6.,
+                        collider_radius: 6.,
                         speed: 150.0 + rng.gen_range(-25.0..25.0),
                         damage: dmg / (bar.fire+bar.water) as u32,
                         element,
                         is_friendly: true,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             },
