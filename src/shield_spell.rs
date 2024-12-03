@@ -41,14 +41,13 @@ fn spawn_shield(
 ) {
     for ev in ev_spawn_shield.read() {
         if let Ok(transform) = transform_query.get(ev.owner) {
-            
             let path;
             let size;
             let collision_layers;
 
             match ev.size {
                 64 => {
-                    size = 32.;
+                    size = 64.;
                     path = "textures/shield-64.png";
                 }
                 32 => {
@@ -88,12 +87,25 @@ fn spawn_shield(
             commands.spawn(FixedJoint::new(ev.owner, shield_e));
 
             if ev.is_friendly {
-                collision_layers = CollisionLayers::new(GameLayer::Shield,[GameLayer::Enemy, GameLayer::Projectile]); //delete attack melee on hit
-                commands.entity(shield_e).insert(Friend).insert(collision_layers);
+                collision_layers = CollisionLayers::new(
+                    GameLayer::Shield,
+                    [GameLayer::Enemy, GameLayer::Projectile],
+                ); //delete attack melee on hit
+                commands
+                    .entity(shield_e)
+                    .insert(Friend)
+                    .insert(collision_layers);
                 continue;
             }
-            collision_layers = CollisionLayers::new(GameLayer::Shield, [GameLayer::Friend, GameLayer::Projectile]);
-            commands.entity(shield_e).insert(Enemy).insert(collision_layers);
+            collision_layers = CollisionLayers::new(
+                GameLayer::Shield,
+                [GameLayer::Friend, GameLayer::Projectile],
+            );
+            commands
+                .entity(shield_e)
+                .insert(Enemy)
+                .insert(collision_layers);
+            println!("It's created");
         }
     }
 }

@@ -10,6 +10,7 @@ use std::convert::TryFrom;
 use crate::alert::SpawnAlertEvent;
 use crate::blank_spell::SpawnBlankEvent;
 use crate::health::Health;
+use crate::projectile::{Friendly, Projectile};
 use crate::shield_spell::SpawnShieldEvent;
 use crate::{
     elements::ElementType,
@@ -39,6 +40,7 @@ impl Plugin for BossBehavoiurPlugin {
                 perform_attack,
                 tick_every_spell_cooldown,
                 switch_phase,
+                projectiles_check,
             ),
         );
     }
@@ -97,24 +99,9 @@ fn switch_phase(
     mut query: Query<(Entity, &Health), With<FirstPhase>>,   
 ) {
     let Ok((entity, health)) = query.get_single_mut() else{
-        println!("no boss with phases");
         return;
     };
         if health.current <= health.max / 2 {
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
-            println!("PHASE CHANGED");
             commands.entity(entity).remove::<FirstPhase>();
             commands.entity(entity).insert(SecondPhase);
         }
@@ -429,6 +416,16 @@ impl TryFrom<usize> for BossAttackType {
 //base value
 //position of player
 //is there such mobs
+pub fn projectiles_check(friendly_projs_query: Query<(&Projectile, &Transform), With<Friendly>>, mut big_boss_query: Query<(&Transform, &mut BossAttackSystem)>){
+    let Ok((boss_pos, mut weights_system)) = big_boss_query.get_single_mut()else{
+        return;
+    };
+    for (_proj, proj_pos) in friendly_projs_query.iter(){
+        weights_system.weight_array[BossAttackType::Blank as usize] += (7500. / boss_pos.translation.truncate().distance(proj_pos.translation.truncate())) as i16 + 1;
+        weights_system.weight_array[BossAttackType::Shield as usize] += (7500. / boss_pos.translation.truncate().distance(proj_pos.translation.truncate())) as i16 + 1;
+    }
+}
+
 pub fn recalculate_weights(
     mut boss_query: Query<(
         Entity,
@@ -637,7 +634,7 @@ pub fn cast_shield(
         return;
     };
 
-    if attack_system.weight_array[BossAttackType::Shield as usize] > 2500 {
+    if attack_system.weight_array[BossAttackType::Shield as usize] >= 2500 {
         attack_system.cooldown_mask ^= 1 << BossAttackType::Shield as usize;
         cast_shield.send(SpawnShieldEvent {
             duration: 4.,

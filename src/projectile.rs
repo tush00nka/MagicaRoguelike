@@ -1,21 +1,29 @@
 use core::f32;
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
 use avian2d::prelude::*;
+use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy, particles::SpawnParticlesEvent, shield_spell::Shield, utils::Lifetime, GameLayer
+    blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy,
+    particles::SpawnParticlesEvent, shield_spell::Shield, utils::Lifetime, GameLayer,
 };
 
 pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<SpawnProjectileEvent>()
-            .add_systems(Update, (spawn_projectile, move_projectile, hit_walls, hit_shield::<Enemy, Friendly>, hit_shield::<Friend, Hostile>));
+        app.add_event::<SpawnProjectileEvent>().add_systems(
+            Update,
+            (
+                spawn_projectile,
+                move_projectile,
+                hit_walls,
+                hit_shield::<Enemy, Friendly>,
+                hit_shield::<Friend, Hostile>,
+            ),
+        );
     }
 }
 
@@ -68,8 +76,18 @@ impl Default for ProjectileBundle {
                 element: ElementType::Air,
             },
             collider: Collider::circle(8.0),
-            collision_layers: CollisionLayers::new(GameLayer::Projectile, [GameLayer::Enemy, GameLayer::Player, GameLayer::Wall, GameLayer::Friend, GameLayer::Interactable]),
-            sensor: Sensor
+            collision_layers: CollisionLayers::new(
+                GameLayer::Projectile,
+                [
+                    GameLayer::Enemy,
+                    GameLayer::Player,
+                    GameLayer::Wall,
+                    GameLayer::Friend,
+                    GameLayer::Interactable,
+                    GameLayer::Shield,
+                ],
+            ),
+            sensor: Sensor,
         }
     }
 }
@@ -127,8 +145,9 @@ fn spawn_projectile(
             collider: Collider::circle(ev.collider_radius),
             ..default()
         });
-        
-        if ev.is_friendly{ //check which flag to add
+
+        if ev.is_friendly {
+            //check which flag to add
             projectile.insert(Friendly);
         } else {
             projectile
@@ -189,7 +208,7 @@ fn hit_shield<Side: Component, ProjSide: Component>(
                     pattern: crate::particles::ParticlePattern::Burst {
                         direction: -projectile.direction,
                         distance: rand::thread_rng().gen_range(8.0..12.0),
-                        spread: PI/3.,
+                        spread: PI / 3.,
                     },
                     position: transform.translation,
                     amount: 3,
@@ -217,7 +236,7 @@ fn hit_walls(
                     pattern: crate::particles::ParticlePattern::Burst {
                         direction: -projectile.direction,
                         distance: rand::thread_rng().gen_range(8.0..12.0),
-                        spread: PI/3.,
+                        spread: PI / 3.,
                     },
                     position: transform.translation,
                     amount: 3,
