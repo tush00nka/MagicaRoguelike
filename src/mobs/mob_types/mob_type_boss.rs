@@ -25,10 +25,67 @@ pub struct SummonUnit {
     pub mob_type: MobType,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct SummonQueue {
     pub queue: Vec<SummonUnit>,
-    pub amount_of_mobs: i32,
+    pub amount_of_mobs: u8,
+    pub max_amount: u8,
+}
+
+impl SummonQueue{
+    pub fn push(&mut self, summon_unit: SummonUnit){
+        self.amount_of_mobs += 1;
+        for i in (1..self.amount_of_mobs as usize).rev() {
+            self.queue[i] = self.queue[i - 1].clone();
+        }
+
+        self.queue[0] = summon_unit;
+    }
+
+    pub fn pop(&mut self) -> SummonUnit{
+        let index = self.amount_of_mobs - 1;
+        self.amount_of_mobs -= 1;
+        return self.queue[index as usize].clone();
+    }
+
+    pub fn is_overflowed(&mut self) -> bool{
+        return self.amount_of_mobs >= self.max_amount;
+    }
+    
+    pub fn empty(&mut self){
+        self.amount_of_mobs = 0;
+    }
+
+    pub fn shift(&mut self, index: usize){
+        let len = self.queue.len() - 1;
+
+        for i in (index..len-1){
+            self.queue[i] = self.queue[i + 1].clone();
+        }
+
+        self.amount_of_mobs -= 1;
+        self.queue[len - 1] = SummonUnit{entity: None, mob_type: MobType::Mossling};
+    }
+    
+    pub fn resize(&mut self, size: u8){
+        self.max_amount = size;
+    }
+
+    pub fn print(self){
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+
+        for i in self.queue{
+            println!("{}",i.mob_type as u32);
+        }
+
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+    }
 }
 
 #[derive(Event)]
@@ -103,6 +160,7 @@ impl BossBundle {
                     20
                 ],
                 amount_of_mobs: 0,
+                max_amount: 20,
             },
         }
     }

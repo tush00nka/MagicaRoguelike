@@ -907,40 +907,25 @@ pub fn push_mob_to_queue(
                 mob_type: MobType::Mossling,
             };
 
-            if summoner.queue[summoner.queue.len() - 1].entity.is_some() {
-                despawn_entity = summoner.queue[summoner.queue.len() - 1].clone();
+            summoner.clone().print();
+
+            if summoner.is_overflowed(){
+                despawn_entity = summoner.pop();
+                
+                summoner.clone().print();
             }
 
-            for i in (1..summoner.queue.len() - 1).rev() {
-                summoner.queue[i] = summoner.queue[i - 1].clone();
-            }
+            summoner.push(SummonUnit { entity: Some(ev.mob_e), mob_type: ev.mob_type.clone()});
 
-            summoner.queue[0] = SummonUnit {
-                entity: Some(ev.mob_e),
-                mob_type: ev.mob_type.clone(),
-            };
+            summoner.clone().print();
 
-        /*    for i in summoner.queue.iter() {
-               println!(
-                    "entity:{} mob_type: {}",
-                    i.entity.is_some(),
-                    i.mob_type.clone() as u32
-                );
-            }
-
-            println!(
-                "despawn entity:{} mob_type: {}",
-                despawn_entity.entity.is_some(),
-                despawn_entity.mob_type as u32
-            );
-*/
             if despawn_entity.entity.is_some() {
                 let transform = transform_query.get(despawn_entity.entity.unwrap()).unwrap();
 
                 commands
                     .entity(despawn_entity.entity.unwrap())
                     .despawn_recursive();
-                println!("wow");
+                println!("entity despawned");
 
                 ev_mob_death.send(MobDeathEvent {
                     orbs: 0,

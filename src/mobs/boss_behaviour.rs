@@ -21,9 +21,9 @@ use crate::{
 
 use super::SecondPhase;
 use super::SummonQueue;
-use super::{MobSpawnEvent, MobType};
 use super::ThirdPhase;
-use super::FirstPhase;
+use super::{FirstPhase, Mob};
+use super::{MobSpawnEvent, MobType};
 
 pub struct BossBehavoiurPlugin;
 
@@ -32,6 +32,7 @@ impl Plugin for BossBehavoiurPlugin {
         app.add_systems(
             Update,
             (
+                check_is_summon_alive,
                 tick_cooldown_boss,
                 recalculate_weights,
                 cast_shield,
@@ -94,18 +95,14 @@ pub enum BossAttackType {
     MegaStan,
 }
 
-fn switch_phase(
-    mut commands: Commands,
-    mut query: Query<(Entity, &Health), With<FirstPhase>>,   
-) {
-    let Ok((entity, health)) = query.get_single_mut() else{
+fn switch_phase(mut commands: Commands, mut query: Query<(Entity, &Health), With<FirstPhase>>) {
+    let Ok((entity, health)) = query.get_single_mut() else {
         return;
     };
-        if health.current <= health.max / 2 {
-            commands.entity(entity).remove::<FirstPhase>();
-            commands.entity(entity).insert(SecondPhase);
-        }
-    
+    if health.current <= health.max / 2 {
+        commands.entity(entity).remove::<FirstPhase>();
+        commands.entity(entity).insert(SecondPhase);
+    }
 }
 
 fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
@@ -416,13 +413,42 @@ impl TryFrom<usize> for BossAttackType {
 //base value
 //position of player
 //is there such mobs
-pub fn projectiles_check(friendly_projs_query: Query<(&Projectile, &Transform), With<Friendly>>, mut big_boss_query: Query<(&Transform, &mut BossAttackSystem)>){
-    let Ok((boss_pos, mut weights_system)) = big_boss_query.get_single_mut()else{
+pub fn projectiles_check(
+    friendly_projs_query: Query<(&Projectile, &Transform), With<Friendly>>,
+    mut big_boss_query: Query<(&Transform, &mut BossAttackSystem)>,
+) {
+    let Ok((boss_pos, mut weights_system)) = big_boss_query.get_single_mut() else {
         return;
     };
-    for (_proj, proj_pos) in friendly_projs_query.iter(){
-        weights_system.weight_array[BossAttackType::Blank as usize] += (7500. / boss_pos.translation.truncate().distance(proj_pos.translation.truncate())) as i16 + 1;
-        weights_system.weight_array[BossAttackType::Shield as usize] += (7500. / boss_pos.translation.truncate().distance(proj_pos.translation.truncate())) as i16 + 1;
+    for (_proj, proj_pos) in friendly_projs_query.iter() {
+        weights_system.weight_array[BossAttackType::Blank as usize] += (7500.
+            / boss_pos
+                .translation
+                .truncate()
+                .distance(proj_pos.translation.truncate()))
+            as i16
+            + 1;
+        weights_system.weight_array[BossAttackType::Shield as usize] += (7500.
+            / boss_pos
+                .translation
+                .truncate()
+                .distance(proj_pos.translation.truncate()))
+            as i16
+            + 1;
+    }
+}
+
+pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&mut SummonQueue>) {
+    for mut     summon_list in summoner_query.iter_mut() {
+        for i in 0..summon_list.queue.len() {
+            if summon_list.queue[i].entity.is_some() {
+                if !mob_query.contains(summon_list.queue[i].entity.unwrap())
+                    && summon_list.queue[i].mob_type != MobType::Mossling
+                {
+                    summon_list.shift(i);
+                }
+            }
+        }
     }
 }
 
@@ -565,7 +591,8 @@ pub fn recalculate_weights(
                         * 100;
 
                 base_weight += ((boss_hp.max - boss_hp.current) / 20) as i16
-                    - (summon_list.amount_of_mobs * (150 * ((phase == 2) as i32 + 50))) as i16;
+                    - (summon_list.amount_of_mobs as i32 * (150 * ((phase == 2) as i32 + 50)))
+                        as i16;
             }
         }
 
