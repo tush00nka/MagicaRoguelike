@@ -21,7 +21,8 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnEnter(MainMenuState::ViewSpells), spawn_view_spells)
             .add_systems(OnEnter(MainMenuState::ViewItems), spawn_view_items)
             .add_systems(OnEnter(MainMenuState::ViewMobs), spawn_view_mobs)
-            .add_systems(Update, (handle_buttons, escape_from_everywhere))
+            .add_systems(Update, (handle_buttons, escape_from_everywhere)
+                .run_if(in_state(GameState::MainMenu)))
             .add_systems(OnExit(GameState::MainMenu), despawn_ui);
     }
 }

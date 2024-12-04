@@ -18,3 +18,6 @@ pub use pause_ui::*;
 
 mod loading_screen_ui;
 pub use loading_screen_ui::*;
+
+mod debug_console;
+pub use debug_console::DebugConsolePlugin;

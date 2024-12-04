@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
-use crate::{mouse_position::MouseCoords, utils::get_random_index_with_weight};
+use crate::utils::get_random_index_with_weight;
 
 pub struct ParticlesPlguin;
 

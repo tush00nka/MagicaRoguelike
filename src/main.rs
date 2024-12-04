@@ -90,7 +90,7 @@ use boss_room::BossRoomPlugin;
 mod ui;
 use ui::{
     ElementsUIPlugin, ExperienceUIPlugin, HealthUIPlugin, ItemUIPlugin, LoadingScreenUIPlugin,
-    MainMenuPlugin, PauseUIPlguin,
+    MainMenuPlugin, PauseUIPlguin, DebugConsolePlugin
 };
 
 mod loot;
@@ -219,5 +219,6 @@ fn main() {
         .add_plugins(AudioPlugin)
         .add_plugins(SavePlugin)
         .add_plugins(LifetimePlugin)
+        .add_plugins(DebugConsolePlugin)
         .run();
 }
