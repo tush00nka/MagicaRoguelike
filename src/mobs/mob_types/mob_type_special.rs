@@ -91,7 +91,7 @@ impl PickupItemQueue {
         let len = self.item_queue.len();
 
         self.item_queue[len - 1] = None;
-        for i in (1..len - 1).rev() {
+        for i in (1..len).rev() { //?????
             self.item_queue[i] = self.item_queue[i - 1].clone();
         }
 

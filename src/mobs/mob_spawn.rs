@@ -296,7 +296,6 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
 fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>, mut portal_manger: ResMut<PortalManager>) {
     let chap_num = chapter_manager.get_current_chapter();
     portal_manger.set_mob(0);
-    println!("current chap_number: {}", chap_num);
 
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);

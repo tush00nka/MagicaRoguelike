@@ -59,12 +59,15 @@ impl SummonQueue{
     pub fn shift(&mut self, index: usize){
         let len = self.queue.len() - 1;
 
-        for i in index..len-1{
+        for i in index..len{
             self.queue[i] = self.queue[i + 1].clone();
         }
 
         self.amount_of_mobs -= 1;
-        self.queue[len - 1] = SummonUnit{entity: None, mob_type: MobType::Mossling};
+        self.queue[len] = SummonUnit{entity: None, mob_type: MobType::Mossling};
+        
+        self.clone().print();
+        println!("amount of mobs in queue: {}", self.amount_of_mobs.clone());
     }
     
     pub fn resize(&mut self, size: u8){

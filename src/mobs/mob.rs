@@ -974,7 +974,6 @@ fn mob_death(
     mut saves: ResMut<Assets<Save>>,
     save_handle: Res<SaveHandle>,
 ) {
-    println!("current mob_count: {}", portal_manager.mobs);
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
         

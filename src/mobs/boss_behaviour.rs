@@ -442,8 +442,8 @@ pub fn projectiles_check(
 }
 
 pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&mut SummonQueue>) {
-    for mut     summon_list in summoner_query.iter_mut() {
-        for i in 0..summon_list.queue.len() - 1 {
+    for mut summon_list in summoner_query.iter_mut() {
+        for i in 0..summon_list.queue.len(){
             if summon_list.queue[i].entity.is_some() {
                 if !mob_query.contains(summon_list.queue[i].entity.unwrap())
                     && summon_list.queue[i].mob_type != MobType::Mossling
