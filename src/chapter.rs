@@ -14,8 +14,8 @@ impl Plugin for ChapterPlugin {
 
 #[derive(Resource)]
 pub struct ChapterManager {
-    current_level: u8,
-    current_chapter: u8,
+    pub current_level: u8,
+    pub current_chapter: u8,
     max_chapter: u8,
 }
     

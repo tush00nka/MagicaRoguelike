@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use crate::{
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
-    mouse_position::MouseCoords,
     player::Player,
 };
 
@@ -14,7 +13,7 @@ impl Plugin for ExpTankPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<SpawnExpTankEvent>()
-            .add_systems(Update, (spawn_tank, debug_tank, break_tank));
+            .add_systems(Update, (spawn_tank, break_tank));
     }
 }
 
@@ -43,19 +42,6 @@ fn spawn_tank(
         .insert(Collider::circle(8.0))
         .insert(Sensor)
         .insert(ExpTank { orbs: ev.orbs });
-    }
-}
-
-fn debug_tank(
-    mouse_coords: Res<MouseCoords>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut ev_spawn_exp_tank: EventWriter<SpawnExpTankEvent>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyT) {
-        ev_spawn_exp_tank.send(SpawnExpTankEvent {
-            pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 2.),
-            orbs: 6,
-        });
     }
 }
 
