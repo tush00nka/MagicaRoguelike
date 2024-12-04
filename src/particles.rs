@@ -11,7 +11,7 @@ impl Plugin for ParticlesPlguin {
         app.add_event::<SpawnParticlesEvent>();
         app.add_event::<SpawnSingleParticleEvent>();
 
-        app.add_systems(Update, (spawn_particles, spawn_single, move_particles, debug));
+        app.add_systems(Update, (spawn_particles, spawn_single, move_particles));
     }
 }
 
@@ -142,24 +142,5 @@ fn move_particles(
         if transform.translation.truncate().distance(particle.target_position) <= 2. {
             commands.entity(entity).despawn();
         }
-    }
-}
-
-fn debug(
-    mut ev_spawn: EventWriter<SpawnParticlesEvent>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mouse_coords: Res<MouseCoords>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyC) {
-        ev_spawn.send(SpawnParticlesEvent {
-            pattern: ParticlePattern::Circle { 
-                    radius: 32.0,
-                },
-            position: mouse_coords.0.extend(5.0),
-            amount: 12,
-            color: Color::WHITE,
-            speed: 10.0,
-            rotate: false,
-        });
     }
 }
