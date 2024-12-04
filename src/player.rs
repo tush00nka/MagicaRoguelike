@@ -1,18 +1,18 @@
-use bevy::prelude::*;
 use avian2d::prelude::*;
+use bevy::prelude::*;
 
-use crate::friend::Friend;
 use crate::camera::YSort;
+use crate::elements::{ElementResistance, ElementType};
+use crate::friend::Friend;
+use crate::health::*;
 use crate::invincibility::Invincibility;
 use crate::item::ItemPickupAnimation;
 use crate::items::lizard_tail::DeathAvoidPopupEvent;
 use crate::level_completion::PortalManager;
-use crate::elements::{ElementResistance, ElementType};
-use crate::mobs::HitList;
+use crate::mobs::{HitList, MobType, SummonQueue, SummonUnit};
 use crate::mouse_position::MouseCoords;
 use crate::GameLayer;
 use crate::{gamemap::ROOM_SIZE, GameState};
-use crate::health::*;
 
 use crate::animation::AnimationConfig;
 
@@ -20,13 +20,20 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<PlayerDeathEvent>()
+        app.add_event::<PlayerDeathEvent>()
             .init_resource::<PlayerStats>()
             .add_systems(OnExit(GameState::MainMenu), spawn_player)
             .add_systems(OnExit(GameState::Hub), reset_player_position)
             .add_systems(OnExit(GameState::InGame), reset_player_position)
-            .add_systems(Update, (animate_player, flip_towards_mouse, debug_take_damage, player_death))
+            .add_systems(
+                Update,
+                (
+                    animate_player,
+                    flip_towards_mouse,
+                    debug_take_damage,
+                    player_death,
+                ),
+            )
             .add_systems(FixedUpdate, move_player);
     }
 }
@@ -49,7 +56,8 @@ pub struct PlayerStats {
 
 impl PlayerStats {
     pub fn get_bonused_damage(&self, element: ElementType) -> u32 {
-        return (self.damage as f32 * (1.0 + self.element_damage_percent[element as usize])).round() as u32
+        return (self.damage as f32 * (1.0 + self.element_damage_percent[element as usize])).round()
+            as u32
             + self.blind_rage_bonus;
     }
 }
@@ -65,7 +73,7 @@ impl Default for PlayerStats {
             health_regen: 0,
             spell_cast_hp_fee: 0,
             blind_rage_bonus: 0,
-            element_damage_percent: [0., 0., 0., 0., 0.]
+            element_damage_percent: [0., 0., 0., 0., 0.],
         }
     }
 }
@@ -87,32 +95,63 @@ fn spawn_player(
 
     let animation_config = AnimationConfig::new(0, 7, 24);
 
-    let player = commands.spawn((
-        SpriteBundle {
-            texture: texture.clone(),
-            transform: Transform::from_xyz((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0),
-            ..default()
-        },
-        TextureAtlas {
-            layout: texture_atlas_layout.clone(),
-            index: animation_config.first_sprite_index,
-        },
-        animation_config,
-        YSort(9.0),
-    )).id();
+    let player = commands
+        .spawn((
+            SpriteBundle {
+                texture: texture.clone(),
+                transform: Transform::from_xyz(
+                    (ROOM_SIZE * 16) as f32,
+                    (ROOM_SIZE * 16) as f32,
+                    1.0,
+                ),
+                ..default()
+            },
+            TextureAtlas {
+                layout: texture_atlas_layout.clone(),
+                index: animation_config.first_sprite_index,
+            },
+            animation_config,
+            YSort(9.0),
+        ))
+        .id();
 
-    commands.entity(player)
+    commands
+        .entity(player)
         .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Collider::circle(6.0))
-        .insert(CollisionLayers::new(GameLayer::Player, [GameLayer::Wall, GameLayer::Interactable, GameLayer::Projectile, GameLayer::Enemy]))
+        .insert(CollisionLayers::new(
+            GameLayer::Player,
+            [
+                GameLayer::Wall,
+                GameLayer::Interactable,
+                GameLayer::Projectile,
+                GameLayer::Enemy,
+            ],
+        ))
         .insert(LinearVelocity::ZERO)
         .insert(Player)
-        .insert(Health{max: 100, current: 100, extra_lives: 0, hit_queue: vec![]})
+        .insert(Health {
+            max: 100,
+            current: 100,
+            extra_lives: 0,
+            hit_queue: vec![],
+        })
         .insert(ElementResistance {
             elements: vec![],
             resistance_percent: vec![0, 0, 0, 0, 0],
+        })
+        .insert(SummonQueue {
+            queue: vec![
+                SummonUnit {
+                    entity: None,
+                    mob_type: MobType::Mossling
+                };
+                5
+            ],
+            amount_of_mobs: 0,
+            max_amount: 5,
         })
         .insert(Friend)
         .insert(HitList::default());
@@ -140,13 +179,12 @@ fn move_player(
             direction.y += 1.0;
         }
 
-        player_velocity.0 = direction.normalize_or_zero() * player_stats.speed * time.delta_seconds();
+        player_velocity.0 =
+            direction.normalize_or_zero() * player_stats.speed * time.delta_seconds();
     }
 }
 
-fn reset_player_position(
-    mut player_query: Query<&mut Transform, With<Player>>,
-) {
+fn reset_player_position(mut player_query: Query<&mut Transform, With<Player>>) {
     if let Ok(mut transform) = player_query.get_single_mut() {
         transform.translation = Vec3::new((ROOM_SIZE * 16) as f32, (ROOM_SIZE * 16) as f32, 1.0);
     }
@@ -154,7 +192,10 @@ fn reset_player_position(
 
 fn animate_player(
     time: Res<Time>,
-    mut query: Query<(&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity), (With<Player>, Without<ItemPickupAnimation>)>,
+    mut query: Query<
+        (&mut AnimationConfig, &mut TextureAtlas, &LinearVelocity),
+        (With<Player>, Without<ItemPickupAnimation>),
+    >,
 ) {
     for (mut config, mut atlas, linvel) in &mut query {
         if linvel.0 != Vec2::ZERO {
@@ -173,8 +214,7 @@ fn animate_player(
                     config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
                 }
             }
-        }
-        else {
+        } else {
             if atlas.index != config.first_sprite_index {
                 atlas.index = config.first_sprite_index;
             }
@@ -189,10 +229,15 @@ fn flip_towards_mouse(
 ) {
     if let Ok(mut player_transform) = player_query.get_single_mut() {
         if player_transform.translation.x - mouse_coords.0.x > 0. {
-            player_transform.scale.x = player_transform.scale.x.lerp(-1.0, 10.0 * time.delta_seconds());
-        }
-        else {
-            player_transform.scale.x = player_transform.scale.x.lerp(1.0, 10.0 * time.delta_seconds());
+            player_transform.scale.x = player_transform
+                .scale
+                .x
+                .lerp(-1.0, 10.0 * time.delta_seconds());
+        } else {
+            player_transform.scale.x = player_transform
+                .scale
+                .x
+                .lerp(1.0, 10.0 * time.delta_seconds());
         }
     }
 }
@@ -205,11 +250,11 @@ fn player_death(
     mut game_state: ResMut<NextState<GameState>>,
     mut portal_manager: ResMut<PortalManager>,
 ) {
-    for ev in ev_player_death.read(){
+    for ev in ev_player_death.read() {
         if let Ok(mut health) = player_query.get_single_mut() {
             if health.extra_lives > 0 {
                 health.extra_lives -= 1;
-                
+
                 let heal_amount = health.max;
                 health.heal(heal_amount);
 
@@ -232,12 +277,14 @@ fn debug_take_damage(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut health_query: Query<(&mut Health, Entity), (With<Player>, Without<Invincibility>)>,
     player_stats: Res<PlayerStats>,
-){
+) {
     if keyboard.just_pressed(KeyCode::KeyZ) {
-        if let Ok((mut health, ent)) = health_query.get_single_mut(){
+        if let Ok((mut health, ent)) = health_query.get_single_mut() {
             health.damage(25);
-            commands.entity(ent).insert(Invincibility::new(player_stats.invincibility_time));
-            
+            commands
+                .entity(ent)
+                .insert(Invincibility::new(player_stats.invincibility_time));
+
             if health.current <= 0 {
                 ev_death.send(PlayerDeathEvent(ent));
             }

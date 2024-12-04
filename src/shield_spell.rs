@@ -3,7 +3,7 @@ use std::time::Duration;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
-use crate::{friend::Friend, mobs::Enemy, player::Player, GameLayer};
+use crate::{friend::Friend, mobs::Enemy, GameLayer};
 
 pub struct ShieldSpellPlugin;
 

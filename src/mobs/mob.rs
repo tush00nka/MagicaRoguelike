@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use super::{BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue};
+use super::{
+    BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue,
+};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -27,7 +29,8 @@ use crate::{
     exp_tank::SpawnExpTankEvent,
     health_tank::SpawnHealthTankEvent,
     item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent},
-    pathfinding::Pathfinder, save::{Save, SaveHandle},
+    pathfinding::Pathfinder,
+    save::{Save, SaveHandle},
 };
 use crate::{
     blank_spell::SpawnBlankEvent,
@@ -113,6 +116,7 @@ pub struct MobDeathEvent {
     pub orbs: u32,
     pub pos: Vec3,
     pub dir: Vec3,
+    pub is_spawned: bool,
 }
 
 #[derive(Event)]
@@ -474,7 +478,10 @@ impl Default for MobBundle {
             mob_type: MobType::Mossling,
             mob: Mob::new(20),
             exp_loot: MobLoot { orbs: 3 },
-            item_loot: PickupItem { item_type: ItemPicked::Obstacle, item_name: None },
+            item_loot: PickupItem {
+                item_type: ItemPicked::Obstacle,
+                item_name: None,
+            },
             body_type: RigidBody::Dynamic,
             health: Health::new(100),
             hit_list: HitList::default(),
@@ -786,6 +793,27 @@ pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
         }
     }
 }
+pub fn mob_type_to_tag_convert(mob_type: MobType) -> String {
+    match mob_type {
+        MobType::Knight => "knight.png",
+        MobType::Mossling => "mossling.png",
+        MobType::FireMage => "fire_mage.png",
+        MobType::WaterMage => "water_mage.png",
+        MobType::JungleTurret => "plant.png",
+        MobType::Necromancer => "necromancer.png",
+        MobType::Koldun => "",
+        MobType::ClayGolem => "golem.png",
+        MobType::WaterElemental => "water_elemental.png",
+        MobType::FireElemental => "fire_elemental.png",
+        MobType::SkeletWarrior => "",
+        MobType::SkeletMage => "",
+        MobType::SkeletRanger => "",
+        MobType::EarthElemental => "earth_elemental.png",
+        MobType::AirElemental => "air_elemental.png",
+        MobType::Thief => "lurker.png",
+    }
+    .to_string()
+}
 pub fn damage_mobs(
     mut commands: Commands,
     mut ev_play_audio: EventWriter<PlayAudioEvent>,
@@ -889,32 +917,15 @@ pub fn damage_mobs(
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
 
-                let mob_unlock_tag = match mob_type {
-                    MobType::Knight => "knight.png",
-                    MobType::Mossling => "mossling.png",
-                    MobType::FireMage => "fire_mage.png",
-                    MobType::WaterMage => "water_mage.png",
-                    MobType::JungleTurret => "plant.png",
-                    MobType::Necromancer => "necromancer.png",
-                    MobType::Koldun => "",
-                    MobType::ClayGolem => "golem.png",
-                    MobType::WaterElemental => "water_elemental.png",
-                    MobType::FireElemental => "fire_elemental.png",
-                    MobType::SkeletWarrior => "",
-                    MobType::SkeletMage => "",
-                    MobType::SkeletRanger => "",
-                    MobType::EarthElemental => "earth_elemental.png",
-                    MobType::AirElemental => "air_elemental.png",
-                    MobType::Thief => "lurker.png",
-                }
-                .to_string();
+                let mob_unlock_tag = mob_type_to_tag_convert(mob_type.clone());
 
                 // события "поcле смерти"
                 ev_death.send(MobDeathEvent {
-                    mob_unlock_tag, 
+                    mob_unlock_tag,
                     orbs: loot.orbs,
                     pos: transform.translation,
                     dir: hit.direction,
+                    is_spawned: false,
                 });
 
                 // спавним труп на месте смерти моба
@@ -963,17 +974,21 @@ fn mob_death(
     mut saves: ResMut<Assets<Save>>,
     save_handle: Res<SaveHandle>,
 ) {
+    println!("current mob_count: {}", portal_manager.mobs);
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
-        portal_manager.pop_mob();
+        
+        if !ev.is_spawned {
+            portal_manager.pop_mob();
+        }
 
-        if portal_manager.no_mobs_on_level() {
+        if !ev.is_spawned && portal_manager.no_mobs_on_level() {
             ev_spawn_portal.send(PortalEvent {
                 pos: portal_manager.get_pos(),
             });
         }
 
-        let save= saves.get_mut(save_handle.0.id()).unwrap();
+        let save = saves.get_mut(save_handle.0.id()).unwrap();
         if !save.seen_mobs.contains(&ev.mob_unlock_tag) {
             save.seen_mobs.push((ev.mob_unlock_tag).to_string());
         }

@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 use crate::alert::SpawnAlertEvent;
 use crate::blank_spell::SpawnBlankEvent;
 use crate::health::Health;
-use crate::projectile::{Friendly, Projectile};
+use crate::projectile::{Friendly, Projectile, Trajectory};
 use crate::shield_spell::SpawnShieldEvent;
 use crate::{
     elements::ElementType,
@@ -203,7 +203,8 @@ fn perform_attack(
                     color: element.color(),
                     translation: position,
                     angle: direction.to_angle(),
-                    radius: 1.0,
+                    trajectory: Trajectory::Straight,
+                    collider_radius: 8.0,
                     speed: 75.0,
                     damage: 20,
                     element,
@@ -236,7 +237,8 @@ fn perform_attack(
                     color: element.color(),
                     translation: position,
                     angle: direction.to_angle(),
-                    radius: 1.0,
+                    trajectory: Trajectory::Straight,
+                    collider_radius: 8.0,
                     speed: 50.0,
                     damage: 20,
                     element,
@@ -259,13 +261,14 @@ fn perform_attack(
                 .truncate()
                 .to_angle()
                 - angle_disp;
-            for i in 0..amount_attack {
+            for _ in 0..amount_attack {
                 ev_spawn_projectile.send(SpawnProjectileEvent {
                     texture_path: "textures/fireball.png".to_string(),
                     color: element.color(),
                     translation: boss_position.translation,
                     angle: angle,
-                    radius: 1.0,
+                    trajectory: Trajectory::Straight,
+                    collider_radius: 8.0,
                     speed: 350.0,
                     damage: 20,
                     element,
@@ -440,12 +443,13 @@ pub fn projectiles_check(
 
 pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&mut SummonQueue>) {
     for mut     summon_list in summoner_query.iter_mut() {
-        for i in 0..summon_list.queue.len() {
+        for i in 0..summon_list.queue.len() - 1 {
             if summon_list.queue[i].entity.is_some() {
                 if !mob_query.contains(summon_list.queue[i].entity.unwrap())
                     && summon_list.queue[i].mob_type != MobType::Mossling
                 {
                     summon_list.shift(i);
+                    break;
                 }
             }
         }
@@ -648,7 +652,7 @@ pub fn cast_blank(
             range: 100.,
             position: pos.translation,
             speed: 10.,
-            side: false,
+            is_friendly: false,
         });
     }
 }

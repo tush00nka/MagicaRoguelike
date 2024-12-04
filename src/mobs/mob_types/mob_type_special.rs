@@ -264,6 +264,7 @@ pub fn thief_collide(
                         orbs: 0,
                         pos: transform.translation,
                         dir: Vec3::ZERO,
+                        is_spawned: false,
                     });
                     
                     break;

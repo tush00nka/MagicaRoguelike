@@ -13,7 +13,8 @@ use crate::{
     mouse_position::MouseCoords,
     player::{Player, PlayerDeathEvent, PlayerStats},
     projectile::SpawnProjectileEvent,
-    shield_spell::SpawnShieldEvent, ui::ItemInventory,
+    shield_spell::SpawnShieldEvent,
+    ui::ItemInventory,
     wand::Wand,
     GameState,
 };
@@ -28,9 +29,11 @@ impl Plugin for ElementsPlugin {
             .insert_resource(ElementBar::default())
             .insert_resource(SpellPool::default())
             .add_systems(OnExit(GameState::MainMenu), init_spells)
-            .add_systems(Update, (fill_bar, handle_recipe, cast_spell)
-                .run_if(in_state(GameState::InGame)
-                .or_else(in_state(GameState::Hub))));
+            .add_systems(
+                Update,
+                (fill_bar, handle_recipe, cast_spell)
+                    .run_if(in_state(GameState::InGame).or_else(in_state(GameState::Hub))),
+            );
     }
 }
 
@@ -114,12 +117,7 @@ impl SpellPool {
 impl Default for SpellPool {
     fn default() -> Self {
         Self {
-            unlocked: vec![
-                Spell::Fire,
-                Spell::Water,
-                Spell::Earth,
-                Spell::Air
-            ]
+            unlocked: vec![Spell::Fire, Spell::Water, Spell::Earth, Spell::Air],
         }
     }
 }
@@ -243,7 +241,7 @@ fn handle_recipe(
         (With<Player>, Without<ItemPickupAnimation>),
     >,
     mut ev_death: EventWriter<PlayerDeathEvent>,
-    
+
     mut element_bar: ResMut<ElementBar>,
     mut ev_bar_clear: EventWriter<ElementBarClear>,
 
@@ -297,55 +295,57 @@ fn handle_recipe(
                 && bar.fire <= 0
                 && bar.air <= 0
             {
-                ev_spawn_shield.send(SpawnShieldEvent {
-                    duration: bar.earth as f32 * 2.,
-                    owner: player_e,
-                    is_friendly: true,
-                    size: 32,
+                ev_cast_spell.send(CastSpellEvent {
+                    spell: Spell::Shield,
+                    element: element,
+                    origin: Vec3::ZERO,
+                    bar: bar,
+                    damage: 0,
                 });
 
                 return;
             }
 
             if spell_pool.is_unlocked(Spell::Blank)
-            && bar.water == 1
-            && bar.air > 1
-            && bar.fire <= 0
-            && bar.earth <= 0 {
+                && bar.water == 1
+                && bar.air > 1
+                && bar.fire <= 0
+                && bar.earth <= 0
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Blank,
                     element,
                     origin: transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
 
             if spell_pool.is_unlocked(Spell::BlackHole)
-            && bar.fire == bar.water
-            && bar.water == bar.earth
-            && bar.earth == bar.air 
-            && bar.air == bar.fire {
-
+                && bar.fire == bar.water
+                && bar.water == bar.earth
+                && bar.earth == bar.air
+                && bar.air == bar.fire
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::BlackHole,
                     element,
                     origin: transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
-            
+
             //spawn ClayGolem -- TODO: prolly delete? as we agreed golem to be a regualr enemy
             // as we already have earth elemental???
             // ---
-            // if bar.earth == 2 
-            // && bar.air <= 0 
-            // && bar.water >=2 
+            // if bar.earth == 2
+            // && bar.air <= 0
+            // && bar.water >=2
             // && bar.fire >=2 {
             //     ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::ClayGolem, pos: mouse_coords.0, is_friendly: true });
             //     return;
@@ -353,32 +353,34 @@ fn handle_recipe(
 
             //spawn FireElemental
             if spell_pool.is_unlocked(Spell::FireElemental)
-            && bar.earth >= 1 
-            && bar.air <= 0 
-            && bar.water >=1 
-            && bar.fire == 2 {                
+                && bar.earth >= 1
+                && bar.air <= 0
+                && bar.water >= 1
+                && bar.fire == 2
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::FireElemental,
                     element,
                     origin: Vec3::ZERO,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
-            
+
             if spell_pool.is_unlocked(Spell::WaterElemental)
-            && bar.earth >= 1 
-            && bar.air <= 0 
-            && bar.water == 2 
-            && bar.fire >= 1 {
+                && bar.earth >= 1
+                && bar.air <= 0
+                && bar.water == 2
+                && bar.fire >= 1
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::WaterElemental,
                     element,
                     origin: Vec3::ZERO,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
@@ -386,17 +388,17 @@ fn handle_recipe(
 
             //spawn EarthElemental
             if spell_pool.is_unlocked(Spell::EarthElemental)
-            && bar.earth == 2 
-            && bar.air <= 0 
-            && bar.water >=1 
-            && bar.fire >=1 {
-
+                && bar.earth == 2
+                && bar.air <= 0
+                && bar.water >= 1
+                && bar.fire >= 1
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::EarthElemental,
                     element,
                     origin: Vec3::ZERO,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
@@ -404,26 +406,28 @@ fn handle_recipe(
 
             //spawn AirElemental
             if spell_pool.is_unlocked(Spell::AirElemental)
-            && bar.earth <= 0 
-            && bar.air == 2 
-            && bar.water >= 1 
-            && bar.fire >=1 {
-
+                && bar.earth <= 0
+                && bar.air == 2
+                && bar.water >= 1
+                && bar.fire >= 1
+            {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::AirElemental,
                     element,
                     origin: Vec3::ZERO,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
 
             // sub-element, cannot directly cast
-            if bar.fire > 0 && bar.water > 0
-            && (bar.earth + bar.air) < (bar.fire + bar.water)
-            && spell_pool.is_unlocked(Spell::Steam) {
+            if bar.fire > 0
+                && bar.water > 0
+                && (bar.earth + bar.air) < (bar.fire + bar.water)
+                && spell_pool.is_unlocked(Spell::Steam)
+            {
                 element = ElementType::Steam;
 
                 ev_cast_spell.send(CastSpellEvent {
@@ -431,59 +435,55 @@ fn handle_recipe(
                     element,
                     origin: wand_transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
 
-            if bar.fire > bar.water && bar.earth <= 0 && bar.air <= 0 {   
+            if bar.fire > bar.water && bar.earth <= 0 && bar.air <= 0 {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Fire,
                     element,
                     origin: wand_transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
-        
-            if bar.water > bar.fire && bar.earth <= 0 && bar.air <= 0 {
 
+            if bar.water > bar.fire && bar.earth <= 0 && bar.air <= 0 {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Water,
                     element,
                     origin: wand_transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
-        
-            if bar.earth > 0
-            && bar.air <= 0 {    
 
+            if bar.earth > 0 && bar.air <= 0 {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Earth,
                     element,
                     origin: wand_transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
             }
-        
-            if bar.air > 0 {    
 
+            if bar.air > 0 {
                 ev_cast_spell.send(CastSpellEvent {
                     spell: Spell::Air,
                     element,
                     origin: wand_transform.translation,
                     damage: dmg,
-                    bar
+                    bar,
                 });
 
                 return;
@@ -514,7 +514,13 @@ fn cast_spell(
 
     mouse_coords: Res<MouseCoords>,
     inventory: Res<ItemInventory>,
+
+    player_query: Query<Entity, With<Player>>,
 ) {
+    let Ok(player_e) = player_query.get_single() else {
+        return;
+    };
+
     for ev in ev_cast_spell.read() {
         let bar = ev.bar;
 
@@ -530,8 +536,8 @@ fn cast_spell(
 
         match ev.spell {
             Spell::Fire => {
-                let offset = PI/10.0;
-                for _i in 0..bar.fire*3 {
+                let offset = PI / 10.0;
+                for _i in 0..bar.fire * 3 {
                     let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
                     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
@@ -539,9 +545,9 @@ fn cast_spell(
                     let counter_clockwise = rand::thread_rng().gen_bool(0.5);
 
                     let pivot = if counter_clockwise {
-                        origin.truncate() + Vec2::from_angle(angle + PI/2.) * radius
+                        origin.truncate() + Vec2::from_angle(angle + PI / 2.) * radius
                     } else {
-                        origin.truncate() - Vec2::from_angle(angle + PI/2.) * radius
+                        origin.truncate() - Vec2::from_angle(angle + PI / 2.) * radius
                     };
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
@@ -555,14 +561,17 @@ fn cast_spell(
                         damage: dmg / bar.fire as u32,
                         element,
                         is_friendly: true,
-                        trajectory: crate::projectile::Trajectory::Radial { radius, pivot, counter_clockwise },
+                        trajectory: crate::projectile::Trajectory::Radial {
+                            radius,
+                            pivot,
+                            counter_clockwise,
+                        },
                     });
                 }
-            },
+            }
             Spell::Water => {
-                let offset = PI/12.0;
-                for _i in 0..bar.water*3 {
-
+                let offset = PI / 12.0;
+                for _i in 0..bar.water * 3 {
                     let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
                     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
@@ -579,11 +588,10 @@ fn cast_spell(
                         trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
-            },
+            }
             Spell::Earth => {
-                let offset = (2.0*PI)/(bar.len()*3) as f32;
-                for i in 0..bar.len()*3 {
-
+                let offset = (2.0 * PI) / (bar.len() * 3) as f32;
+                for i in 0..bar.len() * 3 {
                     let angle = offset * i as f32;
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
@@ -599,7 +607,7 @@ fn cast_spell(
                         trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
-            },
+            }
             Spell::Air => {
                 let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
                 let angle = dir.y.atan2(dir.x);
@@ -616,10 +624,10 @@ fn cast_spell(
                     is_friendly: true,
                     trajectory: crate::projectile::Trajectory::Straight,
                 });
-            },
+            }
             Spell::Steam => {
-                let offset = PI/10.0;
-                for _i in 0..(bar.fire+bar.water)*3 {
+                let offset = PI / 10.0;
+                for _i in 0..(bar.fire + bar.water) * 3 {
                     let dir = (mouse_coords.0 - origin.truncate()).normalize_or_zero();
                     let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
@@ -630,26 +638,31 @@ fn cast_spell(
                         angle,
                         collider_radius: 6.,
                         speed: 150.0 + rng.gen_range(-25.0..25.0),
-                        damage: dmg / (bar.fire+bar.water) as u32,
+                        damage: dmg / (bar.fire + bar.water) as u32,
                         element,
                         is_friendly: true,
                         trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
-            },
+            }
             Spell::Shield => {
                 ev_spawn_shield.send(SpawnShieldEvent {
-                    duration: bar.earth as f32 * 2. + *inventory.amount_of_item(ItemType::Shield) as f32
+                    duration: bar.earth as f32 * 2.
+                        + *inventory.amount_of_item(ItemType::Shield) as f32,
+                    owner: player_e,
+                    is_friendly: true,
+                    size: 32,
                 });
-            },
+            }
             Spell::BlackHole => {
                 ev_spawn_black_hole.send(SpawnBlackHoleEvent {
                     spawn_pos: origin.with_z(0.9),
                     target_pos: mouse_coords.0.extend(0.9),
-                    lifetime: 1.5 * bar.len() as f32 + *inventory.amount_of_item(ItemType::ElementWheel) as f32, // seconds
+                    lifetime: 1.5 * bar.len() as f32
+                        + *inventory.amount_of_item(ItemType::ElementWheel) as f32, // seconds
                     strength: 1_000. * bar.len() as f32,
                 });
-            },
+            }
             Spell::Blank => {
                 ev_spawn_blank.send(SpawnBlankEvent {
                     range: bar.air as f32 * 2. + *inventory.amount_of_item(ItemType::Blank) as f32,
@@ -657,19 +670,47 @@ fn cast_spell(
                     speed: 10.0,
                     is_friendly: true,
                 });
-            },
+            }
             Spell::FireElemental => {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::FireElemental, pos: mouse_coords.0, is_friendly: true });
-            },
+                ev_spawn_friend.send(MobSpawnEvent {
+                    mob_type: MobType::FireElemental,
+                    pos: mouse_coords.0,
+                    is_friendly: true,
+                    owner: Some(player_e),
+                    loot: None,
+                    exp_amount: -1,
+                });
+            }
             Spell::WaterElemental => {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::WaterElemental, pos: mouse_coords.0, is_friendly: true });
-            },
+                ev_spawn_friend.send(MobSpawnEvent {
+                    mob_type: MobType::WaterElemental,
+                    pos: mouse_coords.0,
+                    is_friendly: true,
+                    owner: Some(player_e),
+                    loot: None,
+                    exp_amount: -1,
+                });
+            }
             Spell::EarthElemental => {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::EarthElemental, pos: mouse_coords.0, is_friendly: true });
-            },
+                ev_spawn_friend.send(MobSpawnEvent {
+                    mob_type: MobType::EarthElemental,
+                    pos: mouse_coords.0,
+                    is_friendly: true,
+                    owner: Some(player_e),
+                    loot: None,
+                    exp_amount: -1,
+                });
+            }
             Spell::AirElemental => {
-                ev_spawn_friend.send(MobSpawnEvent{mob_type: MobType::AirElemental, pos: mouse_coords.0, is_friendly: true });
-            },
+                ev_spawn_friend.send(MobSpawnEvent {
+                    mob_type: MobType::AirElemental,
+                    pos: mouse_coords.0,
+                    is_friendly: true,
+                    owner: Some(player_e),
+                    loot: None,
+                    exp_amount: -1,
+                });
+            }
         }
     }
 }

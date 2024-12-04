@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use seldom_state::prelude::*;
 
 use rand::{thread_rng, Rng};
-use serde::de;
 
 use crate::{
     animation::AnimationConfig,
@@ -294,8 +293,11 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
 }
 
 //actual code========================================================================================================
-fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>) {
+fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>, mut portal_manger: ResMut<PortalManager>) {
     let chap_num = chapter_manager.get_current_chapter();
+    portal_manger.set_mob(0);
+    println!("current chap_number: {}", chap_num);
+
     let mut rng = thread_rng();
     let mut mobs_amount: u16 = rng.gen_range(1 + 5 * chap_num as u16..5 + 5 * chap_num as u16);
     let mut chance: f32;
@@ -891,6 +893,7 @@ pub fn push_mob_to_queue(
     mut list_query: Query<&mut SummonQueue>,
     transform_query: Query<&Transform>,
     mut ev_mob_death: EventWriter<MobDeathEvent>,
+    mut mob_query: Query<&Mob>,
 ) {
     for ev in push_mob_ev.read() {
    /*println!(
@@ -920,6 +923,10 @@ pub fn push_mob_to_queue(
             summoner.clone().print();
 
             if despawn_entity.entity.is_some() {
+                if !mob_query.contains(despawn_entity.entity.unwrap()){
+                    summoner.pop();
+                    continue;
+                }
                 let transform = transform_query.get(despawn_entity.entity.unwrap()).unwrap();
 
                 commands
@@ -927,10 +934,14 @@ pub fn push_mob_to_queue(
                     .despawn_recursive();
                 println!("entity despawned");
 
+                let mob_unlock_tag = mob_type_to_tag_convert(ev.mob_type.clone());
+
                 ev_mob_death.send(MobDeathEvent {
                     orbs: 0,
                     pos: transform.translation,
                     dir: Vec3::ZERO,
+                    mob_unlock_tag: mob_unlock_tag,
+                    is_spawned: true,
                 });
             }
         }

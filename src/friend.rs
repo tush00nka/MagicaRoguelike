@@ -133,7 +133,7 @@ pub fn damage_friends(
             if health.current <= 0 {
             
                 if on_death_effect.contains(entity) {
-                    let mut vec_objects = vec![];
+                    let vec_objects ;
                     let on_death_eff;
 
                     match on_death_effect.get(entity).unwrap() {

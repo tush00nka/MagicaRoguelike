@@ -59,7 +59,7 @@ impl SummonQueue{
     pub fn shift(&mut self, index: usize){
         let len = self.queue.len() - 1;
 
-        for i in (index..len-1){
+        for i in index..len-1{
             self.queue[i] = self.queue[i + 1].clone();
         }
 
