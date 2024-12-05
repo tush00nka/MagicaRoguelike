@@ -10,7 +10,7 @@ use rand::{
 };
 use serde_json::{Map, Value};
 
-use crate::{camera::YSort, player::Player, save::{Save, SaveHandle}};
+use crate::{audio::PlayAudioEvent, camera::YSort, player::Player, save::{Save, SaveHandle}};
 
 pub struct ItemPlugin;
 
@@ -217,7 +217,9 @@ fn pick_up_item(
     handle: Res<ItemDatabaseHandle>,
 
     mut saves: ResMut<Assets<Save>>,
-    save_handle: Res<SaveHandle>
+    save_handle: Res<SaveHandle>,
+
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 ) {
     let Ok((player_e, colliding_e)) = player_query.get_single() else {
         return;
@@ -254,7 +256,9 @@ fn pick_up_item(
                     transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
                     ..default()
                 }).insert(HeldItem);
-            }); 
+            });
+          
+            ev_play_audio.send(PlayAudioEvent::from_file("item.ogg"));
 
             commands.entity(item_e).despawn();
 

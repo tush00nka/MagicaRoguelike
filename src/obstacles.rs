@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use seldom_state::trigger::Done;
 
 use crate::{
-    camera::YSort, health::{Health, Hit}, mobs::*, pathfinding::Pathfinder, projectile::{Friendly, Projectile}, stun::Stun, GameLayer, GameState
+    audio::PlayAudioEvent, camera::YSort, health::{Health, Hit}, mobs::*, pathfinding::Pathfinder, projectile::{Friendly, Projectile}, stun::Stun, GameLayer, GameState
 };
 
 pub struct ObstaclePlugin;
@@ -114,6 +114,7 @@ fn hit_obstacles<T: Component>(
 fn damage_obstacles<T: Component>(
     mut commands: Commands,
     mut obstacle_query: Query<(Entity, &mut Health), With<T>>,
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 ) {
     for (entity, mut health) in obstacle_query.iter_mut() {
         if !health.hit_queue.is_empty() {
@@ -126,6 +127,7 @@ fn damage_obstacles<T: Component>(
                 // деспавним сразу
                 commands.entity(entity).despawn_recursive();
                 //TODO: ADD LOOT SPAWN
+                ev_play_audio.send(PlayAudioEvent::from_file("box_break.ogg"));
             }
         }
     }
