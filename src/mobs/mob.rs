@@ -23,6 +23,7 @@ pub const STATIC_MOBS: &[MobType] = &[
 
 use crate::{
     animation::AnimationConfig,
+    audio::PlayAudioEvent,
     exp_tank::SpawnExpTankEvent,
     health_tank::SpawnHealthTankEvent,
     item::{ItemDatabase, ItemDatabaseHandle, ItemType, SpawnItemEvent},
@@ -785,6 +786,7 @@ pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
 }
 pub fn damage_mobs(
     mut commands: Commands,
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
     mut ev_death: EventWriter<MobDeathEvent>,
     mut ev_corpse: EventWriter<CorpseSpawnEvent>,
     mut mob_query: Query<
@@ -815,7 +817,8 @@ pub fn damage_mobs(
 
             // наносим урон
             health.damage(hit.damage);
-
+            ev_play_audio.send(PlayAudioEvent::from_file("mob_hit.ogg")); 
+            
             if on_hit_query.contains(entity) {
                 let mut vec_objects = vec![];
                 let on_hit_eff;

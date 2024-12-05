@@ -5,7 +5,16 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    camera::CameraShakeEvent, friend::Friend, elements::ElementResistance, health::{Health, Hit}, invincibility::Invincibility, mobs::Mob, player::{Player, PlayerDeathEvent, PlayerStats}, projectile::{Friendly, Hostile, Projectile}, GameState
+    audio::PlayAudioEvent,
+    camera::CameraShakeEvent, 
+    friend::Friend, 
+    elements::ElementResistance, 
+    health::{Health, Hit}, 
+    invincibility::Invincibility, 
+    mobs::Mob, 
+    player::{Player, PlayerDeathEvent, PlayerStats}, 
+    projectile::{Friendly, Hostile, Projectile}, 
+    GameState
 };
 
 pub struct HitPlayerPlugin;
@@ -79,6 +88,7 @@ fn damage_player(
     player_stats: Res<PlayerStats>,
 
     mut ev_shake_camera: EventWriter<CameraShakeEvent>,
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 ) {
     let Ok((player_e, mut health, resistance)) = player_query.get_single_mut() else {
         return;
@@ -105,7 +115,11 @@ fn damage_player(
         // шлём ивент смерти
         if health.current <= 0 {
             // события "поле смерти"
+            ev_play_audio.send(PlayAudioEvent::from_file("gameover.ogg"));  
             ev_death.send(PlayerDeathEvent (player_e));
+        }
+        else {
+            ev_play_audio.send(PlayAudioEvent::from_file("player_hit.ogg"));
         }
     }
 }

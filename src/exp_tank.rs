@@ -2,6 +2,7 @@ use avian2d::{math::PI, prelude::*};
 use bevy::prelude::*;
 
 use crate::{
+    audio::PlayAudioEvent,
     exp_orb::SpawnExpOrbEvent,
     experience::PlayerExperience,
     player::Player,
@@ -54,6 +55,7 @@ fn break_tank(
     tank_query: Query<(Entity, &Transform, &ExpTank)>,
 
     mut ev_spawn: EventWriter<SpawnExpOrbEvent>,
+    mut ev_play_audio: EventWriter<PlayAudioEvent>,
 ) {
     let Ok(colliding_e) = player_query.get_single() else {
         return;
@@ -78,6 +80,8 @@ fn break_tank(
                     destination,
                 });
             }
+
+            ev_play_audio.send(PlayAudioEvent::from_file("tank_break.ogg")); 
 
             commands.entity(tank_e).despawn();
         }
