@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use seldom_state::trigger::Done;
 
 use std::convert::TryFrom;
@@ -19,10 +19,8 @@ use crate::{
     projectile::SpawnProjectileEvent,
 };
 
-use super::SecondPhase;
-use super::SummonQueue;
-use super::ThirdPhase;
-use super::{FirstPhase, Mob};
+use super::{PhaseManager, SummonQueue};
+use super::Mob;
 use super::{MobSpawnEvent, MobType};
 
 pub struct BossBehavoiurPlugin;
@@ -95,13 +93,16 @@ pub enum BossAttackType {
     MegaStan,
 }
 
-fn switch_phase(mut commands: Commands, mut query: Query<(Entity, &Health), With<FirstPhase>>) {
-    let Ok((entity, health)) = query.get_single_mut() else {
+fn switch_phase(mut query: Query<(&Health, &mut PhaseManager)>) {
+    let Ok((health, mut phase_manager)) = query.get_single_mut() else {
         return;
     };
-    if health.current <= health.max / 2 {
-        commands.entity(entity).remove::<FirstPhase>();
-        commands.entity(entity).insert(SecondPhase);
+    if phase_manager.current_phase >= phase_manager.max_phase{
+        return;
+    }
+    if health.current <= (health.max as f32 * phase_manager.phase_change_hp_multiplier[phase_manager.current_phase as usize - 1]) as i32 {
+        
+        phase_manager.current_phase += 1;
     }
 }
 
@@ -142,15 +143,14 @@ fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
 fn perform_attack(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     boss_query: Query<
-        (Entity, &BossAttackSystem, &BossAttackFlagComp, &Transform),
+        (Entity, &BossAttackSystem, &BossAttackFlagComp, &Transform, &PhaseManager),
         Without<BeforeAttackDelayBoss>,
     >,
     player_query: Query<&Transform, With<Player>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
     mut commands: Commands,
-    phase3_query: Query<&ThirdPhase>,
 ) {
-    let Ok((boss_e, _boss_sys, attack_type, boss_position)) = boss_query.get_single() else {
+    let Ok((boss_e, _boss_sys, attack_type, boss_position, phase_manager)) = boss_query.get_single() else {
         return;
     };
 
@@ -346,7 +346,54 @@ fn perform_attack(
             println!("pattern");
         }
         BossAttackType::MegaStan => {
-            println!("megastan");
+
+            amount_attack += 5;
+            let offset = PI / 10.0;
+            let mut rng = rand::thread_rng();
+            for i in 0..amount_attack {
+
+                let counter_clockwise;
+
+                let origin_addition;
+                let origin_addictive = 30.;
+                if player_pos.translation.y - boss_position.translation.y >= 0.{
+//                    dir = WALL_DIRECTIONS[2];
+                    origin_addition = Vec2::new(60. + origin_addictive * i as f32, 60.+ origin_addictive * i as f32);
+                    counter_clockwise = false;
+                }else{
+//                    dir = WALL_DIRECTIONS[3];
+                    origin_addition = Vec2::new(-30. - origin_addictive * i as f32, -30. - origin_addictive * i as f32 );
+                    counter_clockwise = true;
+                }
+
+                let origin = boss_position.translation.truncate() + origin_addition;
+                let dir = (player_pos.translation.truncate() - player_pos.translation.truncate());
+
+
+                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset) * i as f32;
+
+                let radius =  origin_addictive * i as f32;
+
+                let pivot = if counter_clockwise {
+                    origin  
+                } else {
+                    origin 
+                };
+
+
+                ev_spawn_projectile.send(SpawnProjectileEvent {
+                    texture_path: "textures/small_fire.png".to_string(),
+                    color: element.color(),
+                    translation: boss_position.translation - Vec3::new(origin_addictive * i as f32,0.,0.),
+                    trajectory: Trajectory::Radial { radius: radius, pivot: pivot, counter_clockwise: counter_clockwise },
+                    angle: angle,
+                    collider_radius: 8.,
+                    speed: 0.2,
+                    damage: 15,
+                    element: element,
+                    is_friendly: false,
+                });
+            }
         }
         BossAttackType::SpawnFireElemental => {
             println!("fire");
@@ -443,7 +490,7 @@ pub fn projectiles_check(
 
 pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&mut SummonQueue>) {
     for mut summon_list in summoner_query.iter_mut() {
-        for i in 0..summon_list.queue.len(){
+        for i in 0..summon_list.queue.len() {
             if summon_list.queue[i].entity.is_some() {
                 if !mob_query.contains(summon_list.queue[i].entity.unwrap())
                     && summon_list.queue[i].mob_type != MobType::Mossling
@@ -458,17 +505,15 @@ pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&
 
 pub fn recalculate_weights(
     mut boss_query: Query<(
-        Entity,
         &mut BossAttackSystem,
         &mut SummonQueue,
         &Health,
         &Transform,
+        &PhaseManager,
     )>,
     player_query: Query<&Transform, With<Player>>,
-    phase_1: Query<&FirstPhase>,
-    phase_2: Query<&SecondPhase>,
 ) {
-    let Ok((boss_e, mut attack_system, summon_list, boss_hp, boss_transform)) =
+    let Ok((mut attack_system, summon_list, boss_hp, boss_transform, phase_manager)) =
         boss_query.get_single_mut()
     else {
         return;
@@ -477,15 +522,7 @@ pub fn recalculate_weights(
         println!("Player died! or smth");
         return;
     };
-    let phase: u8;
-
-    if phase_1.contains(boss_e) {
-        phase = 1;
-    } else if phase_2.contains(boss_e) {
-        phase = 2;
-    } else {
-        phase = 3;
-    }
+    let phase = phase_manager.current_phase;
 
     for i in 0..attack_system.weight_array.len() {
         let mut base_weight: i16 = i as i16 * 100;
@@ -546,6 +583,7 @@ pub fn recalculate_weights(
             }
             BossAttackType::MegaStan => {
                 base_weight += (phase <= 2) as i16 * i16::MIN;
+                base_weight += 10000;
                 attack_flag = BossAttackFlag::ProjectileSpells; //dd bonus when player far away from walls
             }
             BossAttackType::FastPierce => {

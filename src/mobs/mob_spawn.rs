@@ -689,8 +689,7 @@ pub fn spawn_mob(
             MobType::Koldun => {
                 commands
                     .entity(mob)
-                    .insert(BossBundle::koldun())
-                    .insert(FirstPhase);
+                    .insert(BossBundle::koldun());
             }
 
             MobType::EarthElemental => {
@@ -892,7 +891,7 @@ pub fn push_mob_to_queue(
     mut list_query: Query<&mut SummonQueue>,
     transform_query: Query<&Transform>,
     mut ev_mob_death: EventWriter<MobDeathEvent>,
-    mut mob_query: Query<&Mob>,
+    mob_query: Query<&Mob>,
 ) {
     for ev in push_mob_ev.read() {
    /*println!(
