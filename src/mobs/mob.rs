@@ -594,13 +594,14 @@ fn mob_attack<Who: Component + std::default::Default>(
                     color, //todo: change this fragment, that we could spawn different types of projectiles.
                     translation: mob_transform.translation,
                     angle,
-                    radius: 8.0,
+                    collider_radius: 8.0,
                     speed: 150.,
                     damage,
                     element: range
                         .element
                         .expect("Range attack without element, refactor this code."),
                     is_friendly: friendly,
+                    trajectory: crate::projectile::Trajectory::Straight,
                 });
 
                 continue;
@@ -1078,11 +1079,12 @@ pub fn on_death_effects_handler(
                         color,
                         translation: ev.pos,
                         angle: (PI * i as f32 * 2.) / ev.vec_of_objects.len() as f32,
-                        radius: 8.0,
+                        collider_radius: 8.0,
                         speed: 100.,
                         damage: 20,
                         element: ElementType::Steam,
                         is_friendly: ev.is_friendly,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             }

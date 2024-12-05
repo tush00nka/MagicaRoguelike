@@ -6,7 +6,7 @@ use avian2d::prelude::*;
 use rand::Rng;
 
 use crate::{
-    blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy, particles::SpawnParticlesEvent, shield_spell::Shield, GameLayer
+    blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy, particles::SpawnParticlesEvent, shield_spell::Shield, utils::Lifetime, GameLayer
 };
 
 pub struct ProjectilePlugin;
@@ -25,10 +25,22 @@ pub struct Hostile;
 #[derive(Component)]
 pub struct Friendly; //tags for projs
 
+#[derive(Copy, Clone)]
+pub enum Trajectory {
+    Straight,
+    Radial {
+        radius: f32,
+        pivot: Vec2,
+        counter_clockwise: bool
+    },
+} 
+
 #[allow(dead_code)]
 #[derive(Component)]
 pub struct Projectile {
+    pub trajectory: Trajectory,
     pub direction: Vec2,
+    pub angle: f32,
     pub speed: f32,
     pub damage: u32,
     pub element: ElementType,
@@ -48,7 +60,9 @@ impl Default for ProjectileBundle {
         Self {
             sprite: SpriteBundle::default(),
             projectile: Projectile {
+                trajectory: Trajectory::Straight,
                 direction: Vec2::X,
+                angle: 0.0,
                 speed: 100.0,
                 damage: 100,
                 element: ElementType::Air,
@@ -65,9 +79,10 @@ pub struct SpawnProjectileEvent {
     pub texture_path: String,
     pub color: Color,
     pub translation: Vec3,
+    pub trajectory: Trajectory,
     pub angle: f32,
-    pub radius: f32,
-    pub speed: f32,
+    pub collider_radius: f32,
+    pub speed: f32, 
     pub damage: u32,
     pub element: ElementType,
     pub is_friendly: bool,
@@ -79,6 +94,13 @@ fn spawn_projectile(
     mut ev_projectile_spawn: EventReader<SpawnProjectileEvent>,
 ) {
     for ev in ev_projectile_spawn.read() {
+        let angle = match ev.trajectory {
+            Trajectory::Straight => ev.angle,
+            Trajectory::Radial { pivot, .. } => {
+                (ev.translation.truncate() - pivot).normalize().to_angle()
+            }
+        };
+
         let mut projectile = commands.spawn(ProjectileBundle {
             sprite: SpriteBundle {
                 transform: Transform {
@@ -95,12 +117,14 @@ fn spawn_projectile(
             },
 
             projectile: Projectile {
+                trajectory: ev.trajectory,
                 direction: Vec2::from_angle(ev.angle),
+                angle,
                 speed: ev.speed,
                 damage: ev.damage,
                 element: ev.element,
             },
-            collider: Collider::circle(ev.radius),
+            collider: Collider::circle(ev.collider_radius),
             ..default()
         });
         
@@ -121,16 +145,32 @@ fn spawn_projectile(
                     ]
                 ));
         }
+
+        projectile.insert(Lifetime::new(5.0));
     }
 }
 
 fn move_projectile(
-    mut projectile_query: Query<(&mut Transform, &Projectile)>, 
+    mut projectile_query: Query<(&mut Transform, &mut Projectile)>, 
     time: Res<Time>,
 ) {
-    for (mut projectile_transform, projectile) in projectile_query.iter_mut() {
-        projectile_transform.translation += Vec3::new(projectile.direction.x, projectile.direction.y, 0.0) * projectile.speed * time.delta_seconds();
-        projectile_transform.rotation = Quat::from_rotation_z(projectile.direction.to_angle());
+    for (mut projectile_transform, mut projectile) in projectile_query.iter_mut() {
+        match projectile.trajectory {
+            Trajectory::Straight => {
+                projectile_transform.translation += Vec3::new(projectile.direction.x, projectile.direction.y, 0.0) * projectile.speed * time.delta_seconds();
+            },
+            Trajectory::Radial { radius, pivot, counter_clockwise } => {
+                if counter_clockwise { projectile.angle += time.delta_seconds() * projectile.speed; } 
+                else { projectile.angle -= time.delta_seconds() * projectile.speed; }
+
+                let next_pos = Vec2::new(pivot.x + radius*projectile.angle.cos(), pivot.y + radius*projectile.angle.sin());
+                
+                let diff = (next_pos - projectile_transform.translation.truncate()).normalize();
+                projectile_transform.rotation = Quat::from_rotation_z(diff.to_angle());
+
+                projectile_transform.translation = next_pos.extend(0.);
+            }
+        }
     }
 }
 

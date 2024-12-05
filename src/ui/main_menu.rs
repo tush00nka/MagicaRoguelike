@@ -21,7 +21,8 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnEnter(MainMenuState::ViewSpells), spawn_view_spells)
             .add_systems(OnEnter(MainMenuState::ViewItems), spawn_view_items)
             .add_systems(OnEnter(MainMenuState::ViewMobs), spawn_view_mobs)
-            .add_systems(Update, handle_buttons)
+            .add_systems(Update, (handle_buttons, escape_from_everywhere)
+                .run_if(in_state(GameState::MainMenu)))
             .add_systems(OnExit(GameState::MainMenu), despawn_ui);
     }
 }
@@ -847,6 +848,23 @@ fn spawn_view_mobs(
 
     commands.entity(content).push_children(&entries);
     commands.entity(canvas).push_children(&[content]);
+}
+
+fn escape_from_everywhere(
+    mut next_state: ResMut<NextState<MainMenuState>>,
+    current_state: Res<State<MainMenuState>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        match current_state.get() {
+            MainMenuState::Settings => next_state.set(MainMenuState::Main),
+            MainMenuState::AlmanachSelection => next_state.set(MainMenuState::Main),
+            MainMenuState::ViewSpells => next_state.set(MainMenuState::AlmanachSelection),
+            MainMenuState::ViewItems => next_state.set(MainMenuState::AlmanachSelection),
+            MainMenuState::ViewMobs => next_state.set(MainMenuState::AlmanachSelection),
+            _ => {}
+        }
+    }
 }
 
 pub fn handle_buttons(

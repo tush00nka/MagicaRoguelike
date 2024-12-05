@@ -40,7 +40,6 @@ fn hit_player(
 }
 //damage by projectiles
 fn proj_hit_player(
-    //todo: change that we could add resistance mechanic
     mut commands: Commands,
     mut projectile_query: Query<(Entity, &mut Projectile), With<Hostile>>,
     mut player_query: Query<(&CollidingEntities, &mut Health), (With<Player>, Without<Invincibility>)>,

@@ -90,7 +90,7 @@ use boss_room::BossRoomPlugin;
 mod ui;
 use ui::{
     ElementsUIPlugin, ExperienceUIPlugin, HealthUIPlugin, ItemUIPlugin, LoadingScreenUIPlugin,
-    MainMenuPlugin, PauseUIPlguin,
+    MainMenuPlugin, PauseUIPlguin, DebugConsolePlugin
 };
 
 mod loot;
@@ -121,6 +121,8 @@ use audio::AudioPlugin;
 
 mod save;
 use save::SavePlugin;
+
+use utils::LifetimePlugin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum GameState {
@@ -216,5 +218,7 @@ fn main() {
         .add_plugins(ParticlesPlguin)
         .add_plugins(AudioPlugin)
         .add_plugins(SavePlugin)
+        .add_plugins(LifetimePlugin)
+        .add_plugins(DebugConsolePlugin)
         .run();
 }

@@ -10,7 +10,7 @@ use rand::{
 };
 use serde_json::{Map, Value};
 
-use crate::{audio::PlayAudioEvent, camera::YSort, mouse_position::MouseCoords, player::Player, save::{Save, SaveHandle}};
+use crate::{audio::PlayAudioEvent, camera::YSort, player::Player, save::{Save, SaveHandle}};
 
 pub struct ItemPlugin;
 
@@ -23,7 +23,6 @@ impl Plugin for ItemPlugin {
             .add_systems(Startup, load_item_database)
             .add_systems(Startup, spawn_item_hint)
             .add_systems(Update, (
-                debug_spawn_random_item,
                 spawn_item,
                 pick_up_item,
                 item_wobble,
@@ -59,11 +58,9 @@ pub enum ItemType { // Keep enum variants in alphabetical order or it will break
     WispInAJar,
 }
 
-// я не знаю, что это за волшебный код,
-// но он делает именно то, что я хочу
-impl Distribution<ItemType> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
-        match rng.gen_range(0..=20) {
+impl ItemType {
+    pub fn from_index(index: u32) -> Self {
+        match index {
             0 => ItemType::Amulet,
             1 => ItemType::Bacon,
             2 => ItemType::Heart,
@@ -85,8 +82,16 @@ impl Distribution<ItemType> for Standard {
             18 => ItemType::Shield,
             19 => ItemType::Blank,
             20 => ItemType::Aquarius,
-            _ => ItemType::WispInAJar,
+            _ => ItemType::Amulet, 
         }
+    }
+}
+
+// я не знаю, что это за волшебный код,
+// но он делает именно то, что я хочу
+impl Distribution<ItemType> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
+        ItemType::from_index(rng.gen_range(0..=20))
     }
 }
 
@@ -197,40 +202,14 @@ fn spawn_item_hint(
     .insert(ItemHint);
 }
 
-fn debug_spawn_random_item(
-    mut ev_spawn_item: EventWriter<SpawnItemEvent>,
-    mouse_coords: Res<MouseCoords>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    item_database: Res<Assets<ItemDatabase>>,
-    handle: Res<ItemDatabaseHandle>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyI) {
-        let rand_item: ItemType = rand::random::<ItemType>();
-
-        // What the fuck did I just wrote here??
-        // Only God knows what this code does
-        let item_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["name"].as_str().unwrap().to_string();
-        let texture_name: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["texture_name"].as_str().unwrap().to_string();
-        let item_description: String = item_database.get(handle.0.id()).unwrap().items[rand_item as usize]["description"].as_str().unwrap().to_string();
-
-        let texture_path = format!("textures/items/{}", texture_name);
-
-        ev_spawn_item.send(SpawnItemEvent {
-            pos: Vec3::new(mouse_coords.0.x, mouse_coords.0.y, 1.),
-            item_type: rand_item,
-            texture_path,
-            item_name,
-            item_description
-        });
-    }
-}
-
 fn pick_up_item(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 
     item_query: Query<(Entity, &Item)>,
-    player_query: Query<(Entity, &CollidingEntities), (With<Player>, Without<ItemPickupAnimation>)>,
+    player_query: Query<(Entity, &CollidingEntities), With<Player>>,
+
+    held_query: Query<Entity, With<HeldItem>>,
 
     mut ev_item_picked_up: EventWriter<ItemPickedUpEvent>,
 
@@ -248,8 +227,12 @@ fn pick_up_item(
 
     let save = saves.get_mut(save_handle.0.id()).unwrap();
 
+    if !held_query.is_empty() {
+        return;
+    } 
+
     for (item_e, item) in item_query.iter() {
-        if colliding_e.contains(&item_e) {
+        if colliding_e.contains(&item_e) {            
             ev_item_picked_up.send(ItemPickedUpEvent {
                 item_type: item.item_type,
             });
@@ -264,20 +247,22 @@ fn pick_up_item(
             }
 
             commands.entity(player_e)
-                .insert(ItemPickupAnimation {
-                    timer: Timer::from_seconds(1.0, TimerMode::Once),
-                })
-                .with_children(|parent| {
-                    parent.spawn(SpriteBundle {
-                        texture: asset_server.load(texture_path),
-                        transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
-                        ..default()
-                    }).insert(HeldItem);
-                });
-
+            .insert(ItemPickupAnimation {
+                timer: Timer::from_seconds(1.0, TimerMode::Once),
+            })
+            .with_children(|parent| {
+                parent.spawn(SpriteBundle {
+                    texture: asset_server.load(texture_path),
+                    transform: Transform::from_translation(Vec3::new(0.0, 16.0, 1.0)),
+                    ..default()
+                }).insert(HeldItem);
+            });
+          
             ev_play_audio.send(PlayAudioEvent::from_file("item.ogg"));
 
             commands.entity(item_e).despawn();
+
+            break;
         }
     }
 }

@@ -92,11 +92,12 @@ fn perform_attack(
                         color: element.color(),
                         translation: position,
                         angle: direction.to_angle(),
-                        radius: 1.0,
+                        collider_radius: 1.0,
                         speed: 75.0,
                         damage: 20,
                         element,
                         is_friendly: false,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             },
@@ -122,11 +123,12 @@ fn perform_attack(
                         color: element.color(),
                         translation: position,
                         angle: direction.to_angle(),
-                        radius: 1.0,
+                        collider_radius: 1.0,
                         speed: 50.0,
                         damage: 20,
                         element,
                         is_friendly: false,
+                        trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
             }
