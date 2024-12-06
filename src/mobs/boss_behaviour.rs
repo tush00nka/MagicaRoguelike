@@ -9,6 +9,7 @@ use std::convert::TryFrom;
 
 use crate::alert::SpawnAlertEvent;
 use crate::blank_spell::SpawnBlankEvent;
+use crate::gamemap::Map;
 use crate::health::Health;
 use crate::projectile::{Friendly, Projectile, Trajectory};
 use crate::shield_spell::SpawnShieldEvent;
@@ -19,9 +20,9 @@ use crate::{
     projectile::SpawnProjectileEvent,
 };
 
-use super::{PhaseManager, SummonQueue};
-use super::Mob;
+use super::{Mob, SummonUnit};
 use super::{MobSpawnEvent, MobType};
+use super::{PhaseManager, SummonQueue};
 
 pub struct BossBehavoiurPlugin;
 
@@ -40,10 +41,19 @@ impl Plugin for BossBehavoiurPlugin {
                 tick_every_spell_cooldown,
                 switch_phase,
                 projectiles_check,
+                cast_out_of_order,
             ),
         );
     }
 }
+
+pub const STATIC_ANGLE_POINTS: &[(i32, i32)] = &[
+    (ROOM_SIZE / 2 - 6, ROOM_SIZE / 2 - 6),
+    (ROOM_SIZE / 2 + 6, ROOM_SIZE / 2 - 6),
+    (ROOM_SIZE / 2 - 6, ROOM_SIZE / 2 + 6),
+    (ROOM_SIZE / 2 + 6, ROOM_SIZE / 2 + 6),
+];
+
 #[derive(Component, Clone)]
 pub struct BossAttackFlagComp {
     pub attack_picked: BossAttackType,
@@ -69,6 +79,21 @@ const WALL_DIRECTIONS: [Vec2; 4] = [
     Vec2 { x: 0.0, y: -1.0 },
 ];
 
+#[derive(Component)]
+pub struct OutOfOrderAttackQueue {
+    queue: Vec<BossAttackType>,
+    timer: Timer,
+}
+
+impl Default for OutOfOrderAttackQueue {
+    fn default() -> Self {
+        Self {
+            queue: vec![],
+            timer: Timer::new(Duration::from_millis(1000), TimerMode::Repeating),
+        }
+    }
+}
+
 #[derive(PartialEq)]
 #[repr(u8)]
 pub enum BossAttackFlag {
@@ -93,19 +118,82 @@ pub enum BossAttackType {
     MegaStan,
 }
 
-fn switch_phase(mut query: Query<(&Health, &mut PhaseManager)>) {
-    let Ok((health, mut phase_manager)) = query.get_single_mut() else {
+fn switch_phase(
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &Health,
+        &mut PhaseManager,
+        &MobType,
+        &mut SummonQueue,
+    )>,
+) {
+    let Ok((boss_e, health, mut phase_manager, boss_type, mut summons)) = query.get_single_mut()
+    else {
         return;
     };
-    if phase_manager.current_phase >= phase_manager.max_phase{
+    if phase_manager.current_phase >= phase_manager.max_phase {
         return;
     }
-    if health.current <= (health.max as f32 * phase_manager.phase_change_hp_multiplier[phase_manager.current_phase as usize - 1]) as i32 {
-        
+    if health.current
+        <= (health.max as f32
+            * phase_manager.phase_change_hp_multiplier[phase_manager.current_phase as usize - 1])
+            as i32
+    {
+        if *boss_type == MobType::Koldun {
+            if phase_manager.current_phase == 1 {
+                summons.resize(6);
+                summons.queue.resize(
+                    6,
+                    SummonUnit {
+                        entity: None,
+                        mob_type: MobType::Mossling,
+                    },
+                );
+                summons.amount_of_mobs = 5;
+            }
+        }
+        commands.entity(boss_e).insert(OutOfOrderAttackQueue {
+            queue: vec![
+                BossAttackType::Blank,
+                BossAttackType::Blank,
+                BossAttackType::Blank,
+            ],
+            ..default()
+        });
         phase_manager.current_phase += 1;
     }
 }
-
+fn cast_out_of_order(
+    mut boss_query: Query<(Entity,&Transform, &mut OutOfOrderAttackQueue)>,
+    time: Res<Time>,
+    mut spawn_blank_ev: EventWriter<SpawnBlankEvent>,
+    mut commands: Commands,
+) {
+    for (boss_e,pos, mut attack_queue) in boss_query.iter_mut() {
+        if attack_queue.queue.len() == 0{
+            commands.entity(boss_e).remove::<OutOfOrderAttackQueue>();
+            return;
+        }
+        attack_queue.timer.tick(time.delta());
+        if attack_queue.timer.just_finished() {
+            match attack_queue.queue[attack_queue.queue.len()-1] {
+                BossAttackType::Blank => {
+                    spawn_blank_ev.send(SpawnBlankEvent {
+                        range: 100.,
+                        position: pos.translation,
+                        speed: 20.,
+                        is_friendly: false,
+                    });
+                }
+                _ => {
+                    println!("other")
+                }
+            };
+            attack_queue.queue.pop();
+        }
+    }
+}
 fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
     let direction = (boss_pos - player_pos).truncate();
     let mut vec_dirs = vec![[0, 0], [0, 1], [0, 2], [0, 3]]; //1st - right 2nd - left 3-up 4 - down
@@ -143,14 +231,23 @@ fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
 fn perform_attack(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     boss_query: Query<
-        (Entity, &BossAttackSystem, &BossAttackFlagComp, &Transform, &PhaseManager),
+        (
+            Entity,
+            &BossAttackSystem,
+            &BossAttackFlagComp,
+            &Transform,
+            &PhaseManager,
+        ),
         Without<BeforeAttackDelayBoss>,
     >,
+    mob_map: Res<Map>,
     player_query: Query<&Transform, With<Player>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
     mut commands: Commands,
 ) {
-    let Ok((boss_e, _boss_sys, attack_type, boss_position, phase_manager)) = boss_query.get_single() else {
+    let Ok((boss_e, _boss_sys, attack_type, boss_position, phase_manager)) =
+        boss_query.get_single()
+    else {
         return;
     };
 
@@ -247,7 +344,7 @@ fn perform_attack(
             }
         }
         BossAttackType::Blank => {
-            println!("how");
+            println!("blank");
         }
 
         BossAttackType::Shield => {
@@ -321,6 +418,22 @@ fn perform_attack(
         }
         BossAttackType::SpawnEarthElemental => {
             println!("earth");
+            amount_attack += 4;
+
+            for i in 0..amount_attack {
+                let destination_pos = Vec2::new(
+                    STATIC_ANGLE_POINTS[i].0 as f32 * 32.,
+                    STATIC_ANGLE_POINTS[i].1 as f32 * 32.,
+                );
+                ev_mob_spawn.send(MobSpawnEvent {
+                    mob_type: MobType::EarthElemental,
+                    pos: destination_pos,
+                    is_friendly: false,
+                    owner: Some(boss_e),
+                    loot: None,
+                    exp_amount: 0,
+                });
+            }
         }
         BossAttackType::SpawnWaterElemental => {
             println!("water");
@@ -346,49 +459,39 @@ fn perform_attack(
             println!("pattern");
         }
         BossAttackType::MegaStan => {
+            let counter_clockwise = rand::thread_rng().gen_bool(0.5);
 
-            amount_attack += 5;
+            amount_attack += 15;
             let offset = PI / 10.0;
             let mut rng = rand::thread_rng();
             for i in 0..amount_attack {
+                let dir = (player_pos.translation.x - boss_position.translation.truncate())
+                    .normalize_or_zero();
+                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
-                let counter_clockwise;
-
-                let origin_addition;
-                let origin_addictive = 30.;
-                if player_pos.translation.y - boss_position.translation.y >= 0.{
-//                    dir = WALL_DIRECTIONS[2];
-                    origin_addition = Vec2::new(60. + origin_addictive * i as f32, 60.+ origin_addictive * i as f32);
-                    counter_clockwise = false;
-                }else{
-//                    dir = WALL_DIRECTIONS[3];
-                    origin_addition = Vec2::new(-30. - origin_addictive * i as f32, -30. - origin_addictive * i as f32 );
-                    counter_clockwise = true;
-                }
-
-                let origin = boss_position.translation.truncate() + origin_addition;
-                let dir = (player_pos.translation.truncate() - player_pos.translation.truncate());
-
-
-                let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset) * i as f32;
-
-                let radius =  origin_addictive * i as f32;
-
+                let radius = 256.;
                 let pivot = if counter_clockwise {
-                    origin  
+                    boss_position.translation.truncate()
+                        + Vec2::new(10. * i as f32, 80.)
+                        + Vec2::from_angle(angle + PI / 2.) * radius
                 } else {
-                    origin 
+                    boss_position.translation.truncate()
+                        - Vec2::new(10. * i as f32, 80.)
+                        - Vec2::from_angle(angle + PI / 2.) * radius
                 };
-
 
                 ev_spawn_projectile.send(SpawnProjectileEvent {
                     texture_path: "textures/small_fire.png".to_string(),
                     color: element.color(),
-                    translation: boss_position.translation - Vec3::new(origin_addictive * i as f32,0.,0.),
-                    trajectory: Trajectory::Radial { radius: radius, pivot: pivot, counter_clockwise: counter_clockwise },
+                    translation: boss_position.translation,
+                    trajectory: Trajectory::Radial {
+                        radius: radius,
+                        pivot: pivot,
+                        counter_clockwise: counter_clockwise,
+                    },
                     angle: angle,
                     collider_radius: 8.,
-                    speed: 0.2,
+                    speed: 0.5,
                     damage: 15,
                     element: element,
                     is_friendly: false,
@@ -399,14 +502,14 @@ fn perform_attack(
             println!("fire");
             amount_attack += 4;
             let radius = 64.;
-            let mut angle = PI / 4.;
+            let mut angle: f32 = 0.;
 
             for _ in 0..amount_attack {
                 ev_mob_spawn.send(MobSpawnEvent {
                     mob_type: MobType::FireElemental,
                     pos: Vec2::new(
-                        player_pos.translation.x + radius / angle.cos(),
-                        player_pos.translation.y + radius * angle.tan(),
+                        player_pos.translation.x + radius * angle.cos(),
+                        player_pos.translation.y + radius * angle.sin(),
                     ),
                     is_friendly: false,
                     loot: None,
@@ -536,7 +639,14 @@ pub fn recalculate_weights(
 
         match BossAttackType::try_from(i).unwrap() {
             BossAttackType::SpawnEarthElemental => {
-                base_weight += (phase == 3) as i16 * i16::MIN;
+                base_weight += (phase == 3) as i16 * i16::MIN
+                    + 5000
+                        * (summon_list
+                            .queue
+                            .iter()
+                            .filter(|summon_unit| summon_unit.mob_type != MobType::Mossling)
+                            .count()
+                            == 0) as i16;
 
                 mob_spawn = MobType::EarthElemental;
                 attack_flag = BossAttackFlag::SpawnSpells;
@@ -583,7 +693,6 @@ pub fn recalculate_weights(
             }
             BossAttackType::MegaStan => {
                 base_weight += (phase <= 2) as i16 * i16::MIN;
-                base_weight += 10000;
                 attack_flag = BossAttackFlag::ProjectileSpells; //dd bonus when player far away from walls
             }
             BossAttackType::FastPierce => {
@@ -618,7 +727,7 @@ pub fn recalculate_weights(
             }
 
             BossAttackFlag::SpawnSpells => {
-                base_weight += (summon_list.queue.len()
+                base_weight += (summon_list.queue.len() + 5
                     - summon_list
                         .queue
                         .iter()
@@ -630,7 +739,7 @@ pub fn recalculate_weights(
                         .iter()
                         .filter(|x| x.mob_type == mob_spawn)
                         .count() as i16
-                        * 100;
+                        * 50;
 
                 base_weight += ((boss_hp.max - boss_hp.current) / 20) as i16
                     - (summon_list.amount_of_mobs as i32 * (150 * ((phase == 2) as i32 + 50)))
@@ -689,7 +798,7 @@ pub fn cast_blank(
         spawn_blank_ev.send(SpawnBlankEvent {
             range: 100.,
             position: pos.translation,
-            speed: 10.,
+            speed: 20.,
             is_friendly: false,
         });
     }

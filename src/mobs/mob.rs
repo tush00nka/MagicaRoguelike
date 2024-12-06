@@ -15,6 +15,7 @@ use {
     serde_json::{Map as JsonMap, Value},
     std::f32::consts::PI,
 };
+
 ///add mobs with kinematic body type
 pub const STATIC_MOBS: &[MobType] = &[
     MobType::JungleTurret,

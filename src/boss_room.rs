@@ -1,5 +1,5 @@
 use crate::{
-    camera::YSort, gamemap::{Floor, Wall, ROOM_SIZE, TILE_SIZE}, GameLayer, GameState
+    camera::YSort, gamemap::{Floor, Map, Tile, TileType, Wall, ROOM_SIZE, TILE_SIZE}, GameLayer, GameState
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -10,10 +10,10 @@ impl Plugin for BossRoomPlugin {
         app.add_systems(OnEnter(GameState::LoadingBoss), spawn_boss_room);
     }
 }
-
-pub fn spawn_boss_room(asset_server: Res<AssetServer>, mut commands: Commands) {
+pub fn spawn_boss_room(mut game_map: ResMut<Map>,asset_server: Res<AssetServer>, mut commands: Commands) {
     let lower = ROOM_SIZE / 2 - 8;
     let upper = ROOM_SIZE / 2 + 8;
+                    
     commands.insert_resource(ClearColor(Color::srgb(69. / 255., 35. / 255., 13. / 255.)));
 
     for x in lower..=upper {
@@ -48,6 +48,8 @@ pub fn spawn_boss_room(asset_server: Res<AssetServer>, mut commands: Commands) {
                     .insert(CollisionLayers::new(GameLayer::Wall, [GameLayer::Enemy, GameLayer::Player, GameLayer::Projectile]));
                     
             } else {
+                game_map.map.insert((x as u16, y as u16), Tile::new(TileType::Floor, 0));
+                
                 let floor = commands.spawn(SpriteBundle {
                         texture: asset_server.load("textures/t_floor_hub.png"),
                         transform: Transform::from_xyz(

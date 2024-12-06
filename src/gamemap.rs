@@ -47,7 +47,7 @@ pub struct Tile{
 }
 
 impl Tile{
-    fn new(tiletype: TileType, mob_count: i16) -> Self {Tile{tiletype, mob_count}}
+    pub fn new(tiletype: TileType, mob_count: i16) -> Self {Tile{tiletype, mob_count}}
 }
 
 #[derive(Resource)]

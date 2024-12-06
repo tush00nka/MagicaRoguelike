@@ -112,7 +112,7 @@ pub fn air_elemental_movement<Side: Component>(
         if air_transform
             .translation
             .distance(target_transform.translation)
-            < 16.
+            < 28.
         //переделать под коллизию, убрать все это дерьмо
         {
             orbital.parent = Some(Box::new(target_e));

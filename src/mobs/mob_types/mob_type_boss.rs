@@ -144,7 +144,7 @@ impl BossBundle {
                 //4 tiers of attacks
                 weight_array: vec![0; 12], //amount of attacks
                 cooldown_array: vec![
-                    Timer::new(Duration::from_millis(4050), TimerMode::Repeating);
+                    Timer::new(Duration::from_millis(6050), TimerMode::Repeating);
                     12
                 ],
                 cooldown_between_attacks: Timer::new(
@@ -171,7 +171,7 @@ impl BossBundle {
                 max_amount: 20,
             },
             phase_manager: PhaseManager {
-                current_phase: 3,
+                current_phase: 1,
                 max_phase: 3,
                 phase_change_hp_multiplier: vec![0.5, 0.2],
             },
