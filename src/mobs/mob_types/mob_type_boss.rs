@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use crate::{
     elements::{ElementResistance, ElementType},
     health::Health,
-    mobs::{mob::*, BossAttackSystem},
+    mobs::{mob::*, BossAttackSystem, BossAttackType},
     pathfinding::Pathfinder,
     Bundle, Timer,
 };
@@ -138,15 +138,19 @@ impl MobBundle {
 
 impl BossBundle {
     pub fn koldun() -> Self {
+        let mut cooldowns = vec![Timer::new(Duration::from_millis(4050), TimerMode::Repeating); 12];
+        
+        cooldowns[BossAttackType::MegaStan as usize] = Timer::new(Duration::from_millis(7500), TimerMode::Repeating);
+        cooldowns[BossAttackType::SpawnClayGolem as usize] = Timer::new(Duration::from_millis(6100), TimerMode::Repeating);
+        cooldowns[BossAttackType::SpawnAirElemental as usize] = Timer::new(Duration::from_millis(6100), TimerMode::Repeating);
+        cooldowns[BossAttackType::ProjectilePattern as usize] = Timer::new(Duration::from_millis(6150), TimerMode::Repeating);
+        
         Self {
             mob_bundle: MobBundle::koldun(),
             boss_attacks: BossAttackSystem {
                 //4 tiers of attacks
                 weight_array: vec![0; 12], //amount of attacks
-                cooldown_array: vec![
-                    Timer::new(Duration::from_millis(6050), TimerMode::Repeating);
-                    12
-                ],
+                cooldown_array: cooldowns,
                 cooldown_between_attacks: Timer::new(
                     Duration::from_millis(3000),
                     TimerMode::Repeating,
@@ -171,7 +175,7 @@ impl BossBundle {
                 max_amount: 20,
             },
             phase_manager: PhaseManager {
-                current_phase: 1,
+                current_phase: 3,
                 max_phase: 3,
                 phase_change_hp_multiplier: vec![0.5, 0.2],
             },

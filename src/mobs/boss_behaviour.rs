@@ -165,19 +165,19 @@ fn switch_phase(
     }
 }
 fn cast_out_of_order(
-    mut boss_query: Query<(Entity,&Transform, &mut OutOfOrderAttackQueue)>,
+    mut boss_query: Query<(Entity, &Transform, &mut OutOfOrderAttackQueue)>,
     time: Res<Time>,
     mut spawn_blank_ev: EventWriter<SpawnBlankEvent>,
     mut commands: Commands,
 ) {
-    for (boss_e,pos, mut attack_queue) in boss_query.iter_mut() {
-        if attack_queue.queue.len() == 0{
+    for (boss_e, pos, mut attack_queue) in boss_query.iter_mut() {
+        if attack_queue.queue.len() == 0 {
             commands.entity(boss_e).remove::<OutOfOrderAttackQueue>();
             return;
         }
         attack_queue.timer.tick(time.delta());
         if attack_queue.timer.just_finished() {
-            match attack_queue.queue[attack_queue.queue.len()-1] {
+            match attack_queue.queue[attack_queue.queue.len() - 1] {
                 BossAttackType::Blank => {
                     spawn_blank_ev.send(SpawnBlankEvent {
                         range: 100.,
@@ -228,6 +228,32 @@ fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
     return WALL_DIRECTIONS[vec_dirs[0][1]];
 }
 
+fn get_wall_pos(direction: Vec2, i: i32) -> Vec3 {
+    match direction {
+        Vec2::NEG_Y => Vec3::new(
+            i as f32 * TILE_SIZE,
+            (ROOM_SIZE / 2 + 7) as f32 * TILE_SIZE,
+            1.0,
+        ),
+        Vec2::Y => Vec3::new(
+            i as f32 * TILE_SIZE,
+            (ROOM_SIZE / 2 - 7) as f32 * TILE_SIZE,
+            1.0,
+        ),
+        Vec2::NEG_X => Vec3::new(
+            (ROOM_SIZE / 2 + 7) as f32 * TILE_SIZE,
+            i as f32 * TILE_SIZE,
+            1.0,
+        ),
+        Vec2::X => Vec3::new(
+            (ROOM_SIZE / 2 - 7) as f32 * TILE_SIZE,
+            i as f32 * TILE_SIZE,
+            1.0,
+        ),
+        _ => Vec3::ZERO,
+    }
+}
+
 fn perform_attack(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     boss_query: Query<
@@ -240,7 +266,6 @@ fn perform_attack(
         ),
         Without<BeforeAttackDelayBoss>,
     >,
-    mob_map: Res<Map>,
     player_query: Query<&Transform, With<Player>>,
     mut ev_mob_spawn: EventWriter<MobSpawnEvent>,
     mut commands: Commands,
@@ -265,35 +290,25 @@ fn perform_attack(
             let to_skip = rand::thread_rng().gen_range((ROOM_SIZE / 2 - 7)..(ROOM_SIZE / 2 + 8));
 
             let direction = pick_direction(player_pos.translation, boss_position.translation);
+            let mut second_direction =
+                pick_direction(player_pos.translation, boss_position.translation);
+
+            while second_direction == direction {
+                second_direction =
+                    pick_direction(player_pos.translation, boss_position.translation);
+            }
+
+            let second_to_skip =
+                rand::thread_rng().gen_range((ROOM_SIZE / 2 - 7)..(ROOM_SIZE / 2 + 8));
 
             for i in (ROOM_SIZE / 2 - 7)..(ROOM_SIZE / 2 + 8) {
-                if i == to_skip {
+                if i == to_skip
+                    || (phase_manager.current_phase == 3 && (i == to_skip - 1 || i == to_skip + 1))
+                {
                     continue;
                 }
 
-                let position = match direction {
-                    Vec2::NEG_Y => Vec3::new(
-                        i as f32 * TILE_SIZE,
-                        (ROOM_SIZE / 2 + 7) as f32 * TILE_SIZE,
-                        1.0,
-                    ),
-                    Vec2::Y => Vec3::new(
-                        i as f32 * TILE_SIZE,
-                        (ROOM_SIZE / 2 - 7) as f32 * TILE_SIZE,
-                        1.0,
-                    ),
-                    Vec2::NEG_X => Vec3::new(
-                        (ROOM_SIZE / 2 + 7) as f32 * TILE_SIZE,
-                        i as f32 * TILE_SIZE,
-                        1.0,
-                    ),
-                    Vec2::X => Vec3::new(
-                        (ROOM_SIZE / 2 - 7) as f32 * TILE_SIZE,
-                        i as f32 * TILE_SIZE,
-                        1.0,
-                    ),
-                    _ => Vec3::ZERO,
-                };
+                let position = get_wall_pos(direction, i);
 
                 ev_spawn_projectile.send(SpawnProjectileEvent {
                     texture_path: "textures/earthquake.png".to_string(),
@@ -307,40 +322,84 @@ fn perform_attack(
                     element,
                     is_friendly: false,
                 });
+
+                if phase_manager.current_phase == 3 {
+                    if i == second_to_skip {
+                        continue;
+                    }
+
+                    let second_position = get_wall_pos(second_direction, i);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/earthquake.png".to_string(),
+                        color: element.color(),
+                        translation: second_position,
+                        angle: second_direction.to_angle(),
+                        trajectory: Trajectory::Straight,
+                        collider_radius: 8.0,
+                        speed: 75.0,
+                        damage: 20,
+                        element,
+                        is_friendly: false,
+                    });
+                }
             }
         }
 
         BossAttackType::Radial => {
             println!("radial");
             let amount_attack = rand::thread_rng().gen_range(8..16);
-            let radius = rand::thread_rng().gen_range(500..800);
 
+            let radius = rand::thread_rng().gen_range(500..800);
+            let second_radius = rand::thread_rng().gen_range(radius + 500..radius + 800);
             let offset = 2.0 * PI / (amount_attack as f32);
 
-            let to_skip = rand::thread_rng().gen_range(0..amount_attack);
+            let amount_skip1 = rand::thread_rng().gen_range(3..5);
+            let amount_skip2 = rand::thread_rng().gen_range(1..3);
+
+            let to_skip = vec![rand::thread_rng().gen_range(0..amount_attack); amount_skip1];
+            let second_to_skip = vec![rand::thread_rng().gen_range(0..amount_attack); amount_skip2];
 
             for i in 0..amount_attack {
-                if i == to_skip {
-                    continue;
+                if !to_skip.contains(&i) {
+                    let direction = -Vec2::from_angle(i as f32 * offset);
+                    let position = (player_pos.translation.truncate()
+                        - direction * (radius as f32) / 10.)
+                        .extend(1.0);
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/fireball.png".to_string(),
+                        color: element.color(),
+                        translation: position,
+                        angle: direction.to_angle(),
+                        trajectory: Trajectory::Straight,
+                        collider_radius: 8.0,
+                        speed: 42.5,
+                        damage: 20,
+                        element,
+                        is_friendly: false,
+                    });
                 }
 
-                let direction = -Vec2::from_angle(i as f32 * offset);
-                let position = (player_pos.translation.truncate()
-                    - direction * (radius as f32) / 10.)
-                    .extend(1.0);
+                if phase_manager.current_phase == 3 && !second_to_skip.contains(&i) {
+                    let direction = -Vec2::from_angle(i as f32 * offset);
+                    let second_position = (player_pos.translation.truncate()
+                        - direction * (second_radius as f32) / 10.)
+                        .extend(1.0);
 
-                ev_spawn_projectile.send(SpawnProjectileEvent {
-                    texture_path: "textures/fireball.png".to_string(),
-                    color: element.color(),
-                    translation: position,
-                    angle: direction.to_angle(),
-                    trajectory: Trajectory::Straight,
-                    collider_radius: 8.0,
-                    speed: 50.0,
-                    damage: 20,
-                    element,
-                    is_friendly: false,
-                });
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/fireball.png".to_string(),
+                        color: element.color(),
+                        translation: second_position,
+                        angle: direction.to_angle(),
+                        trajectory: Trajectory::Straight,
+                        collider_radius: 8.0,
+                        speed: 35.0,
+                        damage: 30,
+                        element,
+                        is_friendly: false,
+                    });
+                }
             }
         }
         BossAttackType::Blank => {
@@ -353,11 +412,14 @@ fn perform_attack(
         BossAttackType::FastPierce => {
             println!("fast pierce");
             amount_attack += 2;
+            if phase_manager.current_phase == 3 {
+                amount_attack += 3;
+            }
             let angle_disp = PI / (8 + amount_attack) as f32;
             let mut angle = (player_pos.translation - boss_position.translation)
                 .truncate()
                 .to_angle()
-                - angle_disp;
+                - angle_disp * amount_attack as f32 / 2.; //???????
             for _ in 0..amount_attack {
                 ev_spawn_projectile.send(SpawnProjectileEvent {
                     texture_path: "textures/fireball.png".to_string(),
@@ -371,7 +433,7 @@ fn perform_attack(
                     element,
                     is_friendly: false,
                 });
-                angle += angle_disp;
+                angle += angle_disp / 2.; //???????
             }
         }
 
@@ -456,7 +518,34 @@ fn perform_attack(
             }
         }
         BossAttackType::ProjectilePattern => {
-            println!("pattern");
+            amount_attack = rand::thread_rng().gen_range(6..12);
+
+            let radius = rand::thread_rng().gen_range(24..48) as f32;
+            let angle = PI / 6.;
+
+            for j in 0..7 {
+                let offset = (2.0 * PI) / (amount_attack + j) as f32;
+                let position = boss_position.translation.truncate() + Vec2::from_angle(angle * (j) as f32) * radius;
+            
+                for i in 0..(amount_attack + j) {
+            
+                    let angle = offset * i as f32;
+
+                    ev_spawn_projectile.send(SpawnProjectileEvent {
+                        texture_path: "textures/earthquake.png".to_string(),
+                        color: element.color(),
+                        translation: Vec3::new(position.x, position.y, 0.),
+                        angle,
+                        collider_radius: 12.,
+                        speed: 100.0,
+                        damage: 20,
+                        element,
+                        is_friendly: false,
+                        trajectory: crate::projectile::Trajectory::Straight,
+                    });
+                }
+
+            }
         }
         BossAttackType::MegaStan => {
             let counter_clockwise = rand::thread_rng().gen_bool(0.5);
@@ -701,7 +790,7 @@ pub fn recalculate_weights(
             }
 
             BossAttackType::ProjectilePattern => {
-                base_weight += (phase != 3) as i16 * i16::MIN; //add bonus when player far away from walls
+                base_weight += (phase != 3) as i16 * i16::MIN + 5000; //add bonus when player far away from walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
         }
@@ -902,3 +991,7 @@ pub fn pick_attack_to_perform_koldun(
     return Some(Some(BossAttackType::try_from(pick_1 as usize).unwrap()));
     //pick with random attack including weights, like idk, use coeff or smth
 }
+
+fn boss_teleport() {}
+
+fn boss_running() {}
