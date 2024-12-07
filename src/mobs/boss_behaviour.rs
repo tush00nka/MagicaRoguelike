@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use avian2d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 use seldom_state::trigger::Done;
@@ -9,8 +10,9 @@ use std::convert::TryFrom;
 
 use crate::alert::SpawnAlertEvent;
 use crate::blank_spell::SpawnBlankEvent;
-use crate::gamemap::Map;
+use crate::gamemap::Wall;
 use crate::health::Health;
+use crate::level_completion::PortalManager;
 use crate::projectile::{Friendly, Projectile, Trajectory};
 use crate::shield_spell::SpawnShieldEvent;
 use crate::{
@@ -20,7 +22,7 @@ use crate::{
     projectile::SpawnProjectileEvent,
 };
 
-use super::{Mob, SummonUnit};
+use super::{BossMovement, Enemy, Mob, NoSummons, SummonUnit, Teleport};
 use super::{MobSpawnEvent, MobType};
 use super::{PhaseManager, SummonQueue};
 
@@ -35,6 +37,8 @@ impl Plugin for BossBehavoiurPlugin {
                 tick_cooldown_boss,
                 recalculate_weights,
                 cast_shield,
+                boss_teleport,
+                boss_running,
                 cast_blank,
                 warn_player_abt_attack,
                 perform_attack,
@@ -43,7 +47,8 @@ impl Plugin for BossBehavoiurPlugin {
                 projectiles_check,
                 cast_out_of_order,
             ),
-        );
+        )
+        .add_systems(Update, mob_count.after(switch_phase));
     }
 }
 
@@ -120,19 +125,26 @@ pub enum BossAttackType {
 
 fn switch_phase(
     mut commands: Commands,
-    mut query: Query<(
-        Entity,
-        &Health,
-        &mut PhaseManager,
-        &MobType,
-        &mut SummonQueue,
-    )>,
+    mut query: Query<
+        (
+            Entity,
+            &Health,
+            &mut PhaseManager,
+            &MobType,
+            &mut SummonQueue,
+        ),
+        Without<NoSummons>,
+    >,
+    mob_query: Query<&Mob, With<Enemy>>,
+    mut portal_manager: ResMut<PortalManager>,
 ) {
     let Ok((boss_e, health, mut phase_manager, boss_type, mut summons)) = query.get_single_mut()
     else {
         return;
     };
     if phase_manager.current_phase >= phase_manager.max_phase {
+        commands.entity(boss_e).insert(NoSummons);
+        portal_manager.mobs = mob_query.iter().count() as u32;
         return;
     }
     if health.current
@@ -150,7 +162,7 @@ fn switch_phase(
                         mob_type: MobType::Mossling,
                     },
                 );
-                summons.amount_of_mobs = 5;
+                summons.amount_of_mobs = 6;
             }
         }
         commands.entity(boss_e).insert(OutOfOrderAttackQueue {
@@ -359,6 +371,14 @@ fn perform_attack(
 
             let to_skip = vec![rand::thread_rng().gen_range(0..amount_attack); amount_skip1];
             let second_to_skip = vec![rand::thread_rng().gen_range(0..amount_attack); amount_skip2];
+            let collider_radius;
+            let texture = if phase_manager.current_phase == 3 {
+                collider_radius = 4.;
+                "textures/small_fre.png".to_string()
+            } else {
+                collider_radius = 8.;
+                "textures/fireball.png".to_string()
+            };
 
             for i in 0..amount_attack {
                 if !to_skip.contains(&i) {
@@ -368,12 +388,12 @@ fn perform_attack(
                         .extend(1.0);
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
-                        texture_path: "textures/fireball.png".to_string(),
+                        texture_path: texture.clone(),
                         color: element.color(),
                         translation: position,
                         angle: direction.to_angle(),
                         trajectory: Trajectory::Straight,
-                        collider_radius: 8.0,
+                        collider_radius: collider_radius,
                         speed: 42.5,
                         damage: 20,
                         element,
@@ -402,13 +422,6 @@ fn perform_attack(
                 }
             }
         }
-        BossAttackType::Blank => {
-            println!("blank");
-        }
-
-        BossAttackType::Shield => {
-            println!("shield");
-        }
         BossAttackType::FastPierce => {
             println!("fast pierce");
             amount_attack += 2;
@@ -433,7 +446,7 @@ fn perform_attack(
                     element,
                     is_friendly: false,
                 });
-                angle += angle_disp / 2.; //???????
+                angle += angle_disp; //???????
             }
         }
 
@@ -525,10 +538,10 @@ fn perform_attack(
 
             for j in 0..7 {
                 let offset = (2.0 * PI) / (amount_attack + j) as f32;
-                let position = boss_position.translation.truncate() + Vec2::from_angle(angle * (j) as f32) * radius;
-            
+                let position = boss_position.translation.truncate()
+                    + Vec2::from_angle(angle * (j) as f32) * radius;
+
                 for i in 0..(amount_attack + j) {
-            
                     let angle = offset * i as f32;
 
                     ev_spawn_projectile.send(SpawnProjectileEvent {
@@ -544,29 +557,32 @@ fn perform_attack(
                         trajectory: crate::projectile::Trajectory::Straight,
                     });
                 }
-
             }
         }
         BossAttackType::MegaStan => {
-            let counter_clockwise = rand::thread_rng().gen_bool(0.5);
-
+            let counter_clockwise = if player_pos.translation.y >= boss_position.translation.y {
+                true
+            } else {
+                false
+            };
             amount_attack += 15;
             let offset = PI / 10.0;
             let mut rng = rand::thread_rng();
             for i in 0..amount_attack {
-                let dir = (player_pos.translation.x - boss_position.translation.truncate())
-                    .normalize_or_zero();
+                let dir = (player_pos.translation.truncate()
+                    - boss_position.translation.truncate())
+                .normalize_or_zero();
                 let angle = dir.y.atan2(dir.x) + rng.gen_range(-offset..offset);
 
-                let radius = 256.;
+                let radius = player_pos.translation.distance(boss_position.translation) / 2.;
                 let pivot = if counter_clockwise {
                     boss_position.translation.truncate()
-                        + Vec2::new(10. * i as f32, 80.)
-                        + Vec2::from_angle(angle + PI / 2.) * radius
+                        + Vec2::new(-10. * i as f32, 1. * i as f32)
+                        + Vec2::from_angle(angle) * radius
                 } else {
                     boss_position.translation.truncate()
-                        - Vec2::new(10. * i as f32, 80.)
-                        - Vec2::from_angle(angle + PI / 2.) * radius
+                        + Vec2::new(10. * i as f32, -1. * i as f32)
+                        + Vec2::from_angle(angle) * radius
                 };
 
                 ev_spawn_projectile.send(SpawnProjectileEvent {
@@ -580,7 +596,7 @@ fn perform_attack(
                     },
                     angle: angle,
                     collider_radius: 8.,
-                    speed: 0.5,
+                    speed: 2.25,
                     damage: 15,
                     element: element,
                     is_friendly: false,
@@ -607,6 +623,9 @@ fn perform_attack(
                 });
                 angle += PI / 2.;
             }
+        }
+        _ => {
+            println!("ERROR OCCURED, NO ATTACK PICKED");
         }
     }
 
@@ -704,17 +723,29 @@ pub fn recalculate_weights(
         &PhaseManager,
     )>,
     player_query: Query<&Transform, With<Player>>,
+    wall_query: Query<&Transform, With<Wall>>,
 ) {
     let Ok((mut attack_system, summon_list, boss_hp, boss_transform, phase_manager)) =
         boss_query.get_single_mut()
     else {
         return;
     };
+
     let Ok(player_transform) = player_query.get_single() else {
         println!("Player died! or smth");
         return;
     };
     let phase = phase_manager.current_phase;
+
+    let sorted_walls: Vec<&Transform> = wall_query
+        .iter()
+        .sort_by::<&Transform>(|item1, item2| {
+            item1
+                .translation
+                .distance(player_transform.translation)
+                .total_cmp(&item2.translation.distance(player_transform.translation))
+        })
+        .collect();
 
     for i in 0..attack_system.weight_array.len() {
         let mut base_weight: i16 = i as i16 * 100;
@@ -765,7 +796,11 @@ pub fn recalculate_weights(
                 attack_flag = BossAttackFlag::SpawnSpells;
             }
             BossAttackType::Radial => {
-                base_weight += (phase == 1) as i16 * i16::MIN;
+                base_weight += (phase == 1) as i16 * i16::MIN
+                    + (player_transform
+                        .translation
+                        .distance(sorted_walls[0].translation)
+                        / 30.) as i16;
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
             BossAttackType::Shield => {
@@ -777,20 +812,36 @@ pub fn recalculate_weights(
                 attack_flag = BossAttackFlag::DefensiveSpells;
             }
             BossAttackType::Wall => {
-                base_weight += (phase == 1) as i16 * i16::MIN; //add bonus when player near walls
+                base_weight += (phase == 1) as i16 * i16::MIN
+                    + (3000.
+                        / player_transform
+                            .translation
+                            .distance(sorted_walls[0].translation)) as i16; //add bonus when player near walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
             BossAttackType::MegaStan => {
-                base_weight += (phase <= 2) as i16 * i16::MIN;
+                base_weight += (phase <= 2) as i16 * i16::MIN
+                    + (5000.
+                        / player_transform
+                            .translation
+                            .distance(boss_transform.translation)) as i16;
                 attack_flag = BossAttackFlag::ProjectileSpells; //dd bonus when player far away from walls
             }
             BossAttackType::FastPierce => {
-                base_weight += (phase == 1) as i16 * i16::MIN;
+                base_weight += (phase == 1) as i16 * i16::MIN
+                    + (player_transform
+                        .translation
+                        .distance(boss_transform.translation)
+                        / 30.) as i16;
                 attack_flag = BossAttackFlag::ProjectileSpells; // add bonus when player far from boss
             }
 
             BossAttackType::ProjectilePattern => {
-                base_weight += (phase != 3) as i16 * i16::MIN + 5000; //add bonus when player far away from walls
+                base_weight += (phase != 2) as i16 * i16::MIN
+                    + (player_transform
+                        .translation
+                        .distance(boss_transform.translation)
+                        / 50.) as i16; //add bonus when player far away from walls
                 attack_flag = BossAttackFlag::ProjectileSpells;
             }
         }
@@ -992,6 +1043,72 @@ pub fn pick_attack_to_perform_koldun(
     //pick with random attack including weights, like idk, use coeff or smth
 }
 
-fn boss_teleport() {}
+fn boss_teleport(
+    mut boss_query: Query<
+        (&mut Transform, &mut Teleport, &PhaseManager),
+        (Without<Player>, With<BossAttackSystem>),
+    >,
+    time: Res<Time>,
+    mut player_query: Query<&Transform, With<Player>>,
+) {
+    for (mut transform, mut teleport, phase_manager) in boss_query.iter_mut() {
+        if phase_manager.current_phase != 2 {
+            return;
+        }
 
-fn boss_running() {}
+        teleport.time_to_teleport.tick(time.delta());
+
+        if teleport.time_to_teleport.just_finished() {
+            let Ok(player_pos) = player_query.get_single_mut() else {
+                println!("No player");
+                return;
+            };
+            let old_pos = transform.translation;
+            transform.translation += (player_pos.translation - old_pos) / 2.;
+        }
+    }
+}
+
+fn mob_count(mob_query: Query<&Mob, With<Enemy>>, mut portal_manager: ResMut<PortalManager>) {
+    println!("Mob query iter: {}", mob_query.iter().count());
+    println!("portal manager: {}", portal_manager.mobs);
+}
+
+fn boss_running(
+    mut boss_query: Query<(
+        &Transform,
+        &mut BossMovement,
+        &mut LinearVelocity,
+        &PhaseManager,
+    )>,
+    time: Res<Time>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    for (transform, mut movement_ability, mut linvel, phase_manager) in boss_query.iter_mut() {
+        if phase_manager.current_phase != 3 {
+            return;
+        }
+
+        linvel.0 = movement_ability.direction * movement_ability.speed * time.delta_seconds();
+
+        movement_ability.timer.tick(time.delta());
+
+        if movement_ability.timer.just_finished() {
+            let random_direction = thread_rng().gen_range(0..12);
+            if random_direction >= 8 {
+                let Ok(player_pos) = player_query.get_single() else {
+                    println!("No player, error occured");
+                    return;
+                };
+                movement_ability.direction = (player_pos.translation - transform.translation)
+                    .normalize_or_zero()
+                    .truncate();
+            } else {
+                movement_ability.direction = Vec2::from_angle(
+                    (random_direction as f32 * PI / 6.) + (random_direction as f32 * PI / 8.),
+                )
+                .normalize_or_zero();
+            }
+        }
+    }
+}

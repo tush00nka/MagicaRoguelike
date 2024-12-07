@@ -7,7 +7,6 @@ use crate::{
     elements::{ElementResistance, ElementType},
     health::Health,
     mobs::{mob::*, BossAttackSystem, BossAttackType},
-    pathfinding::Pathfinder,
     Bundle, Timer,
 };
 #[derive(Component)]
@@ -30,6 +29,8 @@ pub struct SummonQueue {
     pub max_amount: u8,
 }
 
+#[derive(Component)]
+pub struct NoSummons;
 impl SummonQueue {
     pub fn push(&mut self, summon_unit: SummonUnit) {
         self.amount_of_mobs += 1;
@@ -48,10 +49,6 @@ impl SummonQueue {
 
     pub fn is_overflowed(&mut self) -> bool {
         return self.amount_of_mobs >= self.max_amount;
-    }
-
-    pub fn empty(&mut self) {
-        self.amount_of_mobs = 0;
     }
 
     pub fn shift(&mut self, index: usize) {
@@ -99,10 +96,17 @@ pub struct PushMobQueueEvent {
     pub mob_e: Entity,
 }
 
+#[derive(Component)]
+pub struct BossMovement {
+    pub speed: f32,
+    pub timer: Timer,
+    pub direction: Vec2,
+}
+
 #[derive(Bundle)]
 pub struct BossBundle {
     pub mob_bundle: MobBundle,
-    pub pathfinder: Pathfinder,    //running away
+    pub pathfinder: BossMovement,  //running away
     pub teleport_abilty: Teleport, //teleport in random place away from player
     pub summon_queue: SummonQueue, //wrap in like summon ability? to add for usual mobs
     pub boss_attacks: BossAttackSystem,
@@ -129,7 +133,7 @@ impl MobBundle {
             mob: Mob::new(40),
             exp_loot: MobLoot { orbs: 100 },
             body_type: RigidBody::Dynamic,
-            health: Health::new(3000),
+            health: Health::new(4500),
             hit_list: HitList::default(),
             ..default()
         }
@@ -138,13 +142,17 @@ impl MobBundle {
 
 impl BossBundle {
     pub fn koldun() -> Self {
-        let mut cooldowns = vec![Timer::new(Duration::from_millis(4050), TimerMode::Repeating); 12];
-        
-        cooldowns[BossAttackType::MegaStan as usize] = Timer::new(Duration::from_millis(7500), TimerMode::Repeating);
-        cooldowns[BossAttackType::SpawnClayGolem as usize] = Timer::new(Duration::from_millis(6100), TimerMode::Repeating);
-        cooldowns[BossAttackType::SpawnAirElemental as usize] = Timer::new(Duration::from_millis(6100), TimerMode::Repeating);
-        cooldowns[BossAttackType::ProjectilePattern as usize] = Timer::new(Duration::from_millis(6150), TimerMode::Repeating);
-        
+        let mut cooldowns = vec![Timer::new(Duration::from_millis(8950), TimerMode::Repeating); 12];
+
+        cooldowns[BossAttackType::MegaStan as usize] =
+            Timer::new(Duration::from_millis(12400), TimerMode::Repeating);
+        cooldowns[BossAttackType::SpawnClayGolem as usize] =
+            Timer::new(Duration::from_millis(9000), TimerMode::Repeating);
+        cooldowns[BossAttackType::SpawnAirElemental as usize] =
+            Timer::new(Duration::from_millis(9100), TimerMode::Repeating);
+        cooldowns[BossAttackType::ProjectilePattern as usize] =
+            Timer::new(Duration::from_millis(9050), TimerMode::Repeating);
+
         Self {
             mob_bundle: MobBundle::koldun(),
             boss_attacks: BossAttackSystem {
@@ -152,12 +160,16 @@ impl BossBundle {
                 weight_array: vec![0; 12], //amount of attacks
                 cooldown_array: cooldowns,
                 cooldown_between_attacks: Timer::new(
-                    Duration::from_millis(3000),
+                    Duration::from_millis(3500),
                     TimerMode::Repeating,
                 ),
                 cooldown_mask: 0b0000111111111111, //bitmask for cooldown, use bitwise to get what you need, equal to 4095
             },
-            pathfinder: Pathfinder::default(),
+            pathfinder: BossMovement {
+                speed: 2850.,
+                timer: Timer::new(Duration::from_millis(4000), TimerMode::Repeating),
+                direction: Vec2::ZERO,
+            },
             teleport_abilty: Teleport {
                 amount_of_tiles: 5,
                 place_to_teleport: vec![],
@@ -169,7 +181,7 @@ impl BossBundle {
                         entity: None,
                         mob_type: MobType::Mossling
                     };
-                    20
+                    10
                 ],
                 amount_of_mobs: 0,
                 max_amount: 20,
