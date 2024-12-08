@@ -344,12 +344,10 @@ pub fn pick_item_to_steal(
     item_query: Query<&Item>,
 ) -> Option<Option<ItemPicked>> {
     let Ok(steal_target) = steal_query.get(entity) else {
-        println!("wtf");
         return None;
     };
     match steal_target.target {
         None => {
-            println!("You got this");
             return None;
         }
         Some(target_e) => {

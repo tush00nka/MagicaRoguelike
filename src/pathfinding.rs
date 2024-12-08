@@ -159,7 +159,6 @@ fn change_target_appeared<Before: Component, Filter1: Component, Filter2: Compon
         }
 
         if len == 0 {
-            println!("EMPTY");
             commands.entity(mob).insert(Done::Failure);
         }
         commands.entity(mob).insert(Done::Success);
@@ -460,9 +459,6 @@ fn a_pathfinding<
         if pathfinder.update_path_timer.just_finished() {
             //получаем позицию игрока
             if target_query.iter().len() == 0 {
-                if std::any::type_name::<T>() == std::any::type_name::<Obstacle>() {
-                    println!("empty target query");
-                }
                 commands.entity(pathfinder_e).insert(Done::Failure);
                 return;
             }

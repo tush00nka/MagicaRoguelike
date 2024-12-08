@@ -142,28 +142,28 @@ impl MobBundle {
 
 impl BossBundle {
     pub fn koldun() -> Self {
-        let mut cooldowns = vec![Timer::new(Duration::from_millis(8950), TimerMode::Repeating); 12];
+        let mut cooldowns = vec![Timer::new(Duration::from_millis(12500), TimerMode::Repeating); 12];
 
         cooldowns[BossAttackType::MegaStan as usize] =
             Timer::new(Duration::from_millis(12400), TimerMode::Repeating);
-        cooldowns[BossAttackType::SpawnClayGolem as usize] =
-            Timer::new(Duration::from_millis(9000), TimerMode::Repeating);
-        cooldowns[BossAttackType::SpawnAirElemental as usize] =
+      /*   cooldowns[BossAttackType::SpawnClayGolem as usize] =
+            Timer::new(Duration::from_millis(9000), TimerMode::Repeating); */
+/*        cooldowns[BossAttackType::SpawnAirElemental as usize] =
             Timer::new(Duration::from_millis(9100), TimerMode::Repeating);
         cooldowns[BossAttackType::ProjectilePattern as usize] =
             Timer::new(Duration::from_millis(9050), TimerMode::Repeating);
-
+ */
         Self {
             mob_bundle: MobBundle::koldun(),
             boss_attacks: BossAttackSystem {
                 //4 tiers of attacks
-                weight_array: vec![0; 12], //amount of attacks
+                weight_array: vec![0; 11], //amount of attacks
                 cooldown_array: cooldowns,
                 cooldown_between_attacks: Timer::new(
                     Duration::from_millis(3500),
                     TimerMode::Repeating,
                 ),
-                cooldown_mask: 0b0000111111111111, //bitmask for cooldown, use bitwise to get what you need, equal to 4095
+                cooldown_mask: 0b0000011111111111, //bitmask for cooldown, use bitwise to get what you need, equal to 4095
             },
             pathfinder: BossMovement {
                 speed: 2850.,
@@ -184,10 +184,10 @@ impl BossBundle {
                     10
                 ],
                 amount_of_mobs: 0,
-                max_amount: 20,
+                max_amount: 10,
             },
             phase_manager: PhaseManager {
-                current_phase: 1,
+                current_phase: 3,
                 max_phase: 3,
                 phase_change_hp_multiplier: vec![0.5, 0.2],
             },

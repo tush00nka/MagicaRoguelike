@@ -7,7 +7,7 @@ use rand::Rng;
 
 use crate::{
     blank_spell::Blank, elements::ElementType, friend::Friend, gamemap::Wall, mobs::Enemy,
-    particles::SpawnParticlesEvent, shield_spell::Shield, utils::Lifetime, GameLayer,
+    particles::SpawnParticlesEvent, shield_spell::Shield, utils::Lifetime, GameLayer, GameState,
 };
 
 pub struct ProjectilePlugin;
@@ -22,7 +22,7 @@ impl Plugin for ProjectilePlugin {
                 hit_walls,
                 hit_shield::<Enemy, Friendly>,
                 hit_shield::<Friend, Hostile>,
-            ),
+            ).run_if(in_state(GameState::InGame)),
         );
     }
 }
@@ -39,9 +39,9 @@ pub enum Trajectory {
     Radial {
         radius: f32,
         pivot: Vec2,
-        counter_clockwise: bool
+        counter_clockwise: bool,
     },
-} 
+}
 
 #[allow(dead_code)]
 #[derive(Component)]
@@ -100,10 +100,11 @@ pub struct SpawnProjectileEvent {
     pub trajectory: Trajectory,
     pub angle: f32,
     pub collider_radius: f32,
-    pub speed: f32, 
+    pub speed: f32,
     pub damage: u32,
     pub element: ElementType,
     pub is_friendly: bool,
+    pub can_go_through_walls: bool,
 }
 
 fn spawn_projectile(
@@ -118,6 +119,31 @@ fn spawn_projectile(
                 (ev.translation.truncate() - pivot).normalize().to_angle()
             }
         };
+        let collision_layers;
+        if ev.can_go_through_walls {
+            collision_layers = CollisionLayers::new(
+                GameLayer::Projectile,
+                [
+                    GameLayer::Enemy,
+                    GameLayer::Player,
+                    GameLayer::Friend,
+                    GameLayer::Interactable,
+                    GameLayer::Shield,
+                ],
+            );
+        } else {
+            collision_layers = CollisionLayers::new(
+                GameLayer::Projectile,
+                [
+                    GameLayer::Enemy,
+                    GameLayer::Player,
+                    GameLayer::Friend,
+                    GameLayer::Interactable,
+                    GameLayer::Shield,
+                    GameLayer::Wall,
+                ],
+            );
+        }
 
         let mut projectile = commands.spawn(ProjectileBundle {
             sprite: SpriteBundle {
@@ -143,6 +169,7 @@ fn spawn_projectile(
                 element: ev.element,
             },
             collider: Collider::circle(ev.collider_radius),
+            collision_layers: collision_layers,
             ..default()
         });
 
@@ -150,19 +177,7 @@ fn spawn_projectile(
             //check which flag to add
             projectile.insert(Friendly);
         } else {
-            projectile
-                .insert(Hostile)
-                .insert(CollisionLayers::new(
-                    GameLayer::Projectile,
-                    [
-                        GameLayer::Enemy,
-                        GameLayer::Player,
-                        GameLayer::Wall,
-                        GameLayer::Shield,
-                        GameLayer::Friend,
-                        GameLayer::Interactable,
-                    ]
-                ));
+            projectile.insert(Hostile);
         }
 
         projectile.insert(Lifetime::new(5.0));
@@ -170,20 +185,33 @@ fn spawn_projectile(
 }
 
 fn move_projectile(
-    mut projectile_query: Query<(&mut Transform, &mut Projectile)>, 
+    mut projectile_query: Query<(&mut Transform, &mut Projectile)>,
     time: Res<Time>,
 ) {
     for (mut projectile_transform, mut projectile) in projectile_query.iter_mut() {
         match projectile.trajectory {
             Trajectory::Straight => {
-                projectile_transform.translation += Vec3::new(projectile.direction.x, projectile.direction.y, 0.0) * projectile.speed * time.delta_seconds();
-            },
-            Trajectory::Radial { radius, pivot, counter_clockwise } => {
-                if counter_clockwise { projectile.angle += time.delta_seconds() * projectile.speed; } 
-                else { projectile.angle -= time.delta_seconds() * projectile.speed; }
+                projectile_transform.translation +=
+                    Vec3::new(projectile.direction.x, projectile.direction.y, 0.0)
+                        * projectile.speed
+                        * time.delta_seconds();
+            }
+            Trajectory::Radial {
+                radius,
+                pivot,
+                counter_clockwise,
+            } => {
+                if counter_clockwise {
+                    projectile.angle += time.delta_seconds() * projectile.speed;
+                } else {
+                    projectile.angle -= time.delta_seconds() * projectile.speed;
+                }
 
-                let next_pos = Vec2::new(pivot.x + radius*projectile.angle.cos(), pivot.y + radius*projectile.angle.sin());
-                
+                let next_pos = Vec2::new(
+                    pivot.x + radius * projectile.angle.cos(),
+                    pivot.y + radius * projectile.angle.sin(),
+                );
+
                 let diff = (next_pos - projectile_transform.translation.truncate()).normalize();
                 projectile_transform.rotation = Quat::from_rotation_z(diff.to_angle());
 

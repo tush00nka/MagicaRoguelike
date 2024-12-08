@@ -513,7 +513,6 @@ pub fn spawn_mob(
                         ))
                         .id()
                 } else {
-                    println!("Spawn is correct");
                     mob = commands
                         .spawn((
                             StateMachine::default()
@@ -789,7 +788,6 @@ pub fn first_spawn_mobs(
                     .mob_count = 0;
 
                 let mob_type: MobType;
-                println!("chapter  {}", chapter_manager.get_current_chapter());
                 let chapter: u8 = chapter_manager.get_current_chapter() % 4;
                 match chapter {
                     1 => {
@@ -934,7 +932,6 @@ pub fn push_mob_to_queue(
                 commands
                     .entity(despawn_entity.entity.unwrap())
                     .despawn_recursive();
-                println!("entity despawned");
 
                 let mob_unlock_tag = mob_type_to_tag_convert(ev.mob_type.clone());
 

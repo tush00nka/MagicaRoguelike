@@ -34,7 +34,6 @@ fn load(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    println!("asasd");
     commands.insert_resource(SaveHandle(asset_server.load("save.json")));
 }
 

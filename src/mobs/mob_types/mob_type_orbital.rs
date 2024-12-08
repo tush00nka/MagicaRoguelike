@@ -32,10 +32,7 @@ impl MobBundle {
             phys_bundle: PhysicalBundle {
                 collision_layers: CollisionLayers::new(
                     GameLayer::Enemy,
-                    [
-                        GameLayer::Projectile,
-                        GameLayer::Player,
-                    ],
+                    [GameLayer::Projectile, GameLayer::Player],
                 ),
                 ..default()
             },
@@ -64,10 +61,7 @@ impl OrbitalBundle {
         }
     }
 }
-#[derive(Component)]
-pub struct OrbitalCount{
-    pub orbital_array: Vec<Entity>,
-}
+
 pub fn air_elemental_movement<Side: Component>(
     mut commands: Commands,
     mut airel_query: Query<
@@ -82,7 +76,6 @@ pub fn air_elemental_movement<Side: Component>(
     >,
     target_query: Query<(Entity, &Transform), (With<Side>, Without<Orbital>)>,
     time: Res<Time>,
-    mut orbital_count_query: Query<&mut OrbitalCount>,
 ) {
     for (air_e, mut lin_vel, mut air_transform, mut orbital) in airel_query.iter_mut() {
         if target_query.iter().len() <= 0 {
@@ -120,56 +113,36 @@ pub fn air_elemental_movement<Side: Component>(
         {
             air_transform.translation = target_transform.translation;
             commands.entity(target_e).push_children(&[air_e]);
-            
+
             orbital.parent = Some(Box::new(target_e));
-//            if orbital_count_query.contains(target_e){
-//                orbital_count_query.get_mut(target_e).unwrap().orbital_array.push(air_e);
-//            }else{
-//                commands.entity(target_e).insert(OrbitalCount{orbital_array: vec![air_e],});
-//            }
+
             commands.entity(air_e).insert(Done::Success);
         }
     }
 }
 
-pub fn clear_orbitals(mob_query: Query<&Orbital>, mut commands: Commands, mut parent_query: Query<(Entity, &mut OrbitalCount)>){
-    for (parent_e, mut orbital_count) in parent_query.iter_mut(){
-        if orbital_count.orbital_array.len() == 0{
-            commands.entity(parent_e).remove::<OrbitalCount>();
-            continue;
-        }
-        for i in 0..orbital_count.orbital_array.len(){
-            if !mob_query.contains(orbital_count.orbital_array[i]){
-                orbital_count.orbital_array[i] = orbital_count.orbital_array[orbital_count.orbital_array.len() - 1];
-                orbital_count.orbital_array.pop();
-                println!("cleared");
-                break;
-            }
-        }
-    }
-} 
-
 pub fn rotate_orbital<Side: Component>(
-    mut orbital_query: Query<(Entity,&mut Orbital, &mut Transform), (With<Side>, With<BusyOrbital>)>,
+    mut orbital_query: Query<
+        (Entity, &mut Orbital, &mut Transform),
+        (With<Side>, With<BusyOrbital>),
+    >,
     parent_query: Query<&Children, (With<Side>, Without<Orbital>)>,
     time: Res<Time>,
-    mut commands: Commands, 
+    mut commands: Commands,
 ) {
-    for (orbital_e,mut orbital, mut transform_orb) in orbital_query.iter_mut() {
-        if !parent_query.contains(*(orbital.parent.clone().unwrap())){
+    for (orbital_e, mut orbital, mut transform_orb) in orbital_query.iter_mut() {
+        if !parent_query.contains(*(orbital.parent.clone().unwrap())) {
             orbital.parent = None;
         }
         match &orbital.parent {
             Some(parent) => {
-                let orbitals = parent_query
-                    .get(*parent.clone())
-                    .unwrap();
-                
+                let orbitals = parent_query.get(*parent.clone()).unwrap();
+
                 let count = orbitals.iter().len();
                 let mut multiplier = 0;
-                for orbitals_e in orbitals.iter(){
+                for orbitals_e in orbitals.iter() {
                     multiplier += 1;
-                    if *orbitals_e == orbital_e{
+                    if *orbitals_e == orbital_e {
                         break;
                     }
                 }
@@ -177,9 +150,11 @@ pub fn rotate_orbital<Side: Component>(
                     //.truncate()
                     Vec2::from_angle(PI * multiplier as f32 * time.elapsed_seconds() / count as f32  ) * 32.;
 
-                transform_orb.translation = Vec3::new(pos_new.x, pos_new.y,0.);
+                transform_orb.translation = Vec3::new(pos_new.x, pos_new.y, 0.);
             } // radius
-            None => {commands.entity(orbital_e).insert(Done::Success);}
+            None => {
+                commands.entity(orbital_e).insert(Done::Success);
+            }
         };
     }
 }
@@ -206,13 +181,13 @@ pub fn timer_tick_orbital<Side: Component>(
         }
         orbital.time_to_live.tick(time.delta());
         if orbital.time_to_live.just_finished() {
-            
             let is_friendly: bool;
             if std::any::type_name::<Side>() == std::any::type_name::<Enemy>() {
                 is_friendly = false;
                 portal_manager.pop_mob();
+            } else {
+                is_friendly = true;
             }
-            else { is_friendly = true; }
 
             spawn_blank_ev.send(SpawnBlankEvent {
                 range: 18.,

@@ -566,6 +566,7 @@ fn cast_spell(
                             pivot,
                             counter_clockwise,
                         },
+                        can_go_through_walls: false,
                     });
                 }
             }
@@ -586,6 +587,7 @@ fn cast_spell(
                         element,
                         is_friendly: true,
                         trajectory: crate::projectile::Trajectory::Straight,
+                        can_go_through_walls: false,
                     });
                 }
             }
@@ -605,6 +607,7 @@ fn cast_spell(
                         element,
                         is_friendly: true,
                         trajectory: crate::projectile::Trajectory::Straight,
+                        can_go_through_walls: false,
                     });
                 }
             }
@@ -623,6 +626,7 @@ fn cast_spell(
                     element,
                     is_friendly: true,
                     trajectory: crate::projectile::Trajectory::Straight,
+                    can_go_through_walls: false,
                 });
             }
             Spell::Steam => {
@@ -642,6 +646,7 @@ fn cast_spell(
                         element,
                         is_friendly: true,
                         trajectory: crate::projectile::Trajectory::Straight,
+                        can_go_through_walls: false,
                     });
                 }
             }

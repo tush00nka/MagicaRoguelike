@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use super::{
-    BossAttackSystem, BusyOrbital, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue
+    BossAttackSystem, BusyOrbital, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem,
+    PickupItemQueue,
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -42,7 +43,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    mobs::{clear_orbitals, timer_tick_orbital},
+    mobs::timer_tick_orbital,
     obstacles::CorpseSpawnEvent,
     particles::SpawnParticlesEvent,
     player::Player,
@@ -66,7 +67,7 @@ impl Plugin for MobPlugin {
             .add_event::<OnHitEffectEvent>()
             .add_systems(
                 Update,
-                (on_death_effects_handler, clear_orbitals).run_if(in_state(GameState::InGame)),
+                (on_death_effects_handler).run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 Update,
@@ -544,7 +545,6 @@ fn mob_attack<Who: Component + std::default::Default>(
 
                 if friendly {
                     texture_path = "textures/slash_horisontal.png";
-                    println!("GOT heRe");
                 }
             }
             AttackType::Spear => {
@@ -613,6 +613,7 @@ fn mob_attack<Who: Component + std::default::Default>(
                         .expect("Range attack without element, refactor this code."),
                     is_friendly: friendly,
                     trajectory: crate::projectile::Trajectory::Straight,
+                    can_go_through_walls: false,
                 });
 
                 continue;
@@ -841,16 +842,19 @@ pub fn damage_mobs(
     mut on_death_event: EventWriter<OnDeathEffectEvent>,
 
     boss_query: Query<&BossAttackSystem>,
-    
+
     mut global_transform_query: Query<&mut GlobalTransform, With<BusyOrbital>>,
 
     mut thief_query: Query<&mut PickupItemQueue>,
 ) {
-    for (entity, mut health, _mob,transform, loot, mob_type) in mob_query.iter_mut() {
+    for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
         let mut translation = transform.translation;
 
         if *mob_type == MobType::AirElemental && global_transform_query.contains(entity) {
-            translation = global_transform_query.get_mut(entity).unwrap().translation();
+            translation = global_transform_query
+                .get_mut(entity)
+                .unwrap()
+                .translation();
         }
 
         if !health.hit_queue.is_empty() {
@@ -1068,7 +1072,6 @@ fn pos_pathfinder(
 
         if timer.timer.just_finished() {
             commands.entity(pathfinder_e).insert(Done::Success);
-            println!("Timer ticked");
             continue;
         }
 
@@ -1094,7 +1097,6 @@ fn pos_pathfinder(
 
         if transform.translation.distance(target.translation) <= 100. {
             commands.entity(pathfinder_e).insert(Done::Success);
-            println!("Near target");
         }
     }
 }
@@ -1119,6 +1121,7 @@ pub fn on_death_effects_handler(
                         element: ElementType::Steam,
                         is_friendly: ev.is_friendly,
                         trajectory: crate::projectile::Trajectory::Straight,
+                        can_go_through_walls: false,
                     });
                 }
             }
@@ -1171,7 +1174,6 @@ pub fn on_hit_effects(
                     count += 1;
 
                     let direction = Vec2::from_angle(angle) * 24.0;
-                    println!("direction is {}", direction);
                     let destination =
                         Vec3::new(ev.pos.x + direction.x, ev.pos.y + direction.y, ev.pos.z);
 
