@@ -890,6 +890,7 @@ pub fn push_mob_to_queue(
     mut commands: Commands,
     mut list_query: Query<&mut SummonQueue>,
     transform_query: Query<&Transform>,
+    global_transform_query: Query<&GlobalTransform, With<BusyOrbital>>,
     mut ev_mob_death: EventWriter<MobDeathEvent>,
     mob_query: Query<&Mob>,
 ) {
@@ -925,8 +926,11 @@ pub fn push_mob_to_queue(
                     summoner.pop();
                     continue;
                 }
-                let transform = transform_query.get(despawn_entity.entity.unwrap()).unwrap();
-
+                let mut translation = transform_query.get(despawn_entity.entity.unwrap()).unwrap().translation;
+                
+                if despawn_entity.mob_type == MobType::AirElemental && global_transform_query.contains(despawn_entity.entity.unwrap()){
+                    translation = global_transform_query.get(despawn_entity.entity.unwrap()).unwrap().translation();
+                }
                 commands
                     .entity(despawn_entity.entity.unwrap())
                     .despawn_recursive();
@@ -936,7 +940,7 @@ pub fn push_mob_to_queue(
 
                 ev_mob_death.send(MobDeathEvent {
                     orbs: 0,
-                    pos: transform.translation,
+                    pos: translation,
                     dir: Vec3::ZERO,
                     mob_unlock_tag: mob_unlock_tag,
                     is_spawned: true,

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use super::{
-    BossAttackSystem, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue,
+    BossAttackSystem, BusyOrbital, ItemPicked, OnDeathEffect, OnHitEffect, PickupItem, PickupItemQueue
 };
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -42,7 +42,7 @@ use crate::{
     gamemap::Map,
     health::{Health, Hit},
     level_completion::{PortalEvent, PortalManager},
-    mobs::timer_tick_orbital,
+    mobs::{clear_orbitals, timer_tick_orbital},
     obstacles::CorpseSpawnEvent,
     particles::SpawnParticlesEvent,
     player::Player,
@@ -66,7 +66,7 @@ impl Plugin for MobPlugin {
             .add_event::<OnHitEffectEvent>()
             .add_systems(
                 Update,
-                on_death_effects_handler.run_if(in_state(GameState::InGame)),
+                (on_death_effects_handler, clear_orbitals).run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 Update,
@@ -841,10 +841,18 @@ pub fn damage_mobs(
     mut on_death_event: EventWriter<OnDeathEffectEvent>,
 
     boss_query: Query<&BossAttackSystem>,
+    
+    mut global_transform_query: Query<&mut GlobalTransform, With<BusyOrbital>>,
 
     mut thief_query: Query<&mut PickupItemQueue>,
 ) {
-    for (entity, mut health, _mob, transform, loot, mob_type) in mob_query.iter_mut() {
+    for (entity, mut health, _mob,transform, loot, mob_type) in mob_query.iter_mut() {
+        let mut translation = transform.translation;
+
+        if *mob_type == MobType::AirElemental && global_transform_query.contains(entity) {
+            translation = global_transform_query.get_mut(entity).unwrap().translation();
+        }
+
         if !health.hit_queue.is_empty() {
             let hit = health.hit_queue.remove(0);
 
@@ -880,7 +888,7 @@ pub fn damage_mobs(
                     }
                 }
                 on_hit_event.send(OnHitEffectEvent {
-                    pos: transform.translation,
+                    pos: translation,
                     dir: hit.direction,
                     vec_of_objects: vec_objects,
                     on_hit_effect_type: on_hit_eff,
@@ -924,7 +932,7 @@ pub fn damage_mobs(
                 ev_death.send(MobDeathEvent {
                     mob_unlock_tag,
                     orbs: loot.orbs,
-                    pos: transform.translation,
+                    pos: translation,
                     dir: hit.direction,
                     is_spawned: false,
                 });
@@ -932,21 +940,21 @@ pub fn damage_mobs(
                 // спавним труп на месте смерти моба
                 ev_corpse.send(CorpseSpawnEvent {
                     mob_type: mob_type.clone(),
-                    pos: transform.translation.with_z(0.05),
+                    pos: translation.with_z(0.05),
                 });
 
                 if *mob_type == MobType::AirElemental {
                     blank_spawn_ev.send(SpawnBlankEvent {
                         range: 8.,
-                        position: transform.translation,
+                        position: translation,
                         speed: 10.,
                         is_friendly: false,
                     });
                 }
                 if STATIC_MOBS.contains(mob_type) {
                     let mob_pos = (
-                        (transform.translation.x.floor() / 32.).floor() as u16,
-                        (transform.translation.y.floor() / 32.).floor() as u16,
+                        (translation.x.floor() / 32.).floor() as u16,
+                        (translation.y.floor() / 32.).floor() as u16,
                     );
 
                     mob_map
@@ -977,7 +985,7 @@ fn mob_death(
 ) {
     for ev in ev_mob_death.read() {
         portal_manager.set_pos(ev.pos);
-        
+
         if !ev.is_spawned {
             portal_manager.pop_mob();
         }

@@ -47,8 +47,7 @@ impl Plugin for BossBehavoiurPlugin {
                 projectiles_check,
                 cast_out_of_order,
             ),
-        )
-        .add_systems(Update, mob_count.after(switch_phase));
+        );
     }
 }
 
@@ -192,9 +191,9 @@ fn cast_out_of_order(
             match attack_queue.queue[attack_queue.queue.len() - 1] {
                 BossAttackType::Blank => {
                     spawn_blank_ev.send(SpawnBlankEvent {
-                        range: 100.,
-                        position: pos.translation,
-                        speed: 20.,
+                        range: 18.,
+                        position: Vec3::new(pos.translation.x, pos.translation.y, 1.0),
+                        speed: 4.5,
                         is_friendly: false,
                     });
                 }
@@ -936,9 +935,9 @@ pub fn cast_blank(
     if attack_system.weight_array[BossAttackType::Blank as usize] > 2500 {
         attack_system.cooldown_mask ^= 1 << BossAttackType::Blank as usize;
         spawn_blank_ev.send(SpawnBlankEvent {
-            range: 100.,
-            position: pos.translation,
-            speed: 20.,
+            range: 18.,
+            position: Vec3::new(pos.translation.x, pos.translation.y, 1.1),
+            speed: 4.5,
             is_friendly: false,
         });
     }
@@ -1069,10 +1068,6 @@ fn boss_teleport(
     }
 }
 
-fn mob_count(mob_query: Query<&Mob, With<Enemy>>, mut portal_manager: ResMut<PortalManager>) {
-    println!("Mob query iter: {}", mob_query.iter().count());
-    println!("portal manager: {}", portal_manager.mobs);
-}
 
 fn boss_running(
     mut boss_query: Query<(

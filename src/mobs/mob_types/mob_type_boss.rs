@@ -187,7 +187,7 @@ impl BossBundle {
                 max_amount: 20,
             },
             phase_manager: PhaseManager {
-                current_phase: 3,
+                current_phase: 1,
                 max_phase: 3,
                 phase_change_hp_multiplier: vec![0.5, 0.2],
             },

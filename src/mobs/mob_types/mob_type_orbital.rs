@@ -1,3 +1,5 @@
+use avian2d::math::PI;
+
 //bundle for melee only mobs
 use crate::{
     blank_spell::SpawnBlankEvent,
@@ -32,8 +34,6 @@ impl MobBundle {
                     GameLayer::Enemy,
                     [
                         GameLayer::Projectile,
-                        GameLayer::Friend,
-                        GameLayer::Enemy,
                         GameLayer::Player,
                     ],
                 ),
@@ -64,11 +64,14 @@ impl OrbitalBundle {
         }
     }
 }
-
+#[derive(Component)]
+pub struct OrbitalCount{
+    pub orbital_array: Vec<Entity>,
+}
 pub fn air_elemental_movement<Side: Component>(
     mut commands: Commands,
     mut airel_query: Query<
-        (Entity, &mut LinearVelocity, &Transform, &mut Orbital),
+        (Entity, &mut LinearVelocity, &mut Transform, &mut Orbital),
         (
             Without<Stun>,
             Without<Teleport>,
@@ -79,8 +82,9 @@ pub fn air_elemental_movement<Side: Component>(
     >,
     target_query: Query<(Entity, &Transform), (With<Side>, Without<Orbital>)>,
     time: Res<Time>,
+    mut orbital_count_query: Query<&mut OrbitalCount>,
 ) {
-    for (air_e, mut lin_vel, air_transform, mut orbital) in airel_query.iter_mut() {
+    for (air_e, mut lin_vel, mut air_transform, mut orbital) in airel_query.iter_mut() {
         if target_query.iter().len() <= 0 {
             return;
         }
@@ -113,17 +117,41 @@ pub fn air_elemental_movement<Side: Component>(
             .translation
             .distance(target_transform.translation)
             < 28.
-        //переделать под коллизию, убрать все это дерьмо
         {
+            air_transform.translation = target_transform.translation;
+            commands.entity(target_e).push_children(&[air_e]);
+            
             orbital.parent = Some(Box::new(target_e));
+//            if orbital_count_query.contains(target_e){
+//                orbital_count_query.get_mut(target_e).unwrap().orbital_array.push(air_e);
+//            }else{
+//                commands.entity(target_e).insert(OrbitalCount{orbital_array: vec![air_e],});
+//            }
             commands.entity(air_e).insert(Done::Success);
         }
     }
 }
 
+pub fn clear_orbitals(mob_query: Query<&Orbital>, mut commands: Commands, mut parent_query: Query<(Entity, &mut OrbitalCount)>){
+    for (parent_e, mut orbital_count) in parent_query.iter_mut(){
+        if orbital_count.orbital_array.len() == 0{
+            commands.entity(parent_e).remove::<OrbitalCount>();
+            continue;
+        }
+        for i in 0..orbital_count.orbital_array.len(){
+            if !mob_query.contains(orbital_count.orbital_array[i]){
+                orbital_count.orbital_array[i] = orbital_count.orbital_array[orbital_count.orbital_array.len() - 1];
+                orbital_count.orbital_array.pop();
+                println!("cleared");
+                break;
+            }
+        }
+    }
+} 
+
 pub fn rotate_orbital<Side: Component>(
     mut orbital_query: Query<(Entity,&mut Orbital, &mut Transform), (With<Side>, With<BusyOrbital>)>,
-    parent_query: Query<&Transform, (With<Side>, Without<Orbital>)>,
+    parent_query: Query<&Children, (With<Side>, Without<Orbital>)>,
     time: Res<Time>,
     mut commands: Commands, 
 ) {
@@ -133,14 +161,23 @@ pub fn rotate_orbital<Side: Component>(
         }
         match &orbital.parent {
             Some(parent) => {
-                let pos_new = parent_query
+                let orbitals = parent_query
                     .get(*parent.clone())
-                    .unwrap()
-                    .translation
-                    .truncate()
-                    + Vec2::from_angle(orbital.speed * time.elapsed_seconds() / 2500.) * 32.;
+                    .unwrap();
+                
+                let count = orbitals.iter().len();
+                let mut multiplier = 0;
+                for orbitals_e in orbitals.iter(){
+                    multiplier += 1;
+                    if *orbitals_e == orbital_e{
+                        break;
+                    }
+                }
+                let pos_new = //transform_orb.translation
+                    //.truncate()
+                    Vec2::from_angle(PI * multiplier as f32 * time.elapsed_seconds() / count as f32  ) * 32.;
 
-                transform_orb.translation = Vec3::new(pos_new.x, pos_new.y, 1.);
+                transform_orb.translation = Vec3::new(pos_new.x, pos_new.y,0.);
             } // radius
             None => {commands.entity(orbital_e).insert(Done::Success);}
         };
@@ -149,7 +186,7 @@ pub fn rotate_orbital<Side: Component>(
 
 pub fn timer_tick_orbital<Side: Component>(
     mut airel_query: Query<
-        (Entity, &Transform, &mut Orbital),
+        (Entity, &GlobalTransform, &mut Orbital),
         (
             Without<Stun>,
             Without<Teleport>,
@@ -178,9 +215,9 @@ pub fn timer_tick_orbital<Side: Component>(
             else { is_friendly = true; }
 
             spawn_blank_ev.send(SpawnBlankEvent {
-                range: 32.,
-                position: pos.translation,
-                speed: 10.,
+                range: 18.,
+                position: pos.translation(),
+                speed: 4.5,
                 is_friendly,
             });
             commands.entity(elemental_e).insert(Done::Success);
