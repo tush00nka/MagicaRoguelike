@@ -375,7 +375,7 @@ pub fn spawn_map(
     for pos in obstacles.iter() {
         let height = perlin.get([pos.0 as f64 * 0.1, pos.1 as f64 * 0.1]);
 
-        // --- hardcoded shit needs refactoring ---
+        // --- hardcoded needs refactoring ---
         let texture_path = {
             if height >= 0.3 { "textures/obstacles/claypot.png" }
             else { "textures/obstacles/crate.png"} 
@@ -385,7 +385,7 @@ pub fn spawn_map(
             if height >= 0.3 { 4.0 }
             else { 0.0 } 
         };
-        // end --- hardcoded shit needs refactoring --- end
+        // end --- hardcoded needs refactoring --- end
 
         commands.spawn(SpriteBundle {
             texture: asset_server.load(texture_path),

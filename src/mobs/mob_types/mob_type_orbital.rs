@@ -1,6 +1,7 @@
 use avian2d::math::PI;
 
-//bundle for melee only mobs
+//bundle for orbitals
+//летают вокруг таргета и блокируют снаряды
 use crate::{
     blank_spell::SpawnBlankEvent,
     elements::{ElementResistance, ElementType},

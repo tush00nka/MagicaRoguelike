@@ -126,7 +126,7 @@ fn spawn_gameover_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn despawn_gameover_ui(mut commands: Commands, ui_query: Query<Entity, With<GameOverUI>>) {
     for e in ui_query.iter() {
-        // удаляем меню гейовера
+        // удаляем меню геймовера
         commands.entity(e).despawn_recursive();
     }
 }

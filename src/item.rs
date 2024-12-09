@@ -87,8 +87,6 @@ impl ItemType {
     }
 }
 
-// я не знаю, что это за волшебный код,
-// но он делает именно то, что я хочу
 impl Distribution<ItemType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ItemType {
         ItemType::from_index(rng.gen_range(0..=20))

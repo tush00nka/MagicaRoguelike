@@ -1,3 +1,4 @@
+//файл с полным поведением босса
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -123,6 +124,7 @@ pub enum BossAttackType {
     MegaStan,
 }
 
+//система для смены фаз при необходимом кол-ве хп 
 fn switch_phase(
     mut commands: Commands,
     mut query: Query<
@@ -176,6 +178,8 @@ fn switch_phase(
         phase_manager.current_phase += 1;
     }
 }
+
+//система для каста заклинаний вне очереди(н.п. несколько пустышек между фазами)
 fn cast_out_of_order(
     mut boss_query: Query<(Entity, &Transform, &mut OutOfOrderAttackQueue)>,
     time: Res<Time>,
@@ -205,6 +209,8 @@ fn cast_out_of_order(
         }
     }
 }
+
+//функция выбора направления для атаки стенки проджектайлов
 fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
     let direction = (boss_pos - player_pos).truncate();
     let mut vec_dirs = vec![[0, 0], [0, 1], [0, 2], [0, 3]]; //1st - right 2nd - left 3-up 4 - down
@@ -239,6 +245,7 @@ fn pick_direction(player_pos: Vec3, boss_pos: Vec3) -> Vec2 {
     return WALL_DIRECTIONS[vec_dirs[0][1]];
 }
 
+//Функция получения координат для спавна проджектайлов для атаки стеной проджектайлов
 fn get_wall_pos(direction: Vec2, i: i32) -> Vec3 {
     match direction {
         Vec2::NEG_Y => Vec3::new(
@@ -265,6 +272,7 @@ fn get_wall_pos(direction: Vec2, i: i32) -> Vec3 {
     }
 }
 
+//Функция каста атаки
 fn perform_attack(
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
     boss_query: Query<
@@ -432,7 +440,7 @@ fn perform_attack(
             let mut angle = (player_pos.translation - boss_position.translation)
                 .truncate()
                 .to_angle()
-                - angle_disp * amount_attack as f32 / 2.; //???????
+                - angle_disp * amount_attack as f32 / 2.;
             for _ in 0..amount_attack {
                 ev_spawn_projectile.send(SpawnProjectileEvent {
                     texture_path: "textures/fireball.png".to_string(),
@@ -447,7 +455,7 @@ fn perform_attack(
                     is_friendly: false,
                     can_go_through_walls: false,
                 });
-                angle += angle_disp; //???????
+                angle += angle_disp;
             }
         }
 
@@ -634,6 +642,7 @@ fn perform_attack(
     commands.entity(boss_e).insert(Done::Success);
 }
 
+//функция для каста usize в тип атаки
 impl TryFrom<usize> for BossAttackType {
     type Error = ();
 
@@ -676,6 +685,8 @@ impl TryFrom<usize> for BossAttackType {
 //base value
 //position of player
 //is there such mobs
+
+//Увеличение веса защитных заклинаний в зависимости от расстояния проджектайлов игрока до босса
 pub fn projectiles_check(
     friendly_projs_query: Query<(&Projectile, &Transform), With<Friendly>>,
     mut big_boss_query: Query<(&Transform, &mut BossAttackSystem)>,
@@ -701,6 +712,7 @@ pub fn projectiles_check(
     }
 }
 
+//Система проверки и кика из очереди саммонов, если юнит убит
 pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&mut SummonQueue>) {
     for mut summon_list in summoner_query.iter_mut() {
         for i in 0..summon_list.queue.len() {
@@ -716,6 +728,7 @@ pub fn check_is_summon_alive(mob_query: Query<&Mob>, mut summoner_query: Query<&
     }
 }
 
+//система перерасчета веса атак босса, зависит от расстояния до игрока, от расстояния игрока до стен, от кол-ва хп, от кол-ва призывных юнитов, от текущей фазы босса
 pub fn recalculate_weights(
     mut boss_query: Query<(
         &mut BossAttackSystem,
@@ -894,6 +907,7 @@ pub fn recalculate_weights(
     //calculate all factors, phase included once in a time like in 1 second
 }
 
+//Система для таймера между атак босса
 pub fn tick_cooldown_boss(
     mut commands: Commands,
     mut attack_timers: Query<(Entity, &mut BossAttackSystem), With<OnCooldownFlag>>,
@@ -911,6 +925,7 @@ pub fn tick_cooldown_boss(
     }
 }
 
+//Система для тика кулдаунов каждого отдельного заклинания(у каждой атаки босса свой кулдаун, но между атаками тоже есть кулдаун)
 pub fn tick_every_spell_cooldown(mut attack_timers: Query<&mut BossAttackSystem>, time: Res<Time>) {
     let Ok(mut attack_system) = attack_timers.get_single_mut() else {
         return;
@@ -927,6 +942,7 @@ pub fn tick_every_spell_cooldown(mut attack_timers: Query<&mut BossAttackSystem>
     }
 }
 
+//Каст пустышки при необходимом весе(вне очереди)
 pub fn cast_blank(
     mut spawn_blank_ev: EventWriter<SpawnBlankEvent>,
     mut boss_query: Query<(&mut BossAttackSystem, &Transform)>,
@@ -946,6 +962,7 @@ pub fn cast_blank(
     }
 }
 
+//Каст щита вне очереди, если достаточно веса
 pub fn cast_shield(
     mut boss_query: Query<(Entity, &mut BossAttackSystem)>,
     mut cast_shield: EventWriter<SpawnShieldEvent>,
@@ -965,7 +982,8 @@ pub fn cast_shield(
     }
     //when weight overcomes certain value - cast and cooldown
 }
-//
+
+
 #[derive(Component, Clone)]
 pub struct BeforeAttackDelayBoss {
     timer: Timer,
@@ -979,6 +997,8 @@ impl Default for BeforeAttackDelayBoss {
         }
     }
 }
+
+//система для предупреждения игрока об атаке босса(восклицательный знак над головой босса)
 pub fn warn_player_abt_attack(
     time: Res<Time>,
     mut boss_query: Query<(
@@ -1009,6 +1029,8 @@ pub fn warn_player_abt_attack(
         commands.entity(boss_e).remove::<BeforeAttackDelayBoss>();
     }
 }
+
+//триггер выбора атаки у босса
 pub fn pick_attack_to_perform_koldun(
     In(entity): In<Entity>,
     attack_system: Query<&BossAttackSystem>,
@@ -1046,6 +1068,7 @@ pub fn pick_attack_to_perform_koldun(
     //pick with random attack including weights, like idk, use coeff or smth
 }
 
+//телепорт босса в половину ренджи до игрока раз в таймер
 fn boss_teleport(
     mut boss_query: Query<
         (&mut Transform, &mut Teleport, &PhaseManager),
@@ -1072,6 +1095,7 @@ fn boss_teleport(
     }
 }
 
+//передвижение босса в случайную сторону раз в тик таймера
 fn boss_running(
     mut boss_query: Query<(
         &Transform,

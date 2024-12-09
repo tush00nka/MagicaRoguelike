@@ -1,4 +1,5 @@
-//bundle for melee only mobs
+//Бандл для особых мобов
+//пока что только вор - ворует предметы и убегает с карты, если ударить выкидывает все что поднял
 use crate::{
     elements::{ElementResistance, ElementType},
     exp_tank::ExpTank,

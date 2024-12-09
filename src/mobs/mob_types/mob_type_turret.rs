@@ -1,4 +1,5 @@
 //bundle for turrets(can shoot)
+//турель - стоит и стреляет
 use {avian2d::prelude::*, bevy::prelude::*, std::time::Duration};
 
 use crate::{

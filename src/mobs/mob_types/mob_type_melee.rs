@@ -1,4 +1,5 @@
 //bundle for melee only mobs
+//бегают и бьют в ближнем
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use std::time::Duration;

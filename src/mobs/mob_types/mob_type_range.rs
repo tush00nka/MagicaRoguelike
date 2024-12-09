@@ -1,4 +1,5 @@
 //bundle for range mobs
+//ходят и стреляют
 use {bevy::prelude::*, std::time::Duration};
 
 use crate::{

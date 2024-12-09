@@ -50,7 +50,7 @@ fn move_rotate_wand(
             wand_transform.translation = wand_transform.translation.lerp(wand_pos, 12.0 * time.delta_seconds());
             // wand_transform.translation = wand_pos;
 
-            // крутим (АААААА, ЛИНАЛ)
+            // крутим
             let diff = Vec3::new(mouse_position.0.x, mouse_position.0.y, wand_transform.translation.z) - wand_transform.translation;
             let angle = diff.y.atan2(diff.x);
             wand_transform.rotation = wand_transform.rotation.lerp(Quat::from_rotation_z(angle), 12.0 * time.delta_seconds());

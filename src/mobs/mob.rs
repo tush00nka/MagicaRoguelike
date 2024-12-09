@@ -121,6 +121,7 @@ pub struct MobDeathEvent {
     pub is_spawned: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Event)]
 pub struct OnHitEffectEvent {
     pub pos: Vec3,
@@ -130,6 +131,8 @@ pub struct OnHitEffectEvent {
     pub is_friendly: bool,
 }
 
+
+#[allow(dead_code)]
 #[derive(Event)]
 pub struct OnDeathEffectEvent {
     pub pos: Vec3,
@@ -162,6 +165,7 @@ pub enum MobType {
 }
 
 //projectile types
+#[allow(dead_code)]
 #[derive(Component, Clone)]
 pub enum ProjectileType {
     // can use to create mobs with different types of projectiles
@@ -491,6 +495,7 @@ impl Default for MobBundle {
     }
 }
 
+//система для атак мобов, в зависимости от типа атаки - делаем объект и бьем
 fn mob_attack<Who: Component + std::default::Default>(
     mut commands: Commands,
     //    spatial_query: SpatialQuery,
@@ -687,6 +692,7 @@ fn mob_attack<Who: Component + std::default::Default>(
     }
 }
 
+//система для тика кулдаунов атаки мобов
 fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackComponent>) {
     for mut attack_cd in mob_query.iter_mut() {
         if attack_cd.attacked {
@@ -699,6 +705,7 @@ fn tick_attack_cooldown(time: Res<Time>, mut mob_query: Query<&mut AttackCompone
     }
 }
 
+//система для нанесения урона от мили атак
 fn attack_hit<Who: Component, Target: Component>(
     mut attack_query: Query<(Entity, &mut Attack), (With<Who>, Without<Target>)>,
     mut target_query: Query<
@@ -732,6 +739,7 @@ fn attack_hit<Who: Component, Target: Component>(
     }
 }
 
+//система для нанесения урона проджектайлами
 fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
     mut commands: Commands,
     projectile_query: Query<(Entity, &Projectile, &Transform), With<Side>>,
@@ -784,6 +792,8 @@ fn hit_projectiles<Filter: Component, FilterTrue: Component, Side: Component>(
         }
     }
 }
+
+//система для обработки повторного нанесения урона от мили атак(т.к. атака использует коллизию, накидываем флаг, что уже била конкретная атака, конкретного моба, эта система очищает лист атак, которые нанесли урон по цели)
 pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
     for mut list in list_query.iter_mut() {
         if list.been_punched {
@@ -795,6 +805,8 @@ pub fn timer_empty_list(time: Res<Time>, mut list_query: Query<&mut HitList>) {
         }
     }
 }
+
+//функция конвертации типа врагов в строку со спрайтом 
 pub fn mob_type_to_tag_convert(mob_type: MobType) -> String {
     match mob_type {
         MobType::Knight => "knight.png",
@@ -816,6 +828,8 @@ pub fn mob_type_to_tag_convert(mob_type: MobType) -> String {
     }
     .to_string()
 }
+
+//система нанесения урона мобам
 pub fn damage_mobs(
     mut commands: Commands,
     mut ev_play_audio: EventWriter<PlayAudioEvent>,
@@ -974,6 +988,7 @@ pub fn damage_mobs(
     }
 }
 
+//система для обработки смерти моба
 fn mob_death(
     mut portal_manager: ResMut<PortalManager>,
     player_experience: Res<PlayerExperience>,
@@ -1035,6 +1050,7 @@ fn mob_death(
     }
 }
 
+//система задержки и оповещения игрока перед атакой
 pub fn before_attack_delay(
     mut timer_query: Query<(Entity, &mut BeforeAttackDelay), Without<Stun>>,
     time: Res<Time>,
@@ -1048,6 +1064,7 @@ pub fn before_attack_delay(
     }
 }
 
+//??? не использующийся код?
 fn pos_pathfinder(
     mut pathfinder_query: Query<
         (
@@ -1064,12 +1081,13 @@ fn pos_pathfinder(
 ) {
     for (pathfinder_e, _pathfinder, transform, mut timer) in pathfinder_query.iter_mut() {
         if target_query.iter().len() == 0 {
+            println!("Do you work?");
             commands.entity(pathfinder_e).insert(Done::Success);
             return;
         }
 
         timer.timer.tick(time.delta());
-
+        println!("Do you work?");
         if timer.timer.just_finished() {
             commands.entity(pathfinder_e).insert(Done::Success);
             continue;
@@ -1086,7 +1104,7 @@ fn pos_pathfinder(
             .collect();
 
         let (target_e, mut target) = sorted_targets[0];
-
+        println!("Do you work?");
         if target_e == pathfinder_e {
             if sorted_targets.iter().len() < 2 {
                 commands.entity(pathfinder_e).insert(Done::Success);
@@ -1094,13 +1112,14 @@ fn pos_pathfinder(
             }
             target = sorted_targets[1].1;
         }
-
+        println!("Do you work?");
         if transform.translation.distance(target.translation) <= 100. {
             commands.entity(pathfinder_e).insert(Done::Success);
         }
     }
 }
 
+//система для обработки эффектов после смерти(например выстрелить проджектайлом после смерти)
 pub fn on_death_effects_handler(
     mut ev_on_death: EventReader<OnDeathEffectEvent>,
     mut ev_spawn_projectile: EventWriter<SpawnProjectileEvent>,
@@ -1151,6 +1170,7 @@ fn convert_i32_to_item(pick: i32) -> ItemType {
     }
 }
 
+//система обработки эффектов при получении урона(н.п. дроп вещей у вора при уроне)
 pub fn on_hit_effects(
     mut ev_on_hit: EventReader<OnHitEffectEvent>,
     mut ev_spawn_item: EventWriter<SpawnItemEvent>,

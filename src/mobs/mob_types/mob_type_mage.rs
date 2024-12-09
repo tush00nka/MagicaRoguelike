@@ -1,5 +1,6 @@
 //bundle for mages
 //we have 2 mages now - water and fire.
+//телепортируются к ближайшему таргету и стреляют 
 use {avian2d::prelude::*, bevy::prelude::*, rand::Rng, std::time::Duration};
 
 use crate::{

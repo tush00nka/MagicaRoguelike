@@ -1,3 +1,7 @@
+//Колдун - финальный босс, имеет 3 фазы. 1 - спавн юнитов, 2 - уменьшенный спавн юнитов и заклинания с проджектайлами, 3 - буллетхелл
+//как деф механики может использовать щит на 2 стадии, на 3 - пустышки. Между стадиями также использует пустышки.
+//во 2 фазе телепортируется ближе к игроку
+//в 3 фазе может ходить в разные стороны
 use std::time::Duration;
 
 use avian2d::prelude::*;
@@ -108,7 +112,7 @@ pub struct BossBundle {
     pub mob_bundle: MobBundle,
     pub pathfinder: BossMovement,  //running away
     pub teleport_abilty: Teleport, //teleport in random place away from player
-    pub summon_queue: SummonQueue, //wrap in like summon ability? to add for usual mobs
+    pub summon_queue: SummonQueue, 
     pub boss_attacks: BossAttackSystem,
     pub phase_manager: PhaseManager,
 }
@@ -187,7 +191,7 @@ impl BossBundle {
                 max_amount: 10,
             },
             phase_manager: PhaseManager {
-                current_phase: 3,
+                current_phase: 1,
                 max_phase: 3,
                 phase_change_hp_multiplier: vec![0.5, 0.2],
             },

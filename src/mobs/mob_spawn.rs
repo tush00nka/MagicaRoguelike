@@ -293,6 +293,7 @@ impl rand::distributions::Distribution<MobType> for rand::distributions::Standar
 }
 
 //actual code========================================================================================================
+//система для первичного спавна мобов на локации
 fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterManager>, mut portal_manger: ResMut<PortalManager>) {
     let chap_num = chapter_manager.get_current_chapter();
     portal_manger.set_mob(0);
@@ -327,6 +328,7 @@ fn spawn_mobs_location(mut mob_map: ResMut<Map>, chapter_manager: Res<ChapterMan
     }
 }
 
+//система для обработки ивента спавна юнитов
 pub fn spawn_mob(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -474,7 +476,6 @@ pub fn spawn_mob(
             }
 
             MobAI::MeleeWithATK => {
-                // done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -533,7 +534,6 @@ pub fn spawn_mob(
                 }
             }
             MobAI::RangeWithTP => {
-                //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -551,7 +551,6 @@ pub fn spawn_mob(
             }
 
             MobAI::Spawner => {
-                //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -565,7 +564,6 @@ pub fn spawn_mob(
             }
 
             MobAI::Turret => {
-                //done
                 mob = commands
                     .spawn((
                         StateMachine::default()
@@ -683,7 +681,6 @@ pub fn spawn_mob(
             }
             MobType::Necromancer => {
                 commands.entity(mob).insert(SpawnerBundle::necromancer());
-                //add necro bundles
             }
             MobType::Koldun => {
                 commands
@@ -772,6 +769,7 @@ pub fn spawn_mob(
     }
 }
 
+//система для физического спавна врагов на локации(т.е. сначала распределяли кто, где будет спавниться, здесь определяем кто в зависимости от чаптера)
 pub fn first_spawn_mobs(
     mut mob_map: ResMut<Map>,
     mut game_state: ResMut<NextState<GameState>>,
@@ -811,8 +809,8 @@ pub fn first_spawn_mobs(
                     mob_type,
                     pos: Vec2::new((x * ROOM_SIZE) as f32, (y * ROOM_SIZE) as f32),
                     is_friendly: false,
-                    owner: None, // can add smth
-                    loot: None,  //
+                    owner: None, 
+                    loot: None,  
                     exp_amount: -1,
                 });
             }
@@ -822,6 +820,7 @@ pub fn first_spawn_mobs(
     game_state.set(GameState::InGame);
 }
 
+//спавн юнитов некромасера
 fn spawner_mob_spawn(
     mut commands: Commands,
     mut ev_spawn: EventWriter<MobSpawnEvent>,
@@ -856,6 +855,7 @@ fn spawner_mob_spawn(
     }
 }
 
+//система для изменения цвета спрайта некромансера при поднятии юнитов
 fn handle_raising(
     mut raising_query: Query<(&mut Sprite, &mut LinearVelocity), Changed<RaisingFlag>>,
 ) {
@@ -865,6 +865,7 @@ fn handle_raising(
     }
 }
 
+//спавн босса
 fn boss_spawn(
     mut ev_spawn: EventWriter<MobSpawnEvent>,
     mut game_state: ResMut<NextState<GameState>>,
@@ -883,6 +884,7 @@ fn boss_spawn(
     game_state.set(GameState::InGame);
 }
 
+//система для добавления и очищенияя юнитов в очереди спавна(у игрока и босса есть очередь с ограниченным местом для спавна)
 pub fn push_mob_to_queue(
     mut push_mob_ev: EventReader<PushMobQueueEvent>,
     mut commands: Commands,

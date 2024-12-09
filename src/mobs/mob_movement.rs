@@ -54,6 +54,7 @@ impl Plugin for MobMovementPlugin {
     }
 }
 
+//телепорт в заранее найденное место для телепортации
 fn teleport_mobs(
     // mut commands: Commands,
     mut mob_query: Query<
@@ -75,6 +76,7 @@ fn teleport_mobs(
     }
 }
 
+//система для мобов, которые убегают от таргета
 fn runaway_mob(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
@@ -101,6 +103,7 @@ fn runaway_mob(
     }
 }
 
+//система для мобов, которые двигаются сквозь стены
 fn phasing_mob<Side: Component, Target: Component>(
     mut side_query: Query<
         (
@@ -169,6 +172,7 @@ fn phasing_mob<Side: Component, Target: Component>(
     }
 }
 
+//система для ходьбы мобов в соответствии с pathfinding-ом
 fn move_mobs<SideRush: Component>(
     mut mob_query: Query<
         (&mut LinearVelocity, &Transform, &mut Pathfinder),
@@ -202,6 +206,8 @@ fn move_mobs<SideRush: Component>(
         }
     }
 }
+
+//система для отдыха статических мобов, когда видят врага - атакуют
 fn idle_static<Who: Component, Target: Component>(
     mut commands: Commands,
     spatial_query: SpatialQuery,
@@ -273,6 +279,7 @@ fn idle_static<Who: Component, Target: Component>(
     }
 }
 
+//система отдыха для подвижных врагов, когда видят врага - преследуют
 fn idle<Who: Component, Target: Component>(
     mut commands: Commands,
     spatial_query: SpatialQuery,
@@ -364,6 +371,7 @@ fn idle<Who: Component, Target: Component>(
     }
 }
 
+//система преследования, если таргет в радиусе атаки и атака не в кд - юнит атакует
 fn pursue<Who: Component, Target: Component>(
     mut commands: Commands,
     spatial_query: SpatialQuery,
@@ -458,6 +466,8 @@ fn pursue<Who: Component, Target: Component>(
         }
     }
 }
+
+//система для обновления весов юнитов, которые двигаются на рейкастинге
 fn update_weights(
     spatial_query: SpatialQuery,
     mut mob_query: Query<(&Transform, &mut SearchAndPursue)>,

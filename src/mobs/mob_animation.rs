@@ -16,6 +16,8 @@ impl Plugin for MobAnimationPlugin {
 ///flag for multistate animation
 #[derive(Component)]
 pub struct MultistateAnimationFlag;
+
+//Анимация мобов
 fn animate_mobs(
     time: Res<Time>,
     mut query: Query<(&mut AnimationConfig, &mut TextureAtlas), (With<Mob>, Without<Stun>, (With<SearchAndPursue>, Without<MultistateAnimationFlag>))>,
@@ -56,6 +58,7 @@ fn animate_mobs(
     }   
 }
 
+//поворот текстурки моба(голова турели, смотрит на игрока)
 fn rotate_mobs(
     player_query: Query<&Transform, (With<Player>, Without<RotationEntity>)>,
     mut rotation_query: Query<
@@ -77,6 +80,8 @@ fn rotate_mobs(
         }
     }
 }
+
+//флип текстурки моба в зависиомсти от направления движения
 fn mob_flip(
     mut mob_query: Query <(&mut Transform,&LinearVelocity),  (With<FlipEntity>, With<Pathfinder>)>,
     time: Res<Time>,
@@ -96,6 +101,7 @@ fn mob_flip(
     }
 }
 
+//анимация мили атаки
 fn animate_mob_attack(
     time: Res<Time>,
     mut attack_query: Query<(Entity, &mut AnimationConfig, &mut TextureAtlas, &Parent), With<Attack>>,

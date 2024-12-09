@@ -1,4 +1,5 @@
 //bundle for spawning mobs(like necromancer)
+//бандл для некромансера - бегает и поднимает врагов из могил
 use {avian2d::prelude::*, bevy::prelude::*, rand::Rng, std::time::Duration};
 
 use crate::{
