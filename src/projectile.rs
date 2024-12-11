@@ -201,6 +201,7 @@ fn move_projectile(
                 pivot,
                 counter_clockwise,
             } => {
+                if time.delta_seconds() > 0.{
                 if counter_clockwise {
                     projectile.angle += time.delta_seconds() * projectile.speed;
                 } else {
@@ -216,6 +217,7 @@ fn move_projectile(
                 projectile_transform.rotation = Quat::from_rotation_z(diff.to_angle());
 
                 projectile_transform.translation = next_pos.extend(0.);
+                }
             }
         }
     }
