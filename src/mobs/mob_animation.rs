@@ -83,20 +83,13 @@ fn rotate_mobs(
 
 //флип текстурки моба в зависиомсти от направления движения
 fn mob_flip(
-    mut mob_query: Query <(&mut Transform,&LinearVelocity),  (With<FlipEntity>, With<Pathfinder>)>,
-    time: Res<Time>,
+    mut mob_query: Query <(&mut Sprite, &LinearVelocity),  (With<FlipEntity>, With<Pathfinder>)>,
 ) {
-    for (mut transform,lin_vel) in mob_query.iter_mut() {
+    for (mut sprite, lin_vel) in mob_query.iter_mut() {
         if lin_vel.x > 0. {
-            transform.scale.x = transform
-                .scale
-                .x
-                .lerp(-1.0, 10.0 * time.delta_seconds());
+            sprite.flip_x = true;
         } else {
-            transform.scale.x = transform
-                .scale
-                .x
-                .lerp(1.0, 10.0 * time.delta_seconds());
+            sprite.flip_x = false;
         }
     }
 }

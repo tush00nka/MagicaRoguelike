@@ -223,21 +223,14 @@ fn animate_player(
 }
 
 fn flip_towards_mouse(
-    mut player_query: Query<&mut Transform, (With<Player>, Without<ItemPickupAnimation>)>,
+    mut player_query: Query<(&mut Sprite, &Transform), (With<Player>, Without<ItemPickupAnimation>)>,
     mouse_coords: Res<MouseCoords>,
-    time: Res<Time>,
 ) {
-    if let Ok(mut player_transform) = player_query.get_single_mut() {
+    if let Ok((mut sprite, player_transform)) = player_query.get_single_mut() {
         if player_transform.translation.x - mouse_coords.0.x > 0. {
-            player_transform.scale.x = player_transform
-                .scale
-                .x
-                .lerp(-1.0, 10.0 * time.delta_seconds());
+            sprite.flip_x = true;
         } else {
-            player_transform.scale.x = player_transform
-                .scale
-                .x
-                .lerp(1.0, 10.0 * time.delta_seconds());
+            sprite.flip_x = false;
         }
     }
 }
